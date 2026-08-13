@@ -27,10 +27,10 @@
 
 namespace PartDesignGui::StyleParameters
 {
-DEFINE_STYLE_PARAMETER(PreviewAdditiveColor, Base::Color(0.0F, 1.0F, 0.6F));
+DEFINE_STYLE_PARAMETER(PreviewAdditiveColor, Base::Color(0.12F, 0.80F, 0.38F));
 DEFINE_STYLE_PARAMETER(PreviewSubtractiveColor, Base::Color(1.0F, 0.0F, 0.0F));
-DEFINE_STYLE_PARAMETER(PreviewCommonColor, Base::Color(1.0F, 1.0F, 0.0F));
-DEFINE_STYLE_PARAMETER(PreviewDressUpColor, Base::Color(1.0F, 0.0F, 1.0F));
+DEFINE_STYLE_PARAMETER(PreviewCommonColor, Base::Color(1.0F, 0.75F, 0.10F));
+DEFINE_STYLE_PARAMETER(PreviewDressUpColor, Base::Color(0.45F, 0.60F, 0.72F));
 
 DEFINE_STYLE_PARAMETER(PreviewProfileLineWidth, Gui::StyleParameters::Numeric(4));
 DEFINE_STYLE_PARAMETER(PreviewProfileOpacity, Gui::StyleParameters::Numeric(0.0));

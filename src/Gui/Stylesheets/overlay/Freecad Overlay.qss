@@ -27,10 +27,12 @@ Gui--OverlaySplitterHandle {
   color: @TextForegroundColor;
   gridline-color: @GeneralGridLinesColor;
   border-radius: 0px;
+  qproperty-indentation: 10;
 }
 
  Gui--TreePanel QTreeView::item {
   color: @TextForegroundColor;
+  padding: 1px 2px;
 }
 
  Gui--TreePanel QTreeView::item:disabled {
@@ -47,6 +49,7 @@ Gui--PropertyEditor--PropertyEditor {
 
 Gui--OverlayTabWidget Gui--TreePanel QTreeView::item {
   color: @TextForegroundColor;
+  padding: 1px 2px;
 }
 
 Gui--OverlayTabWidget Gui--TreePanel QTreeView::item:disabled {
