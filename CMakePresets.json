@@ -285,6 +285,26 @@
         ]
       },
       {
+        "name": "conda-macos-release-slim",
+        "displayName": "Conda Release (Mac CAD-slim)",
+        "description": "Apple Silicon release without CAM/BIM/robot/inspection (smaller objects; next rebuild after first launch)",
+        "inherits": [
+          "conda-macos-release"
+        ],
+        "cacheVariables": {
+          "BUILD_CAM": { "type": "BOOL", "value": "OFF" },
+          "BUILD_BIM": { "type": "BOOL", "value": "OFF" },
+          "BUILD_ROBOT": { "type": "BOOL", "value": "OFF" },
+          "BUILD_PLOT": { "type": "BOOL", "value": "OFF" },
+          "BUILD_INSPECTION": { "type": "BOOL", "value": "OFF" },
+          "BUILD_REVERSEENGINEERING": { "type": "BOOL", "value": "OFF" },
+          "BUILD_OPENSCAD": { "type": "BOOL", "value": "OFF" },
+          "BUILD_TEMPLATE": { "type": "BOOL", "value": "OFF" },
+          "BUILD_JTREADER": { "type": "BOOL", "value": "OFF" },
+          "ENABLE_DEVELOPER_TESTS": { "type": "BOOL", "value": "OFF" }
+        }
+      },
+      {
         "name": "conda-windows-debug",
         "displayName": "Conda Debug",
         "description": "Conda debug profile",

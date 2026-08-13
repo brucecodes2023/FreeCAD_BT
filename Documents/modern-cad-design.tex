@@ -502,6 +502,13 @@ ribbon; opening a document shows the ribbon and QAT; apply Modern CAD Light/Dark
 on top of the Modern CAD behavior pack; Fusion~360 nav is optional in Preferences.
 If the 3D view lags, enable software OpenGL and restart. C5 Metal stays later.
 
+The pixi build does \emph{not} install into \texttt{/Applications}. After
+\texttt{build/release/bin/FreeCAD} exists, \fp{pixi run macos-app} writes
+\texttt{\textasciitilde/Applications/FreeCAD\_BT.app} (a launcher that still needs
+this checkout). \fp{pixi run macos-cleanup} reclaims ccache and debug objects.
+Do not delete Windows/Linux sources from git: they are the same CAD kernel. A
+later smaller rebuild: \fp{pixi run configure-release-slim}.
+
 % ============================ WORK LOG =====================================
 \section{Work log}
 

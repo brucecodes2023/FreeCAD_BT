@@ -183,8 +183,6 @@ Plan on **~20 GB free** at peak (clone + env + objects while linking). **30 GB f
 
 Known-good launch target for this drop: **M-series + pixi `conda-macos-release`**. **macOS 27 beta** is newer than the Qt 6.8.3 pin; compile or GUI crashes on the beta SDK are possible. If configure/build fails, save the last 50 lines of the log. If it launches but the 3D view is bad, software OpenGL (below) is the first switch — not a Metal rewrite.
 
-### 1. Prerequisites
-
 ### 2. Clone this branch
 
 ```bash
@@ -218,6 +216,37 @@ pixi run freecad-release
 ```
 
 That runs `build/release/bin/FreeCAD`. Config lands in `$FREECAD_USER_HOME/user.cfg` instead of `~/Library/Preferences/FreeCAD/`.
+
+**This does not put FreeCAD in `/Applications`.** After the binary exists:
+
+```bash
+pixi run macos-app
+open ~/Applications/FreeCAD_BT.app
+```
+
+That `.app` is a **launcher** (Dock / Launchpad). It still needs this git checkout and `build/release`. Optional: `./Documents/macos-app.sh --system` also copies to `/Applications` (sudo). A relocatable bundle (so you can delete the clone) is `package/rattler-build/osx/create_bundle.sh` after `pixi run install-release` — only after the first GUI launch works.
+
+### After a successful first launch (shrink local disk)
+
+```bash
+pixi run macos-cleanup                 # ccache + debug tree; keeps the release binary
+# ./Documents/macos-cleanup.sh --objects   # drop .o files; must rebuild to relink
+```
+
+Do **not** delete `.pixi` or `build/release/bin` while using the thin `.app`.
+
+### Do not strip Windows/Linux out of git
+
+Almost all of FreeCAD’s C++ is **shared**. PartDesign, Sketcher, FEM, Coin, and OCCT run on Mac; they are not “Windows files.” Deleting `#ifdef _WIN32` trees would not shrink the clone much, would block upstream merges, and would not reduce `pixi install` on Apple Silicon (`pixi` already only unpacks `osx-arm64` packages on your Mac).
+
+What *does* shrink a **later** rebuild (after tonight’s full compile works):
+
+```bash
+pixi run configure-release-slim
+pixi run build-release
+```
+
+That turns off CAM, BIM, Robot, Inspection, OpenSCAD, and developer tests. Keep Part / PartDesign / Sketcher / Assembly / FEM / TechDraw / Draft.
 
 ### 5. What to confirm on first launch
 
