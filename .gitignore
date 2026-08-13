@@ -2,6 +2,7 @@
 .*
 !*.gitattributes
 !*.gitignore
+!/.cursor/
 !/.clang-format
 !/.clang-tidy
 !/.git-blame-ignore-revs

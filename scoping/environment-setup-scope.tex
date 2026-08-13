@@ -1,0 +1,207 @@
+% FreeCAD Cloud Agent Environment - Scoping Document
+% Minimalist, Apple-inspired styling. Compile with: pdflatex environment-setup-scope.tex
+\documentclass[11pt]{article}
+
+% --- Page geometry: generous whitespace -------------------------------------
+\usepackage[a4paper,top=28mm,bottom=26mm,left=30mm,right=30mm]{geometry}
+
+% --- Typography: clean sans-serif throughout --------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[scaled=1.02]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{microtype}
+\usepackage[document]{ragged2e}
+\usepackage{setspace}
+\setstretch{1.18}
+
+% --- Muted, restrained color palette ----------------------------------------
+\usepackage{xcolor}
+\definecolor{appleink}{HTML}{1D1D1F}   % near-black body text
+\definecolor{applegray}{HTML}{6E6E73}  % secondary text
+\definecolor{appleblue}{HTML}{0071E3}  % single accent
+\definecolor{hairline}{HTML}{D2D2D7}   % thin rules
+\definecolor{panel}{HTML}{F5F5F7}      % soft panel fill
+\color{appleink}
+
+% --- Section styling: light, spacious, unnumbered ---------------------------
+\usepackage{titlesec}
+\setcounter{secnumdepth}{0}
+\titleformat{\section}
+  {\LARGE\bfseries\color{appleink}}{}{0em}{}
+\titlespacing*{\section}{0pt}{2.4em}{0.8em}
+\titleformat{\subsection}
+  {\large\bfseries\color{appleink}}{}{0em}{}
+\titlespacing*{\subsection}{0pt}{1.4em}{0.4em}
+
+% --- Lists: tight and tidy --------------------------------------------------
+\usepackage{enumitem}
+\setlist{leftmargin=1.3em,itemsep=3pt,topsep=4pt,parsep=0pt}
+\setlist[itemize]{label=\textcolor{appleblue}{\small\raisebox{0.15ex}{\textbullet}}}
+
+% --- Tables -----------------------------------------------------------------
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\renewcommand{\arraystretch}{1.35}
+\newcolumntype{L}{>{\RaggedRight\arraybackslash}X}
+
+% --- Boxes for the summary panel --------------------------------------------
+\usepackage[most]{tcolorbox}
+
+% --- Links ------------------------------------------------------------------
+\usepackage[hidelinks]{hyperref}
+\hypersetup{colorlinks=true,urlcolor=appleblue,linkcolor=appleblue}
+
+% --- Headers / footers: minimal ---------------------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancyfoot[C]{\footnotesize\color{applegray}FreeCAD\quad\textbullet\quad Cloud Agent Environment\quad\textbullet\quad\thepage}
+
+% Thin hairline helper
+\newcommand{\hairrule}{\vspace{2pt}{\color{hairline}\hrule height 0.6pt}\vspace{2pt}}
+
+% Eyebrow label helper (small, letter-spaced, uppercase)
+\usepackage{soul}
+\newcommand{\eyebrow}[1]{{\footnotesize\color{appleblue}\bfseries\so{\MakeUppercase{#1}}}}
+
+\begin{document}
+\thispagestyle{fancy}
+
+% ============================ TITLE BLOCK ===================================
+\begingroup
+\setstretch{1.0}
+\noindent\eyebrow{Cloud Agent Environment}\\[1.1em]
+{\fontsize{30}{34}\selectfont\bfseries Development Environment\\ Setup \textemdash\ Scoping Document\par}
+\vspace{0.7em}
+{\large\color{applegray} Reproducible, prebuilt FreeCAD toolchain for autonomous Cloud Agents.\par}
+\vspace{1.1em}
+\noindent{\footnotesize\color{applegray} Repository \; \textbf{brucecodes2023/FreeCAD\_BT} \hfill Package manager \; \textbf{pixi (conda-forge)} \hfill Target \; \textbf{linux-64}}
+\endgroup
+
+\vspace{0.9em}
+\hairrule
+\vspace{1.4em}
+
+% ============================ SUMMARY PANEL =================================
+\begin{tcolorbox}[
+  enhanced, colback=panel, colframe=panel, boxrule=0pt,
+  arc=6pt, left=16pt, right=16pt, top=12pt, bottom=12pt]
+{\eyebrow{Summary}}\\[0.6em]
+FreeCAD is a large C++ / Python parametric CAD application built on OpenCASCADE,
+Coin3D, and Qt6. This document scopes the work required to make the repository
+\emph{fully usable} inside Cursor Cloud Agents: a deterministic base image, an
+idempotent install phase that compiles the application from source, and an
+end-to-end validation flow that proves the environment works before it is saved
+as a reusable prebuilt snapshot.
+\end{tcolorbox}
+
+% ============================ OBJECTIVES ====================================
+\section{Objectives}
+\begin{itemize}
+  \item Provide a one-command, reproducible setup that any future Cloud Agent inherits automatically.
+  \item Reuse the project's canonical, pinned toolchain (\texttt{pixi} + \texttt{pixi.lock}) rather than inventing a parallel dependency story.
+  \item Compile FreeCAD once during environment \texttt{install} so prebuilt snapshots boot ready-to-run.
+  \item Demonstrate the environment end to end: build, automated tests, and a real modeling action.
+\end{itemize}
+
+% ============================ CURRENT STATE =================================
+\section{Current State}
+The repository already defines a complete, cross-platform build description. Key findings from the codebase analysis:
+
+\begin{itemize}
+  \item \textbf{Dependency management:} \texttt{pixi.toml} + \texttt{pixi.lock} pin every dependency from \texttt{conda-forge} (OpenCASCADE~7.8, Qt6~6.8, PySide6, Coin/pivy, SMESH, VTK, compilers, \texttt{ccache}, \texttt{mold}).
+  \item \textbf{Build system:} CMake with presets in \texttt{CMakePresets.json}; \texttt{pixi} tasks wrap configure / build / install / test for each platform.
+  \item \textbf{Reference CI:} \texttt{.github/workflows/sub\_buildPixi.yml} encodes the canonical Linux flow \textemdash{} \texttt{configure-release} \textrightarrow{} \texttt{build-release} \textrightarrow{} \texttt{install-release} \textrightarrow{} tests.
+  \item \textbf{Submodules:} five git submodules (OndselSolver, GSL, Coin, pivy, AddonManager) fetched via the \texttt{initialize} task.
+  \item \textbf{No prior Cloud Agent config:} no committed \texttt{.cursor/environment.json} existed before this work.
+\end{itemize}
+
+% ============================ SCOPE =========================================
+\section{Scope}
+
+\subsection{In scope}
+\begin{itemize}
+  \item A committed \texttt{.cursor/environment.json} plus an idempotent \texttt{.cursor/install.sh}.
+  \item Installing \texttt{pixi} onto \texttt{PATH}, fetching submodules, and materializing the locked environment.
+  \item Configuring, building, and installing FreeCAD with the \texttt{release} preset (matching CI).
+  \item Local validation on the VM: full build, C++ / Python self-tests, and a headless modeling action.
+  \item Snapshot, prebuilt-build verification, and a proposed configuration for review.
+\end{itemize}
+
+\subsection{Out of scope}
+\begin{itemize}
+  \item Changes to FreeCAD application or build-system source (environment configuration only).
+  \item Non-Linux targets (macOS / Windows) \textemdash{} already covered by the project's own CI matrix.
+  \item Dependency upgrades or \texttt{pixi.lock} regeneration.
+  \item Packaging, release artifacts, or deployment.
+\end{itemize}
+
+% ============================ APPROACH ======================================
+\section{Technical Approach}
+
+\subsection{Base image}
+Use Cursor's default Ubuntu image. It already provides \texttt{git}, \texttt{curl}, and
+passwordless \texttt{sudo}; the full compiler toolchain arrives through \texttt{pixi}, so a
+custom Dockerfile is unnecessary. The \texttt{pixi} binary is installed once to
+\texttt{/usr/local/bin} so every agent shell finds it without shell-profile edits.
+
+\subsection{Lifecycle placement}
+\begin{itemize}
+  \item \textbf{\texttt{install}} \textemdash{} durable, idempotent, source-derived work: install \texttt{pixi}, fetch submodules, resolve the locked environment, then configure / build / install FreeCAD. \texttt{ccache} keeps re-runs incremental.
+  \item \textbf{\texttt{start} / \texttt{terminals}} \textemdash{} none required. FreeCAD is a desktop application, not a long-running service; GUI runs happen on demand under a virtual display (\texttt{xvfb}).
+\end{itemize}
+
+\subsection{Prebuilt snapshots}
+Because the compile happens in \texttt{install}, the resulting binaries are baked into the
+environment snapshot. Fresh agents boot with FreeCAD already built and do not pay the
+compilation cost again.
+
+% ============================ DELIVERABLES ==================================
+\section{Deliverables}
+\begin{itemize}
+  \item \texttt{.cursor/environment.json} \textemdash{} declares the environment and its install entry point.
+  \item \texttt{.cursor/install.sh} \textemdash{} idempotent bootstrap + build script.
+  \item This scoping document (source + compiled PDF).
+  \item Validation evidence: build logs, passing tests, and a headless modeling artifact.
+\end{itemize}
+
+% ============================ VALIDATION ====================================
+\section{Validation Plan}
+\noindent\begin{tabularx}{\linewidth}{@{}p{0.32\linewidth}L@{}}
+\toprule
+\textbf{Check} & \textbf{Success criterion} \\
+\midrule
+Configure & \texttt{configure-release} resolves all dependencies without error. \\
+Build & \texttt{build-release} compiles every target (8092) cleanly. \\
+Install & \texttt{install-release} stages the runnable application. \\
+CLI self-tests & \texttt{FreeCADCmd -t 0} passes the test suite. \\
+C++ unit tests & \texttt{ctest} green across module test runners. \\
+Modeling action & A scripted part is created, and geometric properties (volume / area) verified. \\
+Idempotence & Re-running \texttt{install} converges with no rebuild churn. \\
+Fresh agent & An agent booted from the prebuilt build repeats the checks. \\
+\bottomrule
+\end{tabularx}
+
+% ============================ RISKS =========================================
+\section{Risks \& Mitigations}
+\noindent\begin{tabularx}{\linewidth}{@{}p{0.40\linewidth}L@{}}
+\toprule
+\textbf{Risk} & \textbf{Mitigation} \\
+\midrule
+Long initial compile (thousands of TUs) & Runs once in \texttt{install}; snapshot bakes in binaries; \texttt{ccache} accelerates re-runs. \\
+Headless GUI (no physical display) & Exercise the GUI/tests under \texttt{xvfb}; core validation via the CLI path. \\
+Network access to conda-forge / GitHub & Uses the pinned \texttt{pixi.lock}; egress is currently unrestricted for the required hosts. \\
+\bottomrule
+\end{tabularx}
+
+% ============================ HANDOFF =======================================
+\section{Handoff}
+Once local validation and prebuilt-build verification pass, the configuration is
+proposed for review. Saving it in the Environment panel is the single remaining
+manual action and makes the tested setup available to all future Cloud Agents.
+
+\end{document}
