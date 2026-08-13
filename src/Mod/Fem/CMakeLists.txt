@@ -397,6 +397,7 @@ SET(FemTestsApp_SRCS
     femtest/app/test_solver_mystran.py
     femtest/app/test_solver_z88.py
     femtest/app/test_gmsh.py
+    femtest/app/test_study_presets.py
 )
 
 SET(FemTestsFiles_SRCS
@@ -598,6 +599,7 @@ SET(FemTools_SRCS
     femtools/membertools.py
     femtools/migrate_app.py
     femtools/objecttools.py
+    femtools/study_presets.py
     femtools/tokrules.py
 )
 
@@ -750,6 +752,7 @@ SET(FemGuiUtils_SRCS
     femguiutils/disambiguate_solid_selection.py
     femguiutils/migrate_gui.py
     femguiutils/selection_widgets.py
+    femguiutils/study_wizard.py
 )
 
 if(BUILD_FEM_VTK_PYTHON)
