@@ -30,6 +30,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QEvent>
+#include <QFile>
 #include <QFileInfo>
 #include <QLocale>
 #include <QMessageBox>
@@ -2819,6 +2820,14 @@ void Application::setStyleSheet(const QString& qssFile, bool tiledBackground)
             QTextStream str(&f);
 
             QString styleSheetContent = replaceVariablesInQss(str.readAll());
+
+#ifdef Q_OS_MAC
+            QFile macChrome(QLatin1String("qss:macos-native-chrome.qss"));
+            if (macChrome.open(QFile::ReadOnly | QFile::Text)) {
+                QTextStream macStr(&macChrome);
+                styleSheetContent += QStringLiteral("\n") + replaceVariablesInQss(macStr.readAll());
+            }
+#endif
 
             qApp->setStyleSheet(defaultStyleSheet + QStringLiteral("\n") + styleSheetContent);
 

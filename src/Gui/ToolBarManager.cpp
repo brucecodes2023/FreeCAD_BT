@@ -190,7 +190,12 @@ void ToolBar::undock()
             getMainWindow()->addToolBar(this);
         }
 
+#ifdef Q_OS_MAC
+        // Keep Cocoa's native floating-window chrome on macOS.
+        setWindowFlags(Qt::Tool);
+#else
         setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
+#endif
         adjustSize();
         setVisible(true);
     }

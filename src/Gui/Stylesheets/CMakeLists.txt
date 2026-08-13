@@ -2,6 +2,7 @@
 SET(Stylesheets_Files
     "FreeCAD.qss"
     "defaults.qss"
+    "macos-native-chrome.qss"
 )
 
 SET(Parameters_Files

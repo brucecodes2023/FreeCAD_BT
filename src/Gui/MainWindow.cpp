@@ -425,6 +425,12 @@ MainWindow::MainWindow(QWidget* parent, Qt::WindowFlags f)
     // https://woboq.com/blog/qdockwidget-changes-in-56.html
     setDockOptions(dockOptions() | QMainWindow::GroupedDragging);
 
+#ifdef Q_OS_MAC
+    // Keep the native macOS title bar and merge the top toolbar into it.
+    // Traffic lights stay top-left; this is the standard Qt Cocoa "unified toolbar".
+    setUnifiedTitleAndToolBarOnMac(true);
+#endif
+
     // Create the layout containing the workspace and a tab bar
     d->mdiArea = new QMdiArea();
     // Movable tabs

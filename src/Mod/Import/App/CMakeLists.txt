@@ -64,6 +64,10 @@ target_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_link_libraries(Import ${Import_LIBS})
+if(TBB_FOUND)
+    target_compile_definitions(Import PRIVATE HAVE_TBB)
+    target_link_libraries(Import TBB::tbb)
+endif()
 
 if (MSVC)
     target_compile_options(Import PRIVATE /wd4251 /wd4275)

@@ -86,6 +86,9 @@
 /* define if the compiler has std compliant iostream library */
 #cmakedefine HAVE_STD_IOSTREAM
 
+/* Define to 1 if Intel oneTBB is available for parallel import/mesh paths */
+#cmakedefine HAVE_TBB
+
 /* Define to 1 if you have the <strings.h> header file. */
 #cmakedefine HAVE_STRINGS_H
 
