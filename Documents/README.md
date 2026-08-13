@@ -167,7 +167,23 @@ curl -fsSL https://pixi.sh/install.sh | bash
 # restart the terminal, or: export PATH="$HOME/.pixi/bin:$PATH"
 ```
 
-You need Xcode Command Line Tools, pixi, and a network connection for conda-forge. Homebrew Qt is **not** used; pixi pins Qt 6.8 and OCCT.
+You need Xcode Command Line Tools, pixi, and a network connection for conda-forge. Homebrew Qt is **not** used; pixi pins Qt 6.8.3 and OCCT 7.8.
+
+**Disk (Apple Silicon release, this fork).** There is no prebuilt `.app` on the branch — size is what `pixi` + Ninja will create on your Mac:
+
+| What | Typical on disk | Notes |
+|---|---|---|
+| Git clone (source + history) | **~6–9 GB** | This tree is ~6 GB files + ~3 GB `.git`. |
+| `pixi install` (`.pixi/` + cache) | **~2–5 GB** | osx-arm64 lock is ~0.64 GB compressed; unpacked Qt/OCCT/VTK/LLVM is several GB. APFS reflinks keep cache + env from fully doubling. |
+| `pixi run build-release` (`build/release/`) | **~6–12 GB** | `.o` files + linked binaries. Debug is much larger — do not use `configure-debug` tonight. |
+| `pixi run install-release` | **~0.5–1.5 GB extra** | Copies into `.pixi/envs/default`. Optional for a first launch; `pixi run freecad-release` runs `build/release/bin/FreeCAD`. |
+| ccache | **up to ~1 GB** | Speeds rebuilds. |
+
+Plan on **~20 GB free** at peak (clone + env + objects while linking). **30 GB free** is comfortable. After a successful launch you can delete `build/release` only if you do not need to rebuild; keeping it makes the next compile incremental.
+
+Known-good launch target for this drop: **M-series + pixi `conda-macos-release`**. **macOS 27 beta** is newer than the Qt 6.8.3 pin; compile or GUI crashes on the beta SDK are possible. If configure/build fails, save the last 50 lines of the log. If it launches but the 3D view is bad, software OpenGL (below) is the first switch — not a Metal rewrite.
+
+### 1. Prerequisites
 
 ### 2. Clone this branch
 
@@ -185,8 +201,8 @@ If you already cloned, `git fetch origin && git checkout cursor/modern-cad-phase
 pixi install
 pixi run initialize             # git submodules
 pixi run configure-release      # CMake preset conda-macos-release (arm64, macOS 11)
-pixi run build-release          # first build is long
-pixi run install-release
+pixi run build-release          # first build is long (often 20–60 min on M5 Pro)
+# pixi run install-release      # optional; launch uses build/release/bin/FreeCAD
 ```
 
 Optional (off by default): after configure, you can re-run CMake with `-DFREECAD_USE_LTO=ON -DFREECAD_APPLE_SILICON_TUNING=ON`. Skip these on the first successful launch.

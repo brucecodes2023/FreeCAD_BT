@@ -478,7 +478,10 @@ preview. Full copy-paste lives in \fp{Documents/README.md}; this is the short fo
 
 \textbf{Prerequisites.} Xcode Command Line Tools (\texttt{xcode-select --install})
 and pixi (\texttt{curl -fsSL https://pixi.sh/install.sh | bash}). Homebrew Qt is
-not used.
+not used. Plan on about 20\,GB free (clone + pixi env + \fp{build/release}
+objects). \texttt{install-release} is optional for a first launch.
+macOS~27 beta is newer than the Qt~6.8.3 pin --- save the log if configure or
+the GUI fails.
 
 \begin{verbatim}
 git clone https://github.com/brucecodes2023/FreeCAD_BT.git
@@ -488,7 +491,6 @@ pixi install
 pixi run initialize
 pixi run configure-release
 pixi run build-release
-pixi run install-release
 
 export FREECAD_USER_HOME="$HOME/freecad-modern-cad-fresh"
 mkdir -p "$FREECAD_USER_HOME"
