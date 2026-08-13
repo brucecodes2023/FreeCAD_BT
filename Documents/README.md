@@ -235,18 +235,17 @@ pixi run macos-cleanup                 # ccache + debug tree; keeps the release 
 
 Do **not** delete `.pixi` or `build/release/bin` while using the thin `.app`.
 
-### Do not strip Windows/Linux out of git
+### Full FreeCAD, Apple Silicon toolchain only
 
-Almost all of FreeCAD’s C++ is **shared**. PartDesign, Sketcher, FEM, Coin, and OCCT run on Mac; they are not “Windows files.” Deleting `#ifdef _WIN32` trees would not shrink the clone much, would block upstream merges, and would not reduce `pixi install` on Apple Silicon (`pixi` already only unpacks `osx-arm64` packages on your Mac).
+Tonight’s build is a **full** FreeCAD: Part, PartDesign, Sketcher, Assembly, FEM, TechDraw, Draft, CAM, BIM, Mesh, and the rest. Do not pass `-DBUILD_CAM=OFF` or similar.
 
-What *does* shrink a **later** rebuild (after tonight’s full compile works):
+What this fork slims is the **non-Mac toolchain**, not the CAD:
 
-```bash
-pixi run configure-release-slim
-pixi run build-release
-```
+- `pixi.toml` platforms is **`osx-arm64` only** (no Windows, Linux, or Intel Mac package sets). On your M5, `pixi install` never fetched those anyway; this just stops the lockfile from carrying them.
+- Windows/Linux **C++ stays**. That is the same PartDesign/CAM/FEM code that runs on Mac. Deleting it would not shrink the clone in a useful way and would block upstream merges.
+- `package/WindowsInstaller` is ~1 MB. Removing it does not change your 20 GB build.
 
-That turns off CAM, BIM, Robot, Inspection, OpenSCAD, and developer tests. Keep Part / PartDesign / Sketcher / Assembly / FEM / TechDraw / Draft.
+After a successful launch, `pixi run macos-cleanup` reclaims ccache and a debug tree. Keep `build/release` if you want incremental rebuilds.
 
 ### 5. What to confirm on first launch
 

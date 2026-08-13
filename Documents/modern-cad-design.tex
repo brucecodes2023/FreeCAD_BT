@@ -506,8 +506,8 @@ The pixi build does \emph{not} install into \texttt{/Applications}. After
 \texttt{build/release/bin/FreeCAD} exists, \fp{pixi run macos-app} writes
 \texttt{\textasciitilde/Applications/FreeCAD\_BT.app} (a launcher that still needs
 this checkout). \fp{pixi run macos-cleanup} reclaims ccache and debug objects.
-Do not delete Windows/Linux sources from git: they are the same CAD kernel. A
-later smaller rebuild: \fp{pixi run configure-release-slim}.
+The install is full FreeCAD (CAM, BIM, FEM, \ldots). Pixi is Apple Silicon only;
+Windows/Linux sources stay because they are the same CAD kernel.
 
 % ============================ WORK LOG =====================================
 \section{Work log}
