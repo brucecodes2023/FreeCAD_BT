@@ -95,6 +95,7 @@ void FirstStartWidget::retranslateUi()
     );
     _descriptionLabel->setText(
         tr("Set your basic configuration options below.") + QLatin1String(" ")
+        + tr("Navigation defaults to a SolidWorks / Fusion 360-style mouse model.") + QLatin1String(" ")
         + tr("These options (and many more) can be changed later in the preferences.")
     );
 }

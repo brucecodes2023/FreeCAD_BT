@@ -45,6 +45,7 @@
 #include "NewFileButton.h"
 #include <App/DocumentObject.h>
 #include <App/Application.h>
+#include <Base/Console.h>
 #include <Base/Interpreter.h>
 #include <Base/Tools.h>
 #include <Gui/Action.h>
@@ -53,12 +54,42 @@
 #include <Gui/Document.h>
 #include <Gui/MainWindow.h>
 #include <Gui/ModuleIO.h>
+#include <Gui/PreferencePackManager.h>
+#include <Gui/Utilities.h>
 #include <Gui/View3DInventor.h>
 #include <Gui/View3DInventorViewer.h>
 #include <gsl/pointers>
+#include <exception>
 #include <string>
 
 using namespace StartGui;
+
+namespace
+{
+void applyModernCadOnboardingDefaults(const ParameterGrp::handle& startGrp)
+{
+    if (Gui::isInternalGuiTestRun()) {
+        return;
+    }
+    if (startGrp->GetBool("ModernCADDefaultsApplied", false)) {
+        return;
+    }
+
+    try {
+        auto* packs = Gui::Application::Instance->prefPackManager();
+        if (packs) {
+            packs->apply("Modern CAD");
+        }
+        startGrp->SetBool("ModernCADDefaultsApplied", true);
+    }
+    catch (const std::exception& e) {
+        Base::Console().warning(
+            "Could not apply the Modern CAD preference pack during first-start setup: %s\n",
+            e.what()
+        );
+    }
+}
+}  // namespace
 
 TYPESYSTEM_SOURCE_ABSTRACT(StartGui::StartView, Gui::MDIView)  // NOLINT
 
@@ -183,6 +214,11 @@ StartView::StartView(QWidget* parent)
     // Set startup widget according to the first start parameter
     auto firstStart = hGrp->GetBool("FirstStart2024", true);
     _contents->setCurrentWidget(firstStart ? firstStartScrollArea : documentsWidget);
+    if (firstStart) {
+        QTimer::singleShot(0, this, [hGrp]() {
+            applyModernCadOnboardingDefaults(hGrp);
+        });
+    }
     if (customFolderListWidget) {
         configureCustomFolderListWidget(customFolderListWidget);
     }

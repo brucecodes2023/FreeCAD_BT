@@ -660,6 +660,15 @@ protected:
     SbBool processSoEvent(const SoEvent* const ev) override;
 };
 
+/** Shipped 3D mouse model for new profiles (SolidWorks / Fusion-like). */
+inline constexpr const char* DefaultNavigationStyleName = "Gui::SolidWorksNavigationStyle";
+
+/** Turntable orbit, matching typical mechanical-CAD conventions. */
+inline constexpr int DefaultOrbitStyle = static_cast<int>(NavigationStyle::Turntable);
+
+/** Preference combo: 0 = window center, 1 = drag at cursor, 2 = object center. */
+inline constexpr int DefaultRotationMode = 2;
+
 }  // namespace Gui
 // NOLINTEND(cppcoreguidelines-avoid*, readability-avoid-const-params-in-decls)
 

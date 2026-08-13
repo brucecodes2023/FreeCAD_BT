@@ -2086,7 +2086,7 @@ void StdCmdAlignment::activated(int iMsg)
     MovableGroupModel model;
     model.addGroups(groupMap);
     align->setModel(model);
-    Base::Type style = Base::Type::fromName("Gui::CADNavigationStyle");
+    Base::Type style = Base::Type::fromName(Gui::DefaultNavigationStyleName);
     Base::Vector3d upDir(0, 1, 0), viewDir(0, 0, -1);
     Gui::Document* doc = Application::Instance->activeDocument();
     if (doc) {

@@ -242,10 +242,7 @@ void GeneralSettingsWidget::retranslateUi()
     ParameterGrp::handle hGrpNav = App::GetApplication().GetParameterGroupByPath(
         "User parameter:BaseApp/Preferences/View"
     );
-    auto navStyleName = hGrpNav->GetASCII(
-        "NavigationStyle",
-        std::string {Gui::CADNavigationStyle::getClassTypeId().getName()}.c_str()
-    );
+    auto navStyleName = hGrpNav->GetASCII("NavigationStyle", Gui::DefaultNavigationStyleName);
     std::map<Base::Type, std::string> styles = Gui::UserNavigationStyle::getUserFriendlyNames();
     for (const auto& style : styles) {
         QByteArray data(style.first.getName());

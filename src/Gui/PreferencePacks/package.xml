@@ -35,5 +35,16 @@
       <tag>background</tag>
       <tag>dark</tag>
     </preferencepack>
+	<preferencepack>
+	  <name>Modern CAD</name>
+      <type>Behavior</type>
+      <description>SolidWorks / Fusion 360-style navigation and a modeling-forward layout: SolidWorks mouse model, turntable orbit, rotate about the object under the cursor, zoom-to-cursor, and a top-right navigation cube. Apply on top of FreeCAD Light or FreeCAD Dark.</description>
+      <version>1.0.0</version>
+      <tag>built-in</tag>
+      <tag>behavior</tag>
+      <tag>navigation</tag>
+      <tag>solidworks</tag>
+      <tag>fusion360</tag>
+    </preferencepack>
   </content>
 </package>

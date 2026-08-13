@@ -471,7 +471,7 @@ void NavigationStyle::initialize()
                          ->GetFloat("ZoomStep", 0.2f);
     long mode = App::GetApplication()
                     .GetParameterGroupByPath("User parameter:BaseApp/Preferences/View")
-                    ->GetInt("RotationMode", 0);
+                    ->GetInt("RotationMode", DefaultRotationMode);
     if (mode == 0) {
         setRotationCenterMode(NavigationStyle::RotationCenterMode::WindowCenter);
     }

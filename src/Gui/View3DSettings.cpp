@@ -98,6 +98,7 @@ void View3DSettings::applySettings()
     OnChange(*hGrp, "Orthographic");
     OnChange(*hGrp, "NavigationStyle");
     OnChange(*hGrp, "OrbitStyle");
+    OnChange(*hGrp, "RotationMode");
     OnChange(*hGrp, "Sensitivity");
     OnChange(*hGrp, "ResetCursorPosition");
     OnChange(*hGrp, "DimensionsVisible");
@@ -279,10 +280,7 @@ void View3DSettings::OnChange(ParameterGrp::SubjectType& rCaller, ParameterGrp::
     else if (strcmp(Reason, "NavigationStyle") == 0) {
         if (!ignoreNavigationStyle) {
             // check whether the simple or the full mouse model is used
-            std::string model = rGrp.GetASCII(
-                "NavigationStyle",
-                std::string {CADNavigationStyle::getClassTypeId().getName()}.c_str()
-            );
+            std::string model = rGrp.GetASCII("NavigationStyle", DefaultNavigationStyleName);
             Base::Type type = Base::Type::fromName(model.c_str());
             for (auto _viewer : _viewers) {
                 _viewer->setNavigationType(type);
@@ -290,7 +288,7 @@ void View3DSettings::OnChange(ParameterGrp::SubjectType& rCaller, ParameterGrp::
         }
     }
     else if (strcmp(Reason, "OrbitStyle") == 0) {
-        int style = rGrp.GetInt("OrbitStyle", 4);
+        int style = rGrp.GetInt("OrbitStyle", DefaultOrbitStyle);
         for (auto _viewer : _viewers) {
             _viewer->navigationStyle()->setOrbitStyle(NavigationStyle::OrbitStyle(style));
         }
@@ -326,7 +324,7 @@ void View3DSettings::OnChange(ParameterGrp::SubjectType& rCaller, ParameterGrp::
         }
     }
     else if (strcmp(Reason, "RotationMode") == 0) {
-        long mode = rGrp.GetInt("RotationMode", 1);
+        long mode = rGrp.GetInt("RotationMode", DefaultRotationMode);
         for (auto _viewer : _viewers) {
             if (mode == 0) {
                 _viewer->navigationStyle()->setRotationCenterMode(
