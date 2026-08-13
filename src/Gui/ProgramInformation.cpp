@@ -116,6 +116,7 @@ void ProgramInformation::getQtBackendInformation(std::stringstream& str)
 }
 
 static std::string openGLInfo = "";
+static std::string openGLRendererString = "";
 
 // Expects to be called from within initializeGL() of the passed QOpenGLWidget.
 void ProgramInformation::initOpenGLInformation(QOpenGLWidget& widget)
@@ -129,6 +130,12 @@ void ProgramInformation::initOpenGLInformation(QOpenGLWidget& widget)
     const char* glRenderer = reinterpret_cast<const char*>(funcs->glGetString(GL_RENDERER));
     str << (glRenderer ? glRenderer : "<unavailable>");
     openGLInfo = str.str();
+    openGLRendererString = glRenderer ? glRenderer : "";
+}
+
+std::string ProgramInformation::openGLRenderer()
+{
+    return openGLRendererString;
 }
 
 void ProgramInformation::getOpenGLInformation(std::stringstream& str)

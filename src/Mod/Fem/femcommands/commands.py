@@ -211,8 +211,9 @@ class _FirstPrinciplesStudy(CommandManager):
                     "It uses Elmer to solve continuum PDEs (linear elasticity and heat) "
                     "rather than wrapping CalculiX as a structural black box. "
                     "You still need a mesh, materials, and boundary conditions.\n\n"
-                    "Assembly-wide contact, a rollback-style study tree, and a guided "
-                    "equation wizard are not implemented yet.",
+                    "Use FEM → Guided Study Wizard to check those before solving. "
+                    "CalculiX Static Study and CalculiX Thermal Study presets are on the "
+                    "Model toolbar. Assembly-wide contact is not implemented yet.",
                 ),
             )
             prefs.SetBool("FirstPrinciplesWipHintShown", True)

@@ -1368,6 +1368,11 @@ void ToolBarManager::setState(const QString& name, State state)
             saveVisibility(show, policy);
         }
     }
+
+    if (RibbonManager::useRibbon()) {
+        hideAllForRibbon();
+        RibbonManager::getInstance()->syncVisibility();
+    }
 }
 
 #include "moc_ToolBarManager.cpp"

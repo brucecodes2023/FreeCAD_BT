@@ -35,8 +35,10 @@
 
 class QCheckBox;
 class QEvent;
+class QFrame;
 class QGridLayout;
 class QLabel;
+class QLineEdit;
 class QListView;
 class QMdiSubWindow;
 class QScrollArea;
@@ -71,6 +73,8 @@ public:
     void newAssemblyFile();
     void newDraftFile();
     void newArchFile();
+    void newTechDrawFile();
+    void continueLastFile();
     void recentFileAdded(const QString& filename);
     void newProject();
 
@@ -102,7 +106,10 @@ protected:
     void openProjectAt(int row);
     void refreshDashboardMetrics();
     void rebuildProjectCards();
+    void dismissDashboardTips();
     QWidget* createMetricCard(QLabel*& title, QLabel*& value);
+    QWidget* createTipsBanner();
+    int countDocumentErrors() const;
 
     QString fileCardStyle() const;
 
@@ -130,6 +137,14 @@ private:
     QLabel* _metricProjectsValue = nullptr;
     QLabel* _metricGraphicsTitle = nullptr;
     QLabel* _metricGraphicsValue = nullptr;
+    QLabel* _metricHealthTitle = nullptr;
+    QLabel* _metricHealthValue = nullptr;
+    QLabel* _metricUnitsTitle = nullptr;
+    QLabel* _metricUnitsValue = nullptr;
+    QFrame* _tipsFrame = nullptr;
+    QLabel* _tipsLabel = nullptr;
+    QPushButton* _tipsDismiss = nullptr;
+    QLineEdit* _commandSearch = nullptr;
     QWidget* _projectsRow = nullptr;
     QPushButton* _openFirstStart;
     QCheckBox* _showOnStartupCheckBox;

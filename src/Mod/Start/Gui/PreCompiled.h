@@ -49,6 +49,7 @@
 #include <QHBoxLayout>
 #include <QImageReader>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListView>
 #include <QMdiSubWindow>
 #include <QMessageBox>

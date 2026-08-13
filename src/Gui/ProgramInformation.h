@@ -43,6 +43,8 @@ public:
     static void getQtBackendInformation(std::stringstream& str);
     static void initOpenGLInformation(QOpenGLWidget&);
     static void getOpenGLInformation(std::stringstream& str);
+    /** Cached GL_RENDERER string from the hidden probe widget, or empty. */
+    static std::string openGLRenderer();
 
     static std::string collect(const std::map<std::string, std::string>& config);
     static std::string collect();

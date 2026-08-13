@@ -53,18 +53,24 @@
 #include "FirstStartWidget.h"
 #include "FlowLayout.h"
 #include "NewFileButton.h"
+#include <App/Document.h>
 #include <App/DocumentObject.h>
 #include <App/Application.h>
 #include <Base/Console.h>
+#include <Base/Exception.h>
 #include <Base/Interpreter.h>
 #include <Base/Tools.h>
+#include <Base/UnitsApi.h>
 #include <Gui/Action.h>
 #include <Gui/Application.h>
 #include <Gui/Command.h>
+#include <Gui/CommandCompleter.h>
 #include <Gui/Document.h>
 #include <Gui/MainWindow.h>
 #include <Gui/ModuleIO.h>
+#include <Gui/Navigation/NavigationStyle.h>
 #include <Gui/PreferencePackManager.h>
+#include <Gui/ProgramInformation.h>
 #include <Gui/Utilities.h>
 #include <Gui/View3DInventor.h>
 #include <Gui/View3DInventorViewer.h>
@@ -166,8 +172,30 @@ StartView::StartView(QWidget* parent)
     metricsLayout->addWidget(createMetricCard(_metricFilesTitle, _metricFilesValue));
     metricsLayout->addWidget(createMetricCard(_metricProjectsTitle, _metricProjectsValue));
     metricsLayout->addWidget(createMetricCard(_metricGraphicsTitle, _metricGraphicsValue));
+    metricsLayout->addWidget(createMetricCard(_metricHealthTitle, _metricHealthValue));
+    metricsLayout->addWidget(createMetricCard(_metricUnitsTitle, _metricUnitsValue));
     metricsLayout->addStretch();
     documentsContentLayout->addWidget(metricsRow);
+
+    if (QWidget* tips = createTipsBanner()) {
+        documentsContentLayout->addWidget(tips);
+    }
+
+    _commandSearch = gsl::owner<QLineEdit*>(new QLineEdit());
+    _commandSearch->setObjectName(QStringLiteral("DashboardCommandSearch"));
+    _commandSearch->setClearButtonEnabled(true);
+    auto* completer = gsl::owner<Gui::CommandCompleter*>(
+        new Gui::CommandCompleter(_commandSearch, _commandSearch)
+    );
+    connect(
+        completer,
+        &Gui::CommandCompleter::commandActivated,
+        this,
+        [](const QByteArray& name) {
+            Gui::Application::Instance->commandManager().runCommandByName(name.constData());
+        }
+    );
+    documentsContentLayout->addWidget(_commandSearch);
 
     _projectsLabel = gsl::owner<QLabel*>(new QLabel());
     documentsContentLayout->addWidget(_projectsLabel);
@@ -315,13 +343,25 @@ void StartView::configureNewFileButtons(QLayout* layout) const
          tr("Creates a project folder for related parts, assemblies, and drawings"),
          QLatin1String(":/icons/folder.svg")}
     ));
+    auto continueLast = gsl::owner<NewFileButton*>(new NewFileButton(
+        {tr("Continue"),
+         tr("Opens the last FreeCAD file you worked on"),
+         QLatin1String(":/icons/document-open.svg")}
+    ));
+    auto drawing = gsl::owner<NewFileButton*>(new NewFileButton(
+        {tr("Drawing"),
+         tr("Creates a TechDraw page for 2D documentation"),
+         QLatin1String(":/icons/actions/TechDraw_PageDefault.svg")}
+    ));
 
     // TODO: Ensure all of the required WBs are actually available
     layout->addWidget(partDesign);
     layout->addWidget(assembly);
+    layout->addWidget(drawing);
     layout->addWidget(draft);
     layout->addWidget(arch);
     layout->addWidget(newProject);
+    layout->addWidget(continueLast);
     layout->addWidget(newEmptyFile);
     layout->addWidget(openFile);
 
@@ -329,9 +369,11 @@ void StartView::configureNewFileButtons(QLayout* layout) const
     connect(openFile, &QPushButton::clicked, this, &StartView::openExistingFile);
     connect(partDesign, &QPushButton::clicked, this, &StartView::newPartDesignFile);
     connect(assembly, &QPushButton::clicked, this, &StartView::newAssemblyFile);
+    connect(drawing, &QPushButton::clicked, this, &StartView::newTechDrawFile);
     connect(draft, &QPushButton::clicked, this, &StartView::newDraftFile);
     connect(arch, &QPushButton::clicked, this, &StartView::newArchFile);
     connect(newProject, &QPushButton::clicked, this, &StartView::newProject);
+    connect(continueLast, &QPushButton::clicked, this, &StartView::continueLastFile);
 }
 
 void StartView::configureFileCardWidget(QListView* fileCardWidget)
@@ -444,6 +486,40 @@ void StartView::newArchFile()
     postStart(PostStartBehavior::doNotSwitchWorkbench);
 }
 
+void StartView::newTechDrawFile()
+{
+    Gui::Application::Instance->commandManager().runCommandByName("Std_New");
+    Gui::Application::Instance->activateWorkbench("TechDrawWorkbench");
+    if (Gui::Application::Instance->commandManager().getCommandByName("TechDraw_PageDefault")) {
+        Gui::Application::Instance->commandManager().runCommandByName("TechDraw_PageDefault");
+    }
+    postStart(PostStartBehavior::doNotSwitchWorkbench);
+}
+
+void StartView::continueLastFile()
+{
+    auto recentGrp = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/RecentFiles"
+    );
+    const std::string path = recentGrp->GetASCII("MRU0", "");
+    if (path.empty()) {
+        QMessageBox::information(
+            this,
+            tr("Continue"),
+            tr("No recent file yet. Open or create a document first.")
+        );
+        return;
+    }
+    try {
+        Gui::ModuleIO::verifyAndOpenFile(QString::fromUtf8(path.c_str()));
+        postStart(PostStartBehavior::switchWorkbench);
+    }
+    catch (Base::Exception& e) {
+        e.reportException();
+        Base::Console().error(e.getMessage().c_str());
+    }
+}
+
 void StartView::newProject()
 {
     const QString parent = QFileDialog::getExistingDirectory(
@@ -498,6 +574,54 @@ QWidget* StartView::createMetricCard(QLabel*& title, QLabel*& value)
     layout->addWidget(value);
     layout->addWidget(title);
     return card;
+}
+
+QWidget* StartView::createTipsBanner()
+{
+    auto startGrp = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/Mod/Start"
+    );
+    if (startGrp->GetBool("DashboardTipsDismissed", false)) {
+        return nullptr;
+    }
+
+    _tipsFrame = gsl::owner<QFrame*>(new QFrame());
+    _tipsFrame->setObjectName(QStringLiteral("DashboardTips"));
+    auto* layout = gsl::owner<QHBoxLayout*>(new QHBoxLayout(_tipsFrame));
+    _tipsLabel = gsl::owner<QLabel*>(new QLabel());
+    _tipsLabel->setWordWrap(true);
+    _tipsDismiss = gsl::owner<QPushButton*>(new QPushButton());
+    connect(_tipsDismiss, &QPushButton::clicked, this, &StartView::dismissDashboardTips);
+    layout->addWidget(_tipsLabel, 1);
+    layout->addWidget(_tipsDismiss, 0, Qt::AlignTop);
+    return _tipsFrame;
+}
+
+void StartView::dismissDashboardTips()
+{
+    auto startGrp = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/Mod/Start"
+    );
+    startGrp->SetBool("DashboardTipsDismissed", true);
+    if (_tipsFrame) {
+        _tipsFrame->hide();
+    }
+}
+
+int StartView::countDocumentErrors() const
+{
+    int errors = 0;
+    for (auto* doc : App::GetApplication().getDocuments()) {
+        if (!doc) {
+            continue;
+        }
+        for (auto* obj : doc->getObjects()) {
+            if (obj && obj->isError()) {
+                ++errors;
+            }
+        }
+    }
+    return errors;
 }
 
 void StartView::rebuildProjectCards()
@@ -571,11 +695,59 @@ void StartView::refreshDashboardMetrics()
     );
     _metricFilesValue->setText(QString::number(recentGrp->GetInt("RecentFiles", 0)));
     _metricProjectsValue->setText(QString::number(_projectsModel.projectCount()));
+
+    const std::string renderer = Gui::ProgramInformation::openGLRenderer();
+    QString graphics = QString::fromStdString(renderer);
+    if (graphics.isEmpty()) {
 #ifdef Q_OS_MAC
-    _metricGraphicsValue->setText(QStringLiteral("OpenGL → Metal"));
+        graphics = QStringLiteral("OpenGL → Metal");
 #else
-    _metricGraphicsValue->setText(QStringLiteral("OpenGL"));
+        graphics = QStringLiteral("OpenGL");
 #endif
+    }
+    _metricGraphicsValue->setText(graphics);
+    const bool metalWarning = graphics.contains(QLatin1String("Metal"), Qt::CaseInsensitive)
+        && graphics.contains(QLatin1String("90."));
+    if (metalWarning) {
+        _metricGraphicsValue->setToolTip(tr(
+            "Apple is translating OpenGL to Metal (renderer 90.x). If the 3D view lags, "
+            "turn on Preferences → Display → 3D View → Use software OpenGL and restart."
+        ));
+    }
+    else {
+        _metricGraphicsValue->setToolTip(graphics);
+    }
+
+    if (_metricHealthValue) {
+        const int errors = countDocumentErrors();
+        _metricHealthValue->setText(QString::number(errors));
+        _metricHealthValue->setToolTip(
+            errors == 0 ? tr("No recompute errors in open documents")
+                        : tr("%1 object(s) in error. Open the document and recompute.")
+                              .arg(errors)
+        );
+    }
+
+    if (_metricUnitsValue) {
+        auto unitsGrp = App::GetApplication().GetParameterGroupByPath(
+            "User parameter:BaseApp/Preferences/Units"
+        );
+        const auto descriptions = Base::UnitsApi::getDescriptions();
+        const int schema = static_cast<int>(unitsGrp->GetInt("UserSchema", 0));
+        QString units = tr("Units");
+        if (schema >= 0 && schema < static_cast<int>(descriptions.size())) {
+            units = QString::fromStdString(descriptions[static_cast<size_t>(schema)]);
+        }
+        auto viewGrp = App::GetApplication().GetParameterGroupByPath(
+            "User parameter:BaseApp/Preferences/View"
+        );
+        const std::string nav = viewGrp->GetASCII("NavigationStyle", Gui::DefaultNavigationStyleName);
+        QString navName = QString::fromStdString(nav);
+        navName.remove(QLatin1String("Gui::"));
+        navName.remove(QLatin1String("NavigationStyle"));
+        _metricUnitsValue->setText(navName);
+        _metricUnitsValue->setToolTip(units + QLatin1String(" · ") + navName);
+    }
 }
 
 bool StartView::onHasMsg(const char* pMsg) const
@@ -744,6 +916,25 @@ void StartView::retranslateUi()
         _metricFilesTitle->setText(tr("Recent files"));
         _metricProjectsTitle->setText(tr("Projects"));
         _metricGraphicsTitle->setText(tr("3D graphics"));
+        if (_metricHealthTitle) {
+            _metricHealthTitle->setText(tr("Recompute errors"));
+        }
+        if (_metricUnitsTitle) {
+            _metricUnitsTitle->setText(tr("Navigation"));
+        }
+    }
+    if (_tipsLabel) {
+        _tipsLabel->setText(tr(
+            "Home never shows the ribbon. Open a file to model. "
+            "New profiles use SolidWorks navigation; Fusion 360 is in Preferences → Display → Navigation. "
+            "On Apple Silicon, use software OpenGL if the 3D view lags."
+        ));
+    }
+    if (_tipsDismiss) {
+        _tipsDismiss->setText(tr("Dismiss"));
+    }
+    if (_commandSearch) {
+        _commandSearch->setPlaceholderText(tr("Search commands…"));
     }
 
     _newFileLabel->setText(h2Start + tr("New File") + h2End);

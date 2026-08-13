@@ -10,14 +10,18 @@
 #include "RibbonManager.h"
 #include "RibbonBar.h"
 #include "Application.h"
+#include "Document.h"
 #include "MainWindow.h"
 #include "MDIView.h"
 #include "ToolBarManager.h"
 #include "Utilities.h"
+#include "ViewProviderDocumentObject.h"
 #include "Workbench.h"
 #include "WorkbenchManager.h"
 
 #include <App/Application.h>
+#include <App/DocumentObject.h>
+#include <Base/Type.h>
 
 using namespace Gui;
 
@@ -115,6 +119,15 @@ void RibbonManager::syncVisibility()
     _bar->setVisible(show);
     if (show) {
         ToolBarManager::getInstance()->hideAllForRibbon();
+        bool sketchInEdit = false;
+        if (Document* doc = Application::Instance->activeDocument()) {
+            auto* vp = dynamic_cast<ViewProviderDocumentObject*>(doc->getInEdit());
+            if (vp && vp->getObject()) {
+                const Base::Type sketchType = Base::Type::fromName("Sketcher::SketchObject");
+                sketchInEdit = !sketchType.isBad() && vp->getObject()->isDerivedFrom(sketchType);
+            }
+        }
+        _bar->applyContext(sketchInEdit);
     }
 }
 

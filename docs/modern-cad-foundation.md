@@ -2,7 +2,7 @@
 
 The living design plan and work tracker:
 
-- **Keep open on GitHub:** [`Documents/README.md`](../Documents/README.md) (Markdown; refreshes on each push)
+- **Keep open on GitHub:** [`Documents/README.md`](../Documents/README.md) (Markdown; refreshes on each push). Includes the **Mac compile and launch walkthrough**.
 - **Typeset PDF:** [`Documents/modern-cad-design.pdf`](../Documents/modern-cad-design.pdf)
 - **LaTeX source:** [`Documents/modern-cad-design.tex`](../Documents/modern-cad-design.tex) (`cd Documents && ./build.sh`)
 - **Repo-root pointer:** [`PLAN.md`](../PLAN.md)

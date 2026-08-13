@@ -8,7 +8,8 @@
 # include <QHBoxLayout>
 # include <QLabel>
 # include <QMenu>
-# include <QScrollArea>
+# include <QResizeEvent>
+# include <QShowEvent>
 # include <QSizePolicy>
 # include <QStackedWidget>
 # include <QTabBar>
@@ -24,8 +25,6 @@
 #include "WorkbenchSelector.h"
 
 #include <QAction>
-#include <QApplication>
-#include <QFrame>
 #include <QSizePolicy>
 
 using namespace Gui;
@@ -60,6 +59,107 @@ bool toolbarIsWorkbenchOnly(ToolBarItem* item)
     }
     return true;
 }
+
+class RibbonPageHost: public QWidget
+{
+public:
+    explicit RibbonPageHost(QWidget* parent = nullptr)
+        : QWidget(parent)
+    {
+        setObjectName(QStringLiteral("RibbonPage"));
+        auto* layout = new QHBoxLayout(this);
+        layout->setContentsMargins(4, 2, 4, 2);
+        layout->setSpacing(0);
+        layout->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+
+        _overflow = new QToolButton(this);
+        _overflow->setObjectName(QStringLiteral("RibbonOverflowButton"));
+        _overflow->setText(QStringLiteral("»"));
+        _overflow->setToolTip(QApplication::translate("RibbonBar", "More commands"));
+        _overflow->setAutoRaise(true);
+        _overflow->setFocusPolicy(Qt::NoFocus);
+        _overflow->setPopupMode(QToolButton::InstantPopup);
+        _overflow->setMenu(new QMenu(_overflow));
+        _overflow->hide();
+    }
+
+    void addGroup(QWidget* group)
+    {
+        _groups.append(group);
+        layout()->addWidget(group);
+    }
+
+    void addDivider(QWidget* divider)
+    {
+        _dividers.append(divider);
+        layout()->addWidget(divider);
+    }
+
+    void finish()
+    {
+        auto* lay = qobject_cast<QHBoxLayout*>(layout());
+        lay->addWidget(_overflow, 0, Qt::AlignRight | Qt::AlignVCenter);
+        lay->addStretch(1);
+    }
+
+protected:
+    void resizeEvent(QResizeEvent* event) override
+    {
+        QWidget::resizeEvent(event);
+        compact();
+    }
+
+    void showEvent(QShowEvent* event) override
+    {
+        QWidget::showEvent(event);
+        compact();
+    }
+
+private:
+    void compact()
+    {
+        for (QWidget* group : _groups) {
+            group->show();
+        }
+        for (QWidget* divider : _dividers) {
+            divider->show();
+        }
+        _overflow->menu()->clear();
+        _overflow->hide();
+
+        const int overflowReserve = 36;
+        const int available = qMax(0, width() - overflowReserve);
+        int used = 0;
+        bool overflowing = false;
+
+        for (int i = 0; i < _groups.size(); ++i) {
+            int need = _groups[i]->sizeHint().width();
+            if (i > 0 && i - 1 < _dividers.size()) {
+                need += _dividers[i - 1]->sizeHint().width();
+            }
+            if (!overflowing && used + need <= available) {
+                used += need;
+                continue;
+            }
+            overflowing = true;
+            _groups[i]->hide();
+            if (i > 0 && i - 1 < _dividers.size()) {
+                _dividers[i - 1]->hide();
+            }
+            const auto buttons = _groups[i]->findChildren<QToolButton*>();
+            for (QToolButton* btn : buttons) {
+                if (QAction* action = btn->defaultAction()) {
+                    _overflow->menu()->addAction(action);
+                }
+            }
+        }
+        _overflow->setVisible(!_overflow->menu()->isEmpty());
+    }
+
+    QList<QWidget*> _groups;
+    QList<QWidget*> _dividers;
+    QToolButton* _overflow = nullptr;
+};
 }  // namespace
 
 RibbonBar::RibbonBar(QWidget* parent)
@@ -71,6 +171,14 @@ RibbonBar::RibbonBar(QWidget* parent)
     auto* root = new QVBoxLayout(this);
     root->setContentsMargins(0, 0, 0, 0);
     root->setSpacing(0);
+
+    _qat = new QWidget(this);
+    _qat->setObjectName(QStringLiteral("RibbonQuickAccessBar"));
+    auto* qatLayout = new QHBoxLayout(_qat);
+    qatLayout->setContentsMargins(8, 2, 8, 2);
+    qatLayout->setSpacing(2);
+    qatLayout->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    root->addWidget(_qat);
 
     auto* tabRow = new QWidget(this);
     tabRow->setObjectName(QStringLiteral("RibbonTabRow"));
@@ -103,12 +211,12 @@ RibbonBar::RibbonBar(QWidget* parent)
 
 QSize RibbonBar::sizeHint() const
 {
-    return {800, 108};
+    return {800, 132};
 }
 
 QSize RibbonBar::minimumSizeHint() const
 {
-    return {200, 96};
+    return {200, 120};
 }
 
 void RibbonBar::clearRibbon()
@@ -122,7 +230,28 @@ void RibbonBar::clearRibbon()
         delete page;
     }
     qDeleteAll(_workbenchHost->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly));
+    if (_qat) {
+        qDeleteAll(_qat->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly));
+    }
     _tabKeys.clear();
+}
+
+void RibbonBar::populateQuickAccess()
+{
+    if (!_qat) {
+        return;
+    }
+    auto* layout = qobject_cast<QHBoxLayout*>(_qat->layout());
+    if (!layout) {
+        return;
+    }
+    static const char* commands[] = {"Std_New", "Std_Save", "Std_Undo", "Std_Redo"};
+    for (const char* name : commands) {
+        if (QWidget* widget = makeCommandWidget(name, _qat, ButtonStyle::QuickAccess)) {
+            layout->addWidget(widget);
+        }
+    }
+    layout->addStretch(1);
 }
 
 void RibbonBar::placeWorkbenchSelector(QWidget* widget)
@@ -158,7 +287,7 @@ QWidget* RibbonBar::makeGroup(const QString& title, QWidget* parent)
     return group;
 }
 
-QWidget* RibbonBar::makeCommandWidget(const char* name, QWidget* parent)
+QWidget* RibbonBar::makeCommandWidget(const char* name, QWidget* parent, ButtonStyle style)
 {
     CommandManager& mgr = Application::Instance->commandManager();
     Command* cmd = mgr.getCommandByName(name);
@@ -181,13 +310,21 @@ QWidget* RibbonBar::makeCommandWidget(const char* name, QWidget* parent)
     }
 
     auto* btn = new QToolButton(parent);
-    btn->setObjectName(QStringLiteral("RibbonCommandButton"));
     btn->setDefaultAction(act->action());
-    btn->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    const int iconPx = ToolBarManager::getInstance()->toolBarIconSize();
-    btn->setIconSize(QSize(iconPx, iconPx));
     btn->setAutoRaise(true);
     btn->setFocusPolicy(Qt::NoFocus);
+
+    if (style == ButtonStyle::QuickAccess) {
+        btn->setObjectName(QStringLiteral("RibbonQatButton"));
+        btn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        btn->setIconSize(QSize(20, 20));
+    }
+    else {
+        btn->setObjectName(QStringLiteral("RibbonCommandButton"));
+        btn->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+        const int iconPx = ToolBarManager::getInstance()->toolBarIconSize();
+        btn->setIconSize(QSize(iconPx, iconPx));
+    }
 
     if (auto* group = dynamic_cast<ActionGroup*>(act)) {
         const QList<QAction*> actions = group->actions();
@@ -216,7 +353,7 @@ void RibbonBar::addCommandsToGroup(ToolBarItem* item, QHBoxLayout* groupLayout, 
             addCommandsToGroup(child, groupLayout, parent);
             continue;
         }
-        if (QWidget* widget = makeCommandWidget(child->command().c_str(), parent)) {
+        if (QWidget* widget = makeCommandWidget(child->command().c_str(), parent, ButtonStyle::Ribbon)) {
             if (widget->objectName() == QLatin1String("RibbonWorkbenchBox")) {
                 placeWorkbenchSelector(widget);
             }
@@ -230,6 +367,7 @@ void RibbonBar::addCommandsToGroup(ToolBarItem* item, QHBoxLayout* groupLayout, 
 void RibbonBar::setup(ToolBarItem* root)
 {
     clearRibbon();
+    populateQuickAccess();
     if (!root) {
         return;
     }
@@ -238,7 +376,8 @@ void RibbonBar::setup(ToolBarItem* root)
         if (!toolbar || toolbarIsWorkbenchOnly(toolbar)) {
             for (ToolBarItem* child : toolbar ? toolbar->getItems() : QList<ToolBarItem*>()) {
                 if (isWorkbenchCommand(child)) {
-                    if (QWidget* widget = makeCommandWidget("Std_Workbench", _workbenchHost)) {
+                    if (QWidget* widget =
+                            makeCommandWidget("Std_Workbench", _workbenchHost, ButtonStyle::Ribbon)) {
                         placeWorkbenchSelector(widget);
                     }
                 }
@@ -246,30 +385,23 @@ void RibbonBar::setup(ToolBarItem* root)
             continue;
         }
 
-        auto* page = new QWidget;
-        page->setObjectName(QStringLiteral("RibbonPage"));
-        auto* pageLayout = new QHBoxLayout(page);
-        pageLayout->setContentsMargins(4, 2, 4, 2);
-        pageLayout->setSpacing(0);
-        pageLayout->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+        // Classic-hidden toolbars (Clipboard, Macro, Individual Views) stay in the menus.
+        if (toolbar->visibilityPolicy == ToolBarItem::DefaultVisibility::Hidden) {
+            continue;
+        }
 
-        auto* scroll = new QScrollArea;
-        scroll->setObjectName(QStringLiteral("RibbonPageScroll"));
-        scroll->setWidgetResizable(true);
-        scroll->setFrameShape(QFrame::NoFrame);
-        scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-        scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        scroll->setWidget(page);
+        auto* page = new RibbonPageHost;
 
         auto* currentGroup = makeGroup(translateToolbarName(toolbar->command()), page);
-        pageLayout->addWidget(currentGroup);
+        page->addGroup(currentGroup);
         auto* currentCommands = currentGroup->findChild<QWidget*>(QStringLiteral("RibbonGroupCommands"));
         auto* currentLayout = qobject_cast<QHBoxLayout*>(currentCommands->layout());
 
         bool groupHasCommands = false;
         for (ToolBarItem* child : toolbar->getItems()) {
             if (isWorkbenchCommand(child)) {
-                if (QWidget* widget = makeCommandWidget("Std_Workbench", _workbenchHost)) {
+                if (QWidget* widget =
+                        makeCommandWidget("Std_Workbench", _workbenchHost, ButtonStyle::Ribbon)) {
                     placeWorkbenchSelector(widget);
                 }
                 continue;
@@ -280,9 +412,9 @@ void RibbonBar::setup(ToolBarItem* root)
                     divider->setObjectName(QStringLiteral("RibbonGroupDivider"));
                     divider->setFrameShape(QFrame::VLine);
                     divider->setFrameShadow(QFrame::Plain);
-                    pageLayout->addWidget(divider);
+                    page->addDivider(divider);
                     currentGroup = makeGroup(translateToolbarName(toolbar->command()), page);
-                    pageLayout->addWidget(currentGroup);
+                    page->addGroup(currentGroup);
                     currentCommands =
                         currentGroup->findChild<QWidget*>(QStringLiteral("RibbonGroupCommands"));
                     currentLayout = qobject_cast<QHBoxLayout*>(currentCommands->layout());
@@ -295,7 +427,8 @@ void RibbonBar::setup(ToolBarItem* root)
                 groupHasCommands = true;
                 continue;
             }
-            if (QWidget* widget = makeCommandWidget(child->command().c_str(), currentCommands)) {
+            if (QWidget* widget =
+                    makeCommandWidget(child->command().c_str(), currentCommands, ButtonStyle::Ribbon)) {
                 if (widget->objectName() == QLatin1String("RibbonWorkbenchBox")) {
                     placeWorkbenchSelector(widget);
                 }
@@ -306,17 +439,54 @@ void RibbonBar::setup(ToolBarItem* root)
             }
         }
 
-        pageLayout->addStretch(1);
+        page->finish();
 
         const QString title = translateToolbarName(toolbar->command());
         _tabKeys << QString::fromUtf8(toolbar->command().c_str());
-        _tabs->addTab(title);
-        _pages->addWidget(scroll);
+        const int index = _tabs->addTab(title);
+        _tabs->setTabData(index, static_cast<int>(toolbar->visibilityPolicy));
+        _pages->addWidget(page);
     }
 
     if (_tabs->count() > 0) {
         _tabs->setCurrentIndex(0);
         _pages->setCurrentIndex(0);
+    }
+}
+
+void RibbonBar::applyContext(bool sketchInEdit)
+{
+    if (!_tabs) {
+        return;
+    }
+
+    int firstVisible = -1;
+    for (int i = 0; i < _tabs->count(); ++i) {
+        const auto policy = static_cast<ToolBarItem::DefaultVisibility>(_tabs->tabData(i).toInt());
+        const bool show = (policy != ToolBarItem::DefaultVisibility::Unavailable) || sketchInEdit;
+        _tabs->setTabVisible(i, show);
+        if (QWidget* page = _pages->widget(i)) {
+            page->setEnabled(show);
+        }
+        if (show && firstVisible < 0) {
+            firstVisible = i;
+        }
+    }
+
+    if (_tabs->count() > 0 && !_tabs->isTabVisible(_tabs->currentIndex()) && firstVisible >= 0) {
+        _tabs->setCurrentIndex(firstVisible);
+        _pages->setCurrentIndex(firstVisible);
+    }
+
+    if (sketchInEdit) {
+        for (int i = 0; i < _tabs->count(); ++i) {
+            const auto policy = static_cast<ToolBarItem::DefaultVisibility>(_tabs->tabData(i).toInt());
+            if (policy == ToolBarItem::DefaultVisibility::Unavailable) {
+                _tabs->setCurrentIndex(i);
+                _pages->setCurrentIndex(i);
+                break;
+            }
+        }
     }
 }
 

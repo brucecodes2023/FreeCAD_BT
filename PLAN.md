@@ -12,3 +12,5 @@ GitHub **does not render `.tex`**. The design document *is* in this repo; use on
    [Documents/modern-cad-design.tex](Documents/modern-cad-design.tex)
 
 PDF rebuilds after `.tex` changes show up as the **Design PDF** workflow: Actions → Design PDF → Artifacts → `modern-cad-design`.
+
+Mac compile/launch walkthrough: [Documents/README.md](Documents/README.md#compile-and-launch-on-a-mac-tonight).
