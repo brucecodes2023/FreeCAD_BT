@@ -83,6 +83,7 @@ configure-debug = { cmd = [ "cmake", "--preset", "conda-macos-debug", "{{ extra_
 configure-release = { cmd = [ "cmake", "--preset", "conda-macos-release" ], depends-on = ["initialize"], env={ CFLAGS="", CXXFLAGS="", DEBUG_CFLAGS="", DEBUG_CXXFLAGS="" }}
 macos-app = { cmd = [ "Documents/macos-app.sh" ] }
 macos-cleanup = { cmd = [ "Documents/macos-cleanup.sh" ] }
+macos-standalone = { cmd = [ "Documents/macos-standalone.sh" ] }
 
 [tasks]
 initialize = { cmd = ["git", "submodule", "update", "--init", "--recursive"]}

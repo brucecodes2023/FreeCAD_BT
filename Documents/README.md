@@ -224,7 +224,23 @@ pixi run macos-app
 open ~/Applications/FreeCAD_BT.app
 ```
 
-That `.app` is a **launcher** (Dock / Launchpad). It still needs this git checkout and `build/release`. Optional: `./Documents/macos-app.sh --system` also copies to `/Applications` (sudo). A relocatable bundle (so you can delete the clone) is `package/rattler-build/osx/create_bundle.sh` after `pixi run install-release` — only after the first GUI launch works.
+That `.app` is a **launcher** (Dock / Launchpad). It still needs this git checkout and `build/release`. Optional: `./Documents/macos-app.sh --system` also copies to `/Applications` (sudo).
+
+**Standalone app (then you can delete the repo).** After the GUI from `pixi run freecad-release` looks right:
+
+```bash
+pixi run install-release
+./Documents/macos-standalone.sh
+open ~/Applications/FreeCAD_BT.app
+```
+
+That copies Qt/OCCT/the install into `~/Applications/FreeCAD_BT.app` (typically **~2–4 GB**). If *that* copy launches, you can remove the checkout:
+
+```bash
+rm -rf /path/to/FreeCAD_BT    # git clone + build/ + .pixi  (~15–20 GB)
+```
+
+Keep the `.app`. User prefs stay in `~/Library/Preferences/FreeCAD` (or `FREECAD_USER_HOME`). To change source later, clone again.
 
 ### After a successful first launch (shrink local disk)
 

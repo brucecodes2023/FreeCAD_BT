@@ -503,11 +503,12 @@ on top of the Modern CAD behavior pack; Fusion~360 nav is optional in Preference
 If the 3D view lags, enable software OpenGL and restart. C5 Metal stays later.
 
 The pixi build does \emph{not} install into \texttt{/Applications}. After
-\texttt{build/release/bin/FreeCAD} exists, \fp{pixi run macos-app} writes
-\texttt{\textasciitilde/Applications/FreeCAD\_BT.app} (a launcher that still needs
-this checkout). \fp{pixi run macos-cleanup} reclaims ccache and debug objects.
-The install is full FreeCAD (CAM, BIM, FEM, \ldots). Pixi is Apple Silicon only;
-Windows/Linux sources stay because they are the same CAD kernel.
+\texttt{build/release/bin/FreeCAD} exists, \fp{pixi run macos-app} writes a
+\emph{launcher} at \texttt{\textasciitilde/Applications/FreeCAD\_BT.app} that still
+needs this checkout. After that GUI is good, \fp{pixi run install-release} and
+\fp{Documents/macos-standalone.sh} copy Qt/OCCT into a relocatable app. If that
+copy launches, you may \texttt{rm -rf} the git clone, \fp{build/}, and
+\fp{.pixi/}. The install is full FreeCAD. Pixi is Apple Silicon only.
 
 % ============================ WORK LOG =====================================
 \section{Work log}
