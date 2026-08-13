@@ -220,6 +220,7 @@ void Gui::SoFCDB::init()
     RevitNavigationStyle ::init();
     SiemensNXNavigationStyle ::init();
     SolidWorksNavigationStyle ::init();
+    Fusion360NavigationStyle ::init();
     TinkerCADNavigationStyle ::init();
     TouchpadNavigationStyle ::init();
 
