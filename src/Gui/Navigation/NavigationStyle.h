@@ -561,6 +561,25 @@ private:
     SbBool lockButton1 {false};
 };
 
+class GuiExport Fusion360NavigationStyle: public UserNavigationStyle
+{
+    using inherited = UserNavigationStyle;
+
+    TYPESYSTEM_HEADER_WITH_OVERRIDE();
+
+public:
+    Fusion360NavigationStyle();
+    ~Fusion360NavigationStyle() override;
+    const char* mouseButtons(ViewerMode) override;
+    std::string userFriendlyName() const override;
+
+protected:
+    SbBool processSoEvent(const SoEvent* const ev) override;
+
+private:
+    SbBool lockButton1 {false};
+};
+
 class GuiExport MayaGestureNavigationStyle: public UserNavigationStyle
 {
     using inherited = UserNavigationStyle;
