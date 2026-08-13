@@ -184,7 +184,8 @@ QWidget* RibbonBar::makeCommandWidget(const char* name, QWidget* parent)
     btn->setObjectName(QStringLiteral("RibbonCommandButton"));
     btn->setDefaultAction(act->action());
     btn->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    btn->setIconSize(QSize(28, 28));
+    const int iconPx = ToolBarManager::getInstance()->toolBarIconSize();
+    btn->setIconSize(QSize(iconPx, iconPx));
     btn->setAutoRaise(true);
     btn->setFocusPolicy(Qt::NoFocus);
 
