@@ -1,0 +1,4 @@
+{
+  "name": "FreeCAD",
+  "install": "./.cursor/install.sh"
+}

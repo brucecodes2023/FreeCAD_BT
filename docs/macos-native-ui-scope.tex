@@ -1,0 +1,344 @@
+% FreeCAD macOS-Native + CAD-Familiar UI - Scoping Document
+% Minimalist, Apple-inspired styling. Compile with: pdflatex macos-native-ui-scope.tex
+\documentclass[11pt]{article}
+
+% --- Page geometry: generous whitespace -------------------------------------
+\usepackage[a4paper,top=26mm,bottom=24mm,left=24mm,right=24mm]{geometry}
+
+% --- Typography: clean sans-serif throughout --------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[scaled=1.02]{helvet}
+\usepackage[scaled=0.92]{inconsolata}  % narrow, clean monospace for paths
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{microtype}
+\usepackage[htt]{hyphenat}             % allow breaking inside typewriter text
+\usepackage[document]{ragged2e}
+\usepackage{setspace}
+\setstretch{1.18}
+% Let long file paths break gracefully rather than overrun the right margin
+\sloppy
+\emergencystretch=3em
+
+% --- Muted, restrained color palette ----------------------------------------
+\usepackage{xcolor}
+\definecolor{appleink}{HTML}{1D1D1F}
+\definecolor{applegray}{HTML}{6E6E73}
+\definecolor{appleblue}{HTML}{0071E3}
+\definecolor{applegreen}{HTML}{34C759}
+\definecolor{appleamber}{HTML}{FF9F0A}
+\definecolor{applered}{HTML}{FF3B30}
+\definecolor{hairline}{HTML}{D2D2D7}
+\definecolor{panel}{HTML}{F5F5F7}
+\color{appleink}
+
+% --- Section styling: light, spacious ---------------------------------------
+\usepackage{titlesec}
+\setcounter{secnumdepth}{0}
+\titleformat{\section}{\LARGE\bfseries\color{appleink}}{}{0em}{}
+\titlespacing*{\section}{0pt}{2.4em}{0.8em}
+\titleformat{\subsection}{\large\bfseries\color{appleink}}{}{0em}{}
+\titlespacing*{\subsection}{0pt}{1.4em}{0.4em}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{applegray}}{}{0em}{}
+\titlespacing*{\subsubsection}{0pt}{1.0em}{0.2em}
+
+% --- Lists ------------------------------------------------------------------
+\usepackage{enumitem}
+\setlist{leftmargin=1.3em,itemsep=3pt,topsep=4pt,parsep=0pt}
+\setlist[itemize]{label=\textcolor{appleblue}{\small\raisebox{0.15ex}{\textbullet}}}
+
+% --- Tables -----------------------------------------------------------------
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\renewcommand{\arraystretch}{1.3}
+\newcolumntype{L}{>{\RaggedRight\arraybackslash}X}
+
+% --- Boxes ------------------------------------------------------------------
+\usepackage[most]{tcolorbox}
+
+% --- Links ------------------------------------------------------------------
+\usepackage[hidelinks]{hyperref}
+
+% --- Headers / footers ------------------------------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancyfoot[C]{\footnotesize\color{applegray}FreeCAD\quad\textbullet\quad macOS-Native \& CAD-Familiar UI\quad\textbullet\quad\thepage}
+
+\newcommand{\hairrule}{\vspace{2pt}{\color{hairline}\hrule height 0.6pt}\vspace{2pt}}
+\usepackage{soul}
+\newcommand{\eyebrow}[1]{{\footnotesize\color{appleblue}\bfseries\so{\MakeUppercase{#1}}}}
+
+% Traffic-light dots for the title flourish
+\newcommand{\trafficlights}{%
+  \raisebox{0.2ex}{\textcolor{applered}{\Large\textbullet}}\,%
+  \raisebox{0.2ex}{\textcolor{appleamber}{\Large\textbullet}}\,%
+  \raisebox{0.2ex}{\textcolor{applegreen}{\Large\textbullet}}%
+}
+
+% Priority tag
+\newtcbox{\ptag}[1][appleblue]{on line, colframe=#1, colback=#1, coltext=white,
+  boxrule=0pt, arc=3pt, left=4pt, right=4pt, top=1pt, bottom=1pt,
+  fontupper=\footnotesize\bfseries}
+
+\begin{document}
+\thispagestyle{fancy}
+
+% ============================ TITLE BLOCK ===================================
+\begingroup
+\setstretch{1.0}
+\noindent\trafficlights\hfill\eyebrow{Product Scoping}\\[1.0em]
+{\fontsize{29}{33}\selectfont\bfseries macOS-Native Experience \&\\ CAD-Familiar Defaults\par}
+\vspace{0.7em}
+{\large\color{applegray} Making FreeCAD feel at home on Apple Silicon, and instantly familiar to SolidWorks and Fusion 360 users.\par}
+\vspace{1.1em}
+\noindent{\footnotesize\color{applegray} Repository \; \textbf{brucecodes2023/FreeCAD\_BT} \hfill Platform focus \; \textbf{macOS (arm64)} \hfill Status \; \textbf{Scoping}}
+\endgroup
+
+\vspace{0.9em}
+\hairrule
+\vspace{1.3em}
+
+% ============================ SUMMARY PANEL =================================
+\begin{tcolorbox}[enhanced, colback=panel, colframe=panel, boxrule=0pt,
+  arc=6pt, left=16pt, right=16pt, top=12pt, bottom=12pt]
+{\eyebrow{Summary}}\\[0.6em]
+This document scopes three workstreams, ordered by the priority you set: (A) make
+FreeCAD's \emph{default} UI feel like a modern mechanical CAD tool in the
+SolidWorks / Fusion 360 tradition; (B) sharpen the \emph{macOS-native} window
+experience; and (C) make FreeCAD \emph{faster on Apple Silicon}. Each item below is
+grounded in the current codebase, notes what already exists versus what is new
+work, lists the files it touches, and rates effort by technical scope (not
+calendar time).
+
+\vspace{0.6em}
+\textbf{Two headline findings shape the plan:}
+\begin{itemize}
+  \item A \textbf{SolidWorks navigation style already exists} in-tree, so a familiar
+  mouse/orbit model is mostly a \emph{defaults} change, not new code.
+  \item FreeCAD's main window \textbf{already uses the native macOS frame}, so the
+  red/amber/green traffic lights are \emph{already} rendered top-left by macOS. The
+  real ``native'' work is unifying the toolbar with the title bar and de-styling
+  non-native chrome \textemdash{} not moving the buttons.
+\end{itemize}
+\end{tcolorbox}
+
+% ============================ OBJECTIVES ====================================
+\section{Objectives \& Priority}
+\begin{enumerate}[label=\textbf{\arabic*.}]
+  \item \textbf{CAD-familiar defaults first.} Out of the box, navigation, view cube,
+  layout, and theme should read as a modern mechanical-CAD tool to a SolidWorks /
+  Fusion user.
+  \item \textbf{Native macOS window chrome.} Title bar, toolbar, and panels should
+  follow macOS conventions; verify the traffic-light placement is already correct.
+  \item \textbf{Apple Silicon performance.} Native arm64 build tuning, smarter
+  startup, and a path toward a modern GPU backend.
+\end{enumerate}
+
+% ============================ WORKSTREAM A =================================
+\section{Workstream A \; \ptag{Priority 1}\; CAD-Familiar UI Defaults}
+
+Goal: a first launch that feels like SolidWorks / Fusion 360 without the user
+touching a single preference. The cleanest, lowest-risk vehicle is a built-in
+\textbf{Preference Pack} plus a small change to the shipped defaults.
+
+\subsection{A1 \textemdash{} Default to a familiar navigation model}
+\textbf{Exists today.} Navigation styles live under \texttt{src/Gui/Navigation/}; the
+current default is \texttt{CADNavigationStyle}. A \texttt{SolidWorksNavigationStyle} is
+\emph{already implemented and registered} (via \texttt{src/Gui/SoFCDB.cpp}). The default
+is read from the parameter \texttt{BaseApp/Preferences/View$\rightarrow$NavigationStyle},
+with the code fallback set in \texttt{src/Gui/View3DSettings.cpp} and the template
+default in \texttt{src/Gui/PreferencePackTemplates/View.cfg}.
+\begin{itemize}
+  \item \textbf{Change:} ship \texttt{NavigationStyle = Gui::SolidWorksNavigationStyle}
+  as the default (via the new pack in A2, or the fallback in \texttt{View3DSettings.cpp}).
+  \item \textbf{Effort:} Low. \quad\textbf{Risk:} Low (reversible preference).
+\end{itemize}
+
+\subsection{A2 \textemdash{} Ship a ``Modern CAD'' preference pack}
+\textbf{New work, built on existing infrastructure.} Preference packs live under
+\texttt{src/Gui/PreferencePacks/} and are managed by \texttt{Gui::PreferencePackManager}
+(\texttt{src/Gui/PreferencePacks/PreferencePackManager.cpp}). A pack is a folder with a
+\texttt{.cfg} (merged into user parameters), optional \texttt{pre}/\texttt{post} macros, and
+optional \texttt{.qss} stylesheet. Bundle into one pack:
+\begin{itemize}
+  \item navigation style (A1) and view-cube configuration (A3);
+  \item a toolbar/dock layout derived from \texttt{PreferencePackTemplates/Main\_window\_layout.cfg} (tree, properties, and a modeling-forward default);
+  \item a light + dark stylesheet in the SolidWorks/Fusion visual register, alongside \texttt{src/Gui/Stylesheets/FreeCAD.qss}.
+\end{itemize}
+\textbf{Effort:} Medium. \quad\textbf{Risk:} Low\textendash Medium (layout/theme QA).
+
+\subsection{A3 \textemdash{} View cube tuned like a design tool}
+\textbf{Exists today.} The navigation cube (\texttt{src/Gui/NaviCube.cpp},
+\texttt{src/Gui/Inventor/SoNaviCube.h}) is already a SolidWorks/Fusion-style view cube.
+It is fully configurable via \texttt{BaseApp/Preferences/NaviCube} (corner, size, colors,
+fonts). Set sensible defaults (corner, size, subtle colors) inside the A2 pack.
+\textbf{Effort:} Low.
+
+\subsection{A4 \textemdash{} First-run onboarding hook}
+The Start workbench already has a first-run flow (\texttt{FirstStart2024} flag) with a
+theme selector: \texttt{src/Mod/Start/Gui/GeneralSettingsWidget.cpp} and
+\texttt{ThemeSelectorWidget}. Add the ``Modern CAD'' pack as a selectable (or default)
+option so new users land in the familiar experience.
+\textbf{Effort:} Low\textendash Medium.
+
+\subsection{A5 \textemdash{} Stretch: a true Fusion 360 navigation style}
+\textbf{New work.} No \texttt{Fusion360NavigationStyle} exists. Fusion's input model
+(MMB-orbit, Shift+MMB-pan, scroll-zoom) differs from SolidWorks. Add a
+\texttt{UserNavigationStyle} subclass under \texttt{src/Gui/Navigation/} and register it in
+\texttt{src/Gui/SoFCDB.cpp} + \texttt{src/Gui/CMakeLists.txt}.
+\textbf{Effort:} Medium. \quad\textbf{Risk:} Low (additive).
+
+\subsection{A6 \textemdash{} Out of near-term scope: ribbon UI}
+Neither SolidWorks' CommandManager nor Fusion's toolbar is present; FreeCAD uses a
+classic \texttt{Gui::ToolBarManager} model (\texttt{src/Gui/ToolBarManager.cpp}) with a
+\texttt{WorkbenchSelector}. A ribbon is greenfield and large; recommend deferring in
+favor of A1\textendash A4, which capture most of the ``familiar'' feel at a fraction of
+the risk.
+
+% ============================ WORKSTREAM B =================================
+\section{Workstream B \; \ptag[applegray]{Priority 2}\; macOS-Native Window Chrome}
+
+\subsection{B0 \textemdash{} Finding: traffic lights are already native \& top-left}
+\texttt{Gui::MainWindow} (\texttt{src/Gui/MainWindow.cpp}) is a plain \texttt{QMainWindow} with
+default \texttt{Qt::Window} flags \textemdash{} no frameless or custom title bar, and no
+\texttt{setUnifiedTitleAndToolBarOnMac} anywhere in the tree. On macOS, Qt/Cocoa draws
+the standard frame, so the red/amber/green controls already sit top-left. If they
+appear top-right, the app is being viewed on Linux/Windows or through a themed
+build. \textbf{Action:} verify visually on macOS (Qt~6.8) and document; no code move
+is required to place the buttons.
+
+\subsection{B1 \textemdash{} Unified title + toolbar}
+Add \texttt{setUnifiedTitleAndToolBarOnMac(true)} in the \texttt{MainWindow} constructor to
+merge the top toolbar into the title bar, the hallmark of a native Mac app.
+Validate toolbar layout, full-screen, and the \texttt{ToolBarManager} areas.
+\textbf{Effort:} Low\textendash Medium. \quad\textbf{Risk:} Medium (layout regressions).
+
+\subsection{B2 \textemdash{} Native dock \& panel chrome}
+Dock panels currently draw custom title bars via \texttt{QDockWidget::title} in
+\texttt{src/Gui/Stylesheets/FreeCAD.qss}, and floating toolbars use
+\texttt{Qt::FramelessWindowHint} (\texttt{src/Gui/ToolBarManager.cpp}). Platform-gate this
+QSS on macOS so Cocoa draws native dock/panel chrome.
+\textbf{Effort:} Medium. \quad\textbf{Risk:} Medium (theme interplay).
+
+\subsection{B3 \textemdash{} Full-size content view (deep native integration)}
+For a truly modern Mac look (content under the title bar, large-title behavior),
+add \texttt{NSWindow} integration via a new Objective-C++ (\texttt{.mm}) shim. There is a
+precedent for macOS Obj-C in-tree (QuickLook under \texttt{src/MacAppBundle/QuickLook/},
+3Dconnexion \texttt{GuiNativeEventMac}), but \emph{no} window-chrome Cocoa code exists yet.
+\textbf{Effort:} High. \quad\textbf{Risk:} High (new native surface).
+
+\subsection{B4 \textemdash{} Bundle identity \& appearance}
+The bundled \texttt{src/MacAppBundle/FreeCAD.app/Contents/Info.plist} ships an empty
+bundle identifier (filled by CMake \texttt{sed}); the conda recipe uses
+\texttt{org.freecad.FreeCAD} and sets \texttt{NSRequiresAquaSystemAppearance=False}
+(\texttt{package/rattler-build/osx/Info.plist.template}). Align a stable bundle id,
+dark-mode support, and icon (\texttt{freecad.icns}); track signing/notarization as a
+release concern.
+\textbf{Effort:} Low\textendash Medium.
+
+% ============================ WORKSTREAM C =================================
+\section{Workstream C \; \ptag[applegray]{Priority 3}\; Apple Silicon Performance}
+
+\subsubsection{What already helps}
+Native arm64 comes from conda-forge/\texttt{pixi} (\texttt{osx-arm64} platform in
+\texttt{pixi.toml}); \texttt{ccache} is on by default (\texttt{CMakeLists.txt}); C++ workbench
+modules load lazily on activation; and hot paths (mesh, TechDraw HLR) already use
+\texttt{QtConcurrent}.
+
+\subsection{C1 \textemdash{} Pin architecture \& deployment target}
+No \texttt{CMAKE\_OSX\_ARCHITECTURES} is set; the build follows the toolchain. Set
+\texttt{arm64} explicitly for reproducible native builds and confirm
+\texttt{CMAKE\_OSX\_DEPLOYMENT\_TARGET} (package build defaults to 11.0). Files:
+\texttt{CMakePresets.json} (\texttt{conda-macos-*}), \texttt{package/rattler-build/build.sh}.
+\textbf{Effort:} Low.
+
+\subsection{C2 \textemdash{} Optimization: LTO/IPO \& Apple CPU tuning}
+No LTO/IPO or \texttt{-mcpu=apple-m*} tuning in the main CMake. Add optional
+\texttt{INTERPROCEDURAL\_OPTIMIZATION} and Apple-CPU flags for release builds
+(\texttt{cMake/FreeCAD\_Helpers/SetGlobalCompilerAndLinkerSettings.cmake}). Measure
+binary size and link time.
+\textbf{Effort:} Medium. \quad\textbf{Risk:} Medium (build-time/ABI QA).
+
+\subsection{C3 \textemdash{} Activate TBB parallelism}
+\texttt{tbb-devel} is already a dependency but \texttt{HAVE\_TBB} is never defined, so the
+TBB code paths (e.g. \texttt{src/Mod/Import/App/ImportOCAF.cpp}) are dead. Wire
+\texttt{find\_package(TBB)} + \texttt{HAVE\_TBB} in \texttt{src/config.h.cmake} to light up
+parallel import/mesh paths on multi-core Apple Silicon.
+\textbf{Effort:} Medium. \quad\textbf{Risk:} Medium.
+
+\subsection{C4 \textemdash{} Faster startup}
+All ${\sim}28$ modules' \texttt{InitGui.py} scripts run eagerly at GUI startup
+(\texttt{src/Gui/FreeCADGuiInit.py}). Explore deferring non-essential workbench
+registration and leaning on the existing \texttt{BackgroundAutoloadModules} mechanism
+(\texttt{src/Gui/StartupProcess.cpp}) to cut time-to-interactive.
+\textbf{Effort:} Medium. \quad\textbf{Risk:} Medium (ordering assumptions).
+
+\subsection{C5 \textemdash{} Long-term: modern GPU backend}
+Rendering is OpenGL-only through Coin3D + \texttt{QOpenGLWidget}
+(\texttt{src/Gui/Quarter/QuarterWidget.cpp}, \texttt{src/Gui/View3DInventorViewer.cpp});
+macOS OpenGL is deprecated. A Metal path (via Qt RHI or MoltenVK) is a substantial
+Coin + Quarter + viewer effort, not a toggle. Flag as strategic R\&D, decoupled
+from A/B.
+\textbf{Effort:} Very High. \quad\textbf{Risk:} High.
+
+% ============================ SEQUENCING ===================================
+\section{Sequencing}
+\noindent\begin{tabularx}{\linewidth}{@{}p{0.14\linewidth}p{0.30\linewidth}L@{}}
+\toprule
+\textbf{Phase} & \textbf{Focus} & \textbf{Items} \\
+\midrule
+Phase 1 & Familiar defaults & A1, A3, A2 (pack), A4 onboarding \\
+Phase 2 & Native window feel & B0 verify, B1 unified toolbar, B4 bundle id \\
+Phase 3 & Native polish + speed & B2 dock chrome, C1, C3, C4 \\
+Phase 4 & Strategic R\&D & A5 Fusion nav, B3 NSWindow, C5 Metal \\
+\bottomrule
+\end{tabularx}
+
+% ============================ VALIDATION ===================================
+\section{Validation Plan}
+\noindent\begin{tabularx}{\linewidth}{@{}p{0.30\linewidth}L@{}}
+\toprule
+\textbf{Change} & \textbf{How it is proven} \\
+\midrule
+Default navigation / pack & Fresh profile launches with SolidWorks-style orbit and the Modern CAD layout; toggling back works. \\
+View cube defaults & Cube appears in the configured corner with the intended size/colors. \\
+Traffic lights (B0) & Screenshot on macOS showing native top-left controls; documented. \\
+Unified toolbar (B1) & Visual check of title/toolbar merge; full-screen and toolbar-area regression pass. \\
+arm64 / LTO / TBB & Build reports target \texttt{arm64}; benchmark import/mesh with and without TBB; record link time. \\
+Startup (C4) & Time-to-interactive measured before/after, across representative workbenches. \\
+No regressions & FreeCAD CLI + C++ self-tests remain green (as in the environment validation). \\
+\bottomrule
+\end{tabularx}
+
+% ============================ FILE INDEX ===================================
+\section{Grounded File Index}
+\noindent\begin{tabularx}{\linewidth}{@{}p{0.42\linewidth}L@{}}
+\toprule
+\textbf{Concern} & \textbf{Key path(s)} \\
+\midrule
+Navigation styles (SolidWorks exists) & \texttt{src/Gui/Navigation/*}, \texttt{src/Gui/SoFCDB.cpp} \\
+Navigation default \& fallback & \texttt{src/Gui/View3DSettings.cpp}, \texttt{PreferencePackTemplates/View.cfg} \\
+View cube & \texttt{src/Gui/NaviCube.cpp}, \texttt{src/Gui/Inventor/SoNaviCube.h} \\
+Preference packs \& manager & \texttt{src/Gui/PreferencePacks/}, \texttt{PreferencePackManager.cpp} \\
+Stylesheets / theme & \texttt{src/Gui/Stylesheets/FreeCAD.qss}, \texttt{defaults.qss} \\
+First-run onboarding & \texttt{src/Mod/Start/Gui/GeneralSettingsWidget.cpp}, \texttt{ThemeSelectorWidget} \\
+Main window \& chrome & \texttt{src/Gui/MainWindow.cpp}, \texttt{src/Gui/ToolBarManager.cpp} \\
+macOS bundle & \texttt{src/MacAppBundle/}, \texttt{package/rattler-build/osx/} \\
+Build presets / arch & \texttt{CMakePresets.json}, \texttt{pixi.toml}, \texttt{package/rattler-build/build.sh} \\
+Compiler / linker flags & \texttt{cMake/FreeCAD\_Helpers/SetGlobalCompilerAndLinkerSettings.cmake} \\
+TBB gate & \texttt{src/config.h.cmake}, \texttt{src/Mod/Import/App/ImportOCAF.cpp} \\
+Rendering stack & \texttt{src/Gui/Quarter/QuarterWidget.cpp}, \texttt{src/Gui/View3DInventorViewer.cpp} \\
+GUI startup & \texttt{src/Gui/FreeCADGuiInit.py}, \texttt{src/Gui/StartupProcess.cpp} \\
+\bottomrule
+\end{tabularx}
+
+\vspace{1.2em}
+\hairrule
+\vspace{0.6em}
+\noindent{\footnotesize\color{applegray} Effort ratings describe technical scope (breadth of components and invasiveness), not calendar estimates. ``Exists today'' items are configuration/defaults changes; ``new work'' items add code behind existing extension points.}
+
+\end{document}
