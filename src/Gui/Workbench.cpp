@@ -40,6 +40,7 @@
 #include "PythonWorkbenchPy.h"
 #include "Selection.h"
 #include "ToolBarManager.h"
+#include "RibbonManager.h"
 #include "ToolBoxManager.h"
 #include "Window.h"
 
@@ -456,6 +457,7 @@ bool Workbench::activate()
     setupCustomToolbars(tb, "Toolbar");
     WorkbenchManipulator::changeToolBars(tb);
     ToolBarManager::getInstance()->setup(tb);
+    RibbonManager::getInstance()->setup(tb);
     delete tb;
 
     // ToolBarItem* cb = setupCommandBars();
@@ -482,6 +484,7 @@ bool Workbench::activate()
 void Workbench::retranslate() const
 {
     ToolBarManager::getInstance()->retranslate();
+    RibbonManager::getInstance()->retranslate();
     // ToolBoxManager::getInstance()->retranslate();
     DockWindowManager::instance()->retranslate();
     MenuManager::getInstance()->retranslate();

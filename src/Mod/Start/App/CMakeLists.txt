@@ -38,6 +38,8 @@ set(Start_SRCS
         FileUtilities.cpp
         FileUtilities.h
         PreCompiled.h
+        ProjectsModel.cpp
+        ProjectsModel.h
         RecentFilesModel.cpp
         RecentFilesModel.h
         ThumbnailSource.cpp

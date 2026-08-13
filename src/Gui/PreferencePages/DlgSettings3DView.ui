@@ -284,6 +284,10 @@ will be shown at the lower left corner in opened files</string>
        <widget class="Gui::PrefCheckBox" name="CheckBox_use_SW_OpenGL">
         <property name="toolTip">
          <string>This option is useful for troubleshooting graphics card and driver problems.
+On Apple Silicon (including M4/M5) FreeCAD still draws the 3D view with OpenGL,
+which macOS translates to Metal. If the viewport is laggy or unstable, try this
+fallback, then restart. A native Metal/Qt RHI viewport is planned separately.
+
 Changing this option requires a restart of the application.</string>
         </property>
         <property name="text">

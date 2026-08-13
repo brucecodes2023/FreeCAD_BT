@@ -31,6 +31,7 @@
 #include "../App/RecentFilesModel.h"
 #include "../App/ExamplesModel.h"
 #include "../App/CustomFolderModel.h"
+#include "../App/ProjectsModel.h"
 
 class QCheckBox;
 class QEvent;
@@ -71,6 +72,7 @@ public:
     void newDraftFile();
     void newArchFile();
     void recentFileAdded(const QString& filename);
+    void newProject();
 
     bool onHasMsg(const char* pMsg) const override;
 
@@ -97,6 +99,10 @@ protected:
     void showOnStartupChanged(bool checked);
     void openFirstStartClicked();
     void firstStartWidgetDismissed();
+    void openProjectAt(int row);
+    void refreshDashboardMetrics();
+    void rebuildProjectCards();
+    QWidget* createMetricCard(QLabel*& title, QLabel*& value);
 
     QString fileCardStyle() const;
 
@@ -111,10 +117,20 @@ private:
     Start::RecentFilesModel _recentFilesModel;
     Start::ExamplesModel _examplesModel;
     Start::CustomFolderModel _customFolderModel;
+    Start::ProjectsModel _projectsModel;
+    QLabel* _dashboardTitle = nullptr;
     QLabel* _newFileLabel;
     QLabel* _examplesLabel;
     QLabel* _recentFilesLabel;
     QLabel* _customFolderLabel;
+    QLabel* _projectsLabel = nullptr;
+    QLabel* _metricFilesTitle = nullptr;
+    QLabel* _metricFilesValue = nullptr;
+    QLabel* _metricProjectsTitle = nullptr;
+    QLabel* _metricProjectsValue = nullptr;
+    QLabel* _metricGraphicsTitle = nullptr;
+    QLabel* _metricGraphicsValue = nullptr;
+    QWidget* _projectsRow = nullptr;
     QPushButton* _openFirstStart;
     QCheckBox* _showOnStartupCheckBox;
 

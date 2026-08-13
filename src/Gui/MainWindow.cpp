@@ -102,6 +102,7 @@
 #include "ModuleIO.h"
 #include "NotificationArea.h"
 #include "OverlayManager.h"
+#include "RibbonManager.h"
 #include "ProgramInformation.h"
 #include "ProgressBar.h"
 #include "PropertyView.h"
@@ -452,6 +453,7 @@ MainWindow::MainWindow(QWidget* parent, Qt::WindowFlags f)
 #endif
     d->mdiArea->setBackground(QBrush(QColor(160, 160, 160)));
     setCentralWidget(d->mdiArea);
+    RibbonManager::getInstance()->ensureInstalled();
 
     statusBar()->setObjectName(QStringLiteral("statusBar"));
     connect(statusBar(), &QStatusBar::messageChanged, this, &MainWindow::statusMessageChanged);
@@ -1626,6 +1628,7 @@ void MainWindow::onWindowActivated(QMdiSubWindow* mdi)
 
     auto view = dynamic_cast<MDIView*>(mdi->widget());
     setActiveWindow(view);
+    RibbonManager::getInstance()->syncVisibility();
 }
 
 void MainWindow::onWindowsMenuAboutToShow()

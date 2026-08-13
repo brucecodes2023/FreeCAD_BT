@@ -49,6 +49,7 @@
 #include <Gui/OverlayManager.h>
 #include <Gui/ParamHandler.h>
 #include <Gui/PreferencePackManager.h>
+#include <Gui/RibbonManager.h>
 #include <Gui/View3DInventor.h>
 #include <Gui/View3DInventorViewer.h>
 #include <Gui/Language/Translator.h>
@@ -253,6 +254,8 @@ void DlgSettingsGeneral::saveSettings()
         requireRestart();
     }
     ui->FineGrainedRecompute->onSave();
+    ui->UseRibbon->onSave();
+    RibbonManager::getInstance()->applyPreference();
 
     setRecentFileSize();
     bool force = setLanguage();
@@ -307,6 +310,7 @@ void DlgSettingsGeneral::loadSettings()
     ui->ActivateOverlay->onRestore();
     setProperty("ActivateOverlay", ui->ActivateOverlay->isChecked());
     ui->FineGrainedRecompute->onRestore();
+    ui->UseRibbon->onRestore();
 
     // search for the language files
     ParameterGrp::handle hGrp = WindowParameter::getDefaultParameter()->GetGroup("General");

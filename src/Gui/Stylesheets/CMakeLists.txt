@@ -3,11 +3,14 @@ SET(Stylesheets_Files
     "FreeCAD.qss"
     "defaults.qss"
     "macos-native-chrome.qss"
+    "fusion-ribbon.qss"
 )
 
 SET(Parameters_Files
     "parameters/FreeCAD Dark.yaml"
     "parameters/FreeCAD Light.yaml"
+    "parameters/Modern CAD Dark.yaml"
+    "parameters/Modern CAD Light.yaml"
 )
 
 SET(Overlay_Stylesheets_Files

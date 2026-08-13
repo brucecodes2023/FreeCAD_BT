@@ -2607,6 +2607,10 @@ void Application::runApplication()
         defaultFormat.setRenderableType(QSurfaceFormat::OpenGL);
         defaultFormat.setProfile(QSurfaceFormat::CompatibilityProfile);
         defaultFormat.setOption(QSurfaceFormat::DeprecatedFunctions, true);
+#ifdef Q_OS_MAC
+        // VSync through Apple's OpenGL-on-Metal translation; reduces hitching on M-series GPUs.
+        defaultFormat.setSwapInterval(1);
+#endif
 #if defined(FC_OS_LINUX) || defined(FC_OS_BSD)
         // QGuiApplication::platformName() doesn't yet work at this point, so we use the env var
         if (getenv("WAYLAND_DISPLAY")) {
@@ -2801,6 +2805,14 @@ void Application::setStyleSheet(const QString& qssFile, bool tiledBackground)
 
         return replaceVariablesInQss(in.readAll());
     }();
+
+    {
+        QFile ribbonQss(QLatin1String("qss:fusion-ribbon.qss"));
+        if (ribbonQss.open(QFile::ReadOnly | QFile::Text)) {
+            QTextStream ribbonStr(&ribbonQss);
+            defaultStyleSheet += QStringLiteral("\n") + replaceVariablesInQss(ribbonStr.readAll());
+        }
+    }
 
     if (!qssFile.isEmpty()) {
         // Search for stylesheet in user-defined search paths.

@@ -44,6 +44,7 @@
 #include "Command.h"
 #include "MainWindow.h"
 #include "OverlayWidgets.h"
+#include "RibbonManager.h"
 #include "WidgetFactory.h"
 
 
@@ -810,6 +811,10 @@ void ToolBarManager::setup(ToolBarItem* toolBarItems)
     }
 
     setMovable(!areToolBarsLocked());
+
+    if (RibbonManager::useRibbon()) {
+        hideAllForRibbon();
+    }
 }
 
 void ToolBarManager::setup(ToolBarItem* item, QToolBar* toolbar) const
@@ -918,6 +923,10 @@ void ToolBarManager::restoreState() const
     statusBarAreaWidget->restoreState(sbToolBars);
     menuBarRightAreaWidget->restoreState(mbRightToolBars);
     menuBarLeftAreaWidget->restoreState(mbLeftToolBars);
+
+    if (RibbonManager::useRibbon()) {
+        hideAllForRibbon();
+    }
 }
 
 bool ToolBarManager::addToolBarToArea(QObject* source, QMouseEvent* ev)
@@ -1260,6 +1269,17 @@ QList<ToolBar*> ToolBarManager::toolBars() const
     }
 
     return tb;
+}
+
+void ToolBarManager::hideAllForRibbon()
+{
+    const QList<ToolBar*> bars = toolBars();
+    for (ToolBar* toolbar : bars) {
+        toolbar->hide();
+        if (QAction* toggle = toolbar->toggleViewAction()) {
+            toggle->setVisible(false);
+        }
+    }
 }
 
 ToolBarItem::DefaultVisibility ToolBarManager::getToolbarPolicy(const QToolBar* toolbar) const

@@ -1282,6 +1282,8 @@ SET(Workbench_CPP_SRCS
     ToolBarAreaWidget.cpp
     ToolBarManager.cpp
     ToolBoxManager.cpp
+    RibbonBar.cpp
+    RibbonManager.cpp
     Workbench.cpp
     WorkbenchFactory.cpp
     WorkbenchManager.cpp
@@ -1298,6 +1300,8 @@ SET(Workbench_SRCS
     ToolBarAreaWidget.h
     ToolBarManager.h
     ToolBoxManager.h
+    RibbonBar.h
+    RibbonManager.h
     Workbench.h
     WorkbenchFactory.h
     WorkbenchManager.h

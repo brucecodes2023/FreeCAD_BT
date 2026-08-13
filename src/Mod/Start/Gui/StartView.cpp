@@ -24,18 +24,28 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QDir>
+#include <QFile>
+#include <QFileDialog>
 #include <QFrame>
 #include <QGridLayout>
+#include <QHBoxLayout>
+#include <QInputDialog>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListView>
 #include <QMdiSubWindow>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QTimer>
+#include <QVBoxLayout>
 #include <QWidget>
 #include <QStackedWidget>
 #include <QShowEvent>
+#include <QDateTime>
 
 #include "StartView.h"
 #include "FileCardDelegate.h"
@@ -144,6 +154,31 @@ StartView::StartView(QWidget* parent)
     auto documentsContentLayout = gsl::owner<QVBoxLayout*>(new QVBoxLayout(documentsScrollWidget));
     documentsContentLayout->setSizeConstraint(QLayout::SizeConstraint::SetMinAndMaxSize);
 
+    _dashboardTitle = gsl::owner<QLabel*>(new QLabel());
+    _dashboardTitle->setObjectName(QStringLiteral("DashboardTitle"));
+    documentsContentLayout->addWidget(_dashboardTitle);
+
+    auto metricsRow = gsl::owner<QWidget*>(new QWidget);
+    metricsRow->setObjectName(QStringLiteral("DashboardMetricsRow"));
+    auto metricsLayout = gsl::owner<QHBoxLayout*>(new QHBoxLayout(metricsRow));
+    metricsLayout->setContentsMargins({});
+    metricsLayout->setSpacing(12);
+    metricsLayout->addWidget(createMetricCard(_metricFilesTitle, _metricFilesValue));
+    metricsLayout->addWidget(createMetricCard(_metricProjectsTitle, _metricProjectsValue));
+    metricsLayout->addWidget(createMetricCard(_metricGraphicsTitle, _metricGraphicsValue));
+    metricsLayout->addStretch();
+    documentsContentLayout->addWidget(metricsRow);
+
+    _projectsLabel = gsl::owner<QLabel*>(new QLabel());
+    documentsContentLayout->addWidget(_projectsLabel);
+
+    _projectsRow = gsl::owner<QWidget*>(new QWidget);
+    _projectsRow->setObjectName(QStringLiteral("DashboardProjectsRow"));
+    auto projectsLayout = gsl::owner<FlowLayout*>(new FlowLayout);
+    projectsLayout->setContentsMargins({});
+    _projectsRow->setLayout(projectsLayout);
+    documentsContentLayout->addWidget(_projectsRow);
+
     _newFileLabel = gsl::owner<QLabel*>(new QLabel());
     documentsContentLayout->addWidget(_newFileLabel);
 
@@ -226,10 +261,13 @@ StartView::StartView(QWidget* parent)
         configureExamplesListWidget(examplesListWidget);
     }
     configureRecentFilesListWidget(recentFilesListWidget, _recentFilesLabel);
+    rebuildProjectCards();
+    refreshDashboardMetrics();
 
     QTimer::singleShot(2000, [this, recentFilesListWidget]() {
         auto updateFun = [this, recentFilesListWidget]() {
             configureRecentFilesListWidget(recentFilesListWidget, _recentFilesLabel);
+            refreshDashboardMetrics();
         };
         auto recentFiles = Gui::getMainWindow()->findChild<Gui::RecentFilesAction*>();
         if (recentFiles != nullptr) {
@@ -272,12 +310,18 @@ void StartView::configureNewFileButtons(QLayout* layout) const
          tr("Creates an architectural project"),
          QLatin1String(":/icons/BIMWorkbench.svg")}
     ));
+    auto newProject = gsl::owner<NewFileButton*>(new NewFileButton(
+        {tr("New Project"),
+         tr("Creates a project folder for related parts, assemblies, and drawings"),
+         QLatin1String(":/icons/folder.svg")}
+    ));
 
     // TODO: Ensure all of the required WBs are actually available
     layout->addWidget(partDesign);
     layout->addWidget(assembly);
     layout->addWidget(draft);
     layout->addWidget(arch);
+    layout->addWidget(newProject);
     layout->addWidget(newEmptyFile);
     layout->addWidget(openFile);
 
@@ -287,6 +331,7 @@ void StartView::configureNewFileButtons(QLayout* layout) const
     connect(assembly, &QPushButton::clicked, this, &StartView::newAssemblyFile);
     connect(draft, &QPushButton::clicked, this, &StartView::newDraftFile);
     connect(arch, &QPushButton::clicked, this, &StartView::newArchFile);
+    connect(newProject, &QPushButton::clicked, this, &StartView::newProject);
 }
 
 void StartView::configureFileCardWidget(QListView* fileCardWidget)
@@ -397,6 +442,140 @@ void StartView::newArchFile()
         "Gui.activeDocument().activeView().viewDefaultOrientation(None, 10000.0)"
     );
     postStart(PostStartBehavior::doNotSwitchWorkbench);
+}
+
+void StartView::newProject()
+{
+    const QString parent = QFileDialog::getExistingDirectory(
+        this,
+        tr("Choose a location for the new project")
+    );
+    if (parent.isEmpty()) {
+        return;
+    }
+
+    bool ok = false;
+    const QString name = QInputDialog::getText(
+        this,
+        tr("New Project"),
+        tr("Project name:"),
+        QLineEdit::Normal,
+        tr("Project"),
+        &ok
+    );
+    if (!ok || name.trimmed().isEmpty()) {
+        return;
+    }
+
+    QDir dir(parent);
+    if (!dir.mkdir(name) && !QDir(dir.filePath(name)).exists()) {
+        QMessageBox::warning(this, tr("New Project"), tr("Could not create the project folder."));
+        return;
+    }
+
+    const QString projectPath = dir.filePath(name);
+    QFile marker(QDir(projectPath).filePath(QStringLiteral(".freecad-project")));
+    if (marker.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        QJsonObject json;
+        json.insert(QStringLiteral("name"), name);
+        json.insert(QStringLiteral("created"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+        marker.write(QJsonDocument(json).toJson());
+    }
+
+    _projectsModel.addProject(projectPath);
+    rebuildProjectCards();
+    refreshDashboardMetrics();
+}
+
+QWidget* StartView::createMetricCard(QLabel*& title, QLabel*& value)
+{
+    auto* card = gsl::owner<QFrame*>(new QFrame());
+    card->setObjectName(QStringLiteral("DashboardMetricCard"));
+    auto* layout = gsl::owner<QVBoxLayout*>(new QVBoxLayout(card));
+    value = gsl::owner<QLabel*>(new QLabel(QStringLiteral("—")));
+    value->setObjectName(QStringLiteral("DashboardMetricValue"));
+    title = gsl::owner<QLabel*>(new QLabel());
+    layout->addWidget(value);
+    layout->addWidget(title);
+    return card;
+}
+
+void StartView::rebuildProjectCards()
+{
+    if (!_projectsRow) {
+        return;
+    }
+    auto* layout = qobject_cast<FlowLayout*>(_projectsRow->layout());
+    if (!layout) {
+        return;
+    }
+    while (QLayoutItem* item = layout->takeAt(0)) {
+        delete item->widget();
+        delete item;
+    }
+
+    _projectsModel.loadProjects();
+    if (_projectsModel.projectCount() == 0) {
+        auto* empty = gsl::owner<QLabel*>(
+            new QLabel(tr("No projects yet. Create a project folder to group related files."))
+        );
+        layout->addWidget(empty);
+        return;
+    }
+
+    for (int row = 0; row < _projectsModel.rowCount(); ++row) {
+        const QString name = _projectsModel.data(_projectsModel.index(row, 0), Qt::DisplayRole).toString();
+        const int fileCount =
+            _projectsModel.data(_projectsModel.index(row, 0), Start::ProjectsModel::FileCountRole)
+                .toInt();
+        auto* button = gsl::owner<NewFileButton*>(new NewFileButton(
+            {name,
+             tr("%1 FreeCAD file(s)").arg(fileCount),
+             QLatin1String(":/icons/folder.svg")}
+        ));
+        connect(button, &QPushButton::clicked, this, [this, row]() { openProjectAt(row); });
+        layout->addWidget(button);
+    }
+}
+
+void StartView::openProjectAt(int row)
+{
+    const QString path = _projectsModel.pathAt(row);
+    if (path.isEmpty()) {
+        return;
+    }
+    const QString filename = QFileDialog::getOpenFileName(
+        this,
+        tr("Open File in Project"),
+        path,
+        tr("FreeCAD files (*.FCStd *.fcstd);;All files (*)")
+    );
+    if (filename.isEmpty()) {
+        return;
+    }
+    try {
+        Gui::ModuleIO::verifyAndOpenFile(filename);
+    }
+    catch (Base::Exception& e) {
+        Base::Console().error(e.getMessage().c_str());
+    }
+}
+
+void StartView::refreshDashboardMetrics()
+{
+    if (!_metricFilesValue) {
+        return;
+    }
+    auto recentGrp = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/RecentFiles"
+    );
+    _metricFilesValue->setText(QString::number(recentGrp->GetInt("RecentFiles", 0)));
+    _metricProjectsValue->setText(QString::number(_projectsModel.projectCount()));
+#ifdef Q_OS_MAC
+    _metricGraphicsValue->setText(QStringLiteral("OpenGL → Metal"));
+#else
+    _metricGraphicsValue->setText(QStringLiteral("OpenGL"));
+#endif
 }
 
 bool StartView::onHasMsg(const char* pMsg) const
@@ -552,8 +731,22 @@ void StartView::retranslateUi()
 
     const QLatin1String h1Start("<h1>");
     const QLatin1String h1End("</h1>");
+    const QLatin1String h2Start("<h2>");
+    const QLatin1String h2End("</h2>");
 
-    _newFileLabel->setText(h1Start + tr("New File") + h1End);
+    if (_dashboardTitle) {
+        _dashboardTitle->setText(tr("Home"));
+    }
+    if (_projectsLabel) {
+        _projectsLabel->setText(h2Start + tr("Projects") + h2End);
+    }
+    if (_metricFilesTitle) {
+        _metricFilesTitle->setText(tr("Recent files"));
+        _metricProjectsTitle->setText(tr("Projects"));
+        _metricGraphicsTitle->setText(tr("3D graphics"));
+    }
+
+    _newFileLabel->setText(h2Start + tr("New File") + h2End);
     if (_examplesLabel) {
         _examplesLabel->setText(h1Start + tr("Examples") + h1End);
     }

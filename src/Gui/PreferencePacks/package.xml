@@ -38,13 +38,34 @@
 	<preferencepack>
 	  <name>Modern CAD</name>
       <type>Behavior</type>
-      <description>SolidWorks / Fusion 360-style navigation and a modeling-forward layout: SolidWorks mouse model, turntable orbit, rotate about the object under the cursor, zoom-to-cursor, and a top-right navigation cube. Apply on top of FreeCAD Light or FreeCAD Dark.</description>
-      <version>1.0.0</version>
+      <description>SolidWorks / Fusion 360-style navigation, Fusion ribbon, and a modeling-forward layout: SolidWorks mouse model, turntable orbit, rotate about the object under the cursor, zoom-to-cursor, and a top-right navigation cube. Apply on top of Modern CAD Light, Modern CAD Dark, FreeCAD Light, or FreeCAD Dark.</description>
+      <version>1.1.0</version>
       <tag>built-in</tag>
       <tag>behavior</tag>
       <tag>navigation</tag>
       <tag>solidworks</tag>
       <tag>fusion360</tag>
+      <tag>ribbon</tag>
+    </preferencepack>
+	<preferencepack>
+	  <name>Modern CAD Light</name>
+      <type>Theme</type>
+      <description>SolidWorks-inspired light chrome: cool gray surfaces, SW-blue accent (#0066B3), flat toolbars, and a light-gray 3D background. Pair with the Modern CAD behavior pack.</description>
+      <version>1.0.0</version>
+      <tag>built-in</tag>
+      <tag>background</tag>
+      <tag>light</tag>
+      <tag>solidworks</tag>
+    </preferencepack>
+	<preferencepack>
+	  <name>Modern CAD Dark</name>
+      <type>Theme</type>
+      <description>SolidWorks-inspired dark chrome: graphite surfaces, brighter blue accent, flat toolbars, and a dark-gray 3D background. Pair with the Modern CAD behavior pack.</description>
+      <version>1.0.0</version>
+      <tag>built-in</tag>
+      <tag>background</tag>
+      <tag>dark</tag>
+      <tag>solidworks</tag>
     </preferencepack>
   </content>
 </package>

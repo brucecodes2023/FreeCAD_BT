@@ -8,6 +8,8 @@ SET(PreferencePacks_Directories
         "FreeCAD Light"
         "FreeCAD Dark"
         "Modern CAD"
+        "Modern CAD Light"
+        "Modern CAD Dark"
 )
 
 ADD_CUSTOM_TARGET(PreferencePacks_data ALL

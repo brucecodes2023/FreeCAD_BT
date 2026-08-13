@@ -152,6 +152,72 @@ class _ClippingPlaneAdd(CommandManager):
         FreeCADGui.ActiveDocument.ActiveView.getSceneGraph().insertChild(clip_plane, 1)
 
 
+class _FirstPrinciplesStudy(CommandManager):
+    """WIP Elmer-backed study that starts from continuum equations instead of a canned structural wizard."""
+
+    def __init__(self):
+        super().__init__()
+        self.pixmap = "FEM_EquationElasticity"
+        self.menutext = Qt.QT_TRANSLATE_NOOP(
+            "FEM_FirstPrinciplesStudy", "First Principles Study (WIP)"
+        )
+        self.tooltip = Qt.QT_TRANSLATE_NOOP(
+            "FEM_FirstPrinciplesStudy",
+            "Work in progress: creates an Elmer analysis from elasticity and heat PDEs "
+            "(first-principles continuum equations) instead of a CalculiX structural preset",
+        )
+        self.is_active = "with_document"
+
+    def Activated(self):
+        from PySide import QtGui
+        import FemGui
+
+        doc = FreeCAD.ActiveDocument
+        if doc is None:
+            return
+
+        doc.openTransaction("First Principles Study")
+        FreeCADGui.addModule("FemGui")
+        FreeCADGui.addModule("ObjectsFem")
+
+        analysis = FemGui.getActiveAnalysis()
+        if analysis is None or analysis.Document != doc:
+            FreeCADGui.doCommand(
+                "ObjectsFem.makeAnalysis(FreeCAD.ActiveDocument, 'FirstPrinciplesStudy')"
+            )
+            FreeCADGui.doCommand("FemGui.setActiveAnalysis(FreeCAD.ActiveDocument.ActiveObject)")
+
+        FreeCADGui.doCommand(
+            "solver = ObjectsFem.makeSolverElmer(FreeCAD.ActiveDocument, 'SolverElmer')"
+        )
+        FreeCADGui.doCommand("FemGui.getActiveAnalysis().addObject(solver)")
+        FreeCADGui.doCommand("ObjectsFem.makeEquationElasticity(FreeCAD.ActiveDocument, solver)")
+        FreeCADGui.doCommand("ObjectsFem.makeEquationHeat(FreeCAD.ActiveDocument, solver)")
+        FreeCADGui.doCommand(
+            "FreeCADGui.ActiveDocument.toggleTreeItem(FemGui.getActiveAnalysis(), 2)"
+        )
+        doc.commitTransaction()
+        doc.recompute()
+
+        prefs = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Fem")
+        if not prefs.GetBool("FirstPrinciplesWipHintShown", False):
+            QtGui.QMessageBox.information(
+                FreeCADGui.getMainWindow(),
+                Qt.translate("FEM_FirstPrinciplesStudy", "First Principles Study (WIP)"),
+                Qt.translate(
+                    "FEM_FirstPrinciplesStudy",
+                    "This is a work-in-progress path toward SolidWorks-like simulation "
+                    "from FreeCAD's FEM foundation.\n\n"
+                    "It uses Elmer to solve continuum PDEs (linear elasticity and heat) "
+                    "rather than wrapping CalculiX as a structural black box. "
+                    "You still need a mesh, materials, and boundary conditions.\n\n"
+                    "Assembly-wide contact, a rollback-style study tree, and a guided "
+                    "equation wizard are not implemented yet.",
+                ),
+            )
+            prefs.SetBool("FirstPrinciplesWipHintShown", True)
+
+
 class _ClippingPlaneRemoveAll(CommandManager):
     "The FEM_ClippingPlaneRemoveAll command definition"
 
@@ -1379,6 +1445,7 @@ class _CompSolvers(CommandManager):
 
 # the string in add command will be the page name on FreeCAD wiki
 FreeCADGui.addCommand("FEM_Analysis", _Analysis())
+FreeCADGui.addCommand("FEM_FirstPrinciplesStudy", _FirstPrinciplesStudy())
 FreeCADGui.addCommand("FEM_ClippingPlaneAdd", _ClippingPlaneAdd())
 FreeCADGui.addCommand("FEM_ClippingPlaneRemoveAll", _ClippingPlaneRemoveAll())
 FreeCADGui.addCommand("FEM_ConstantVacuumPermittivity", _ConstantVacuumPermittivity())
