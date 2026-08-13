@@ -1,8 +1,10 @@
 # Modern CAD foundation (FreeCAD_BT)
 
-This fork starts from FreeCAD and closes the gap toward SolidWorks / Fusion 360
-without a rewrite. This note is the product brief for the shell, look, Mac
-smoothness, modeling, and simulation work.
+The living design plan and work tracker is now:
+
+**`Documents/modern-cad-design.tex`** (compile with `cd Documents && ./build.sh`).
+
+This markdown note is a short companion. Status, IDs (A1–G4), sequencing, and the work log live in the LaTeX document.
 
 ## 1. Smoother running on Apple M5 (and M4)
 
