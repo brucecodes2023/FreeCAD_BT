@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Rebuild Documents/modern-cad-design.pdf when the LaTeX source changes.
+# The Markdown edition (Documents/README.md) is what GitHub renders in-browser.
+
+name: Design PDF
+
+on:
+  push:
+    paths:
+      - "Documents/modern-cad-design.tex"
+      - "Documents/build.sh"
+      - ".github/workflows/design-pdf.yml"
+  pull_request:
+    paths:
+      - "Documents/modern-cad-design.tex"
+      - "Documents/build.sh"
+      - ".github/workflows/design-pdf.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pdf:
+    name: Build modern-cad-design.pdf
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install TeX Live
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            texlive-latex-base \
+            texlive-latex-recommended \
+            texlive-latex-extra \
+            texlive-fonts-recommended \
+            texlive-pictures
+
+      - name: Compile PDF
+        run: ./Documents/build.sh
+
+      - name: Upload PDF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: modern-cad-design
+          path: Documents/modern-cad-design.pdf
+          if-no-files-found: error
+          retention-days: 30

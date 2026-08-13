@@ -1,10 +1,13 @@
 # Modern CAD foundation (FreeCAD_BT)
 
-The living design plan and work tracker is now:
+The living design plan and work tracker:
 
-**`Documents/modern-cad-design.tex`** (compile with `cd Documents && ./build.sh`).
+- **Keep open on GitHub:** [`Documents/README.md`](../Documents/README.md) (Markdown; refreshes on each push)
+- **Typeset PDF:** [`Documents/modern-cad-design.pdf`](../Documents/modern-cad-design.pdf)
+- **LaTeX source:** [`Documents/modern-cad-design.tex`](../Documents/modern-cad-design.tex) (`cd Documents && ./build.sh`)
+- **Repo-root pointer:** [`PLAN.md`](../PLAN.md)
 
-This markdown note is a short companion. Status, IDs (A1–G4), sequencing, and the work log live in the LaTeX document.
+GitHub does not render `.tex`. Status, IDs (A1–G4), sequencing, and the work log live in the Markdown and LaTeX editions (keep them in sync).
 
 ## 1. Smoother running on Apple M5 (and M4)
 
