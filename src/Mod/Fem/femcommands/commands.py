@@ -218,6 +218,118 @@ class _FirstPrinciplesStudy(CommandManager):
             prefs.SetBool("FirstPrinciplesWipHintShown", True)
 
 
+def _run_calculix_study_preset(setup_name, transaction_name, dialog_title, dialog_text):
+    """Create/reuse an analysis and add a CalculiX solver preset (G3)."""
+    from PySide import QtGui
+    import FemGui
+
+    doc = FreeCAD.ActiveDocument
+    if doc is None:
+        return
+
+    doc.openTransaction(transaction_name)
+    FreeCADGui.addModule("FemGui")
+    FreeCADGui.addModule("femtools.study_presets")
+
+    analysis = FemGui.getActiveAnalysis()
+    reuse = analysis is not None and analysis.Document == doc
+    if reuse:
+        FreeCADGui.doCommand(
+            f"analysis, solver, material = femtools.study_presets.{setup_name}("
+            "FreeCAD.ActiveDocument, FemGui.getActiveAnalysis())"
+        )
+    else:
+        FreeCADGui.doCommand(
+            f"analysis, solver, material = femtools.study_presets.{setup_name}("
+            "FreeCAD.ActiveDocument)"
+        )
+    FreeCADGui.doCommand("FemGui.setActiveAnalysis(analysis)")
+    FreeCADGui.doCommand("FreeCADGui.ActiveDocument.toggleTreeItem(analysis, 2)")
+    doc.commitTransaction()
+    doc.recompute()
+
+    QtGui.QMessageBox.information(FreeCADGui.getMainWindow(), dialog_title, dialog_text)
+
+
+class _CalculiXStaticStudy(CommandManager):
+    """CalculiX static study preset (analysis + solver, no mesh)."""
+
+    def __init__(self):
+        super().__init__()
+        self.pixmap = "FEM_SolverStandard"
+        self.menutext = Qt.QT_TRANSLATE_NOOP("FEM_CalculiXStaticStudy", "CalculiX Static Study")
+        self.tooltip = Qt.QT_TRANSLATE_NOOP(
+            "FEM_CalculiXStaticStudy",
+            "Creates or reuses an analysis with a CalculiX static solver "
+            "and an empty solid material. Mesh and boundary conditions are still required.",
+        )
+        self.is_active = "with_document"
+
+    def Activated(self):
+        _run_calculix_study_preset(
+            "setup_calculix_static_study",
+            "CalculiX Static Study",
+            Qt.translate("FEM_CalculiXStaticStudy", "CalculiX Static Study"),
+            Qt.translate(
+                "FEM_CalculiXStaticStudy",
+                "A CalculiX static solver was added.\n\n"
+                "Next steps: create a mesh, assign material properties, "
+                "and add mechanical boundary conditions. "
+                "Then use the Guided Study Wizard or Run Solver.",
+            ),
+        )
+
+
+class _CalculiXThermalStudy(CommandManager):
+    """CalculiX thermal (pure heat transfer) study preset (analysis + solver, no mesh)."""
+
+    def __init__(self):
+        super().__init__()
+        self.pixmap = "FEM_ConstraintTemperature"
+        self.menutext = Qt.QT_TRANSLATE_NOOP("FEM_CalculiXThermalStudy", "CalculiX Thermal Study")
+        self.tooltip = Qt.QT_TRANSLATE_NOOP(
+            "FEM_CalculiXThermalStudy",
+            "Creates or reuses an analysis with a CalculiX thermomechanical solver "
+            "set to pure heat transfer, plus an empty solid material. "
+            "Mesh and thermal boundary conditions are still required.",
+        )
+        self.is_active = "with_document"
+
+    def Activated(self):
+        _run_calculix_study_preset(
+            "setup_calculix_thermal_study",
+            "CalculiX Thermal Study",
+            Qt.translate("FEM_CalculiXThermalStudy", "CalculiX Thermal Study"),
+            Qt.translate(
+                "FEM_CalculiXThermalStudy",
+                "A CalculiX thermal solver (pure heat transfer) was added.\n\n"
+                "Next steps: create a mesh, assign thermal material properties, "
+                "and add thermal boundary conditions. "
+                "Then use the Guided Study Wizard or Run Solver.",
+            ),
+        )
+
+
+class _StudyGuidedWizard(CommandManager):
+    """Guided checklist before running the active analysis solver."""
+
+    def __init__(self):
+        super().__init__()
+        self.pixmap = "FEM_SolverRun"
+        self.menutext = Qt.QT_TRANSLATE_NOOP("FEM_StudyGuidedWizard", "Guided Study Wizard")
+        self.tooltip = Qt.QT_TRANSLATE_NOOP(
+            "FEM_StudyGuidedWizard",
+            "Checks that the active analysis has a mesh, material, "
+            "and at least one constraint before running the solver",
+        )
+        self.is_active = "with_analysis"
+
+    def Activated(self):
+        from femguiutils.study_wizard import StudyGuidedWizard
+
+        StudyGuidedWizard(FreeCADGui.getMainWindow()).exec_()
+
+
 class _ClippingPlaneRemoveAll(CommandManager):
     "The FEM_ClippingPlaneRemoveAll command definition"
 
@@ -1446,6 +1558,9 @@ class _CompSolvers(CommandManager):
 # the string in add command will be the page name on FreeCAD wiki
 FreeCADGui.addCommand("FEM_Analysis", _Analysis())
 FreeCADGui.addCommand("FEM_FirstPrinciplesStudy", _FirstPrinciplesStudy())
+FreeCADGui.addCommand("FEM_CalculiXStaticStudy", _CalculiXStaticStudy())
+FreeCADGui.addCommand("FEM_CalculiXThermalStudy", _CalculiXThermalStudy())
+FreeCADGui.addCommand("FEM_StudyGuidedWizard", _StudyGuidedWizard())
 FreeCADGui.addCommand("FEM_ClippingPlaneAdd", _ClippingPlaneAdd())
 FreeCADGui.addCommand("FEM_ClippingPlaneRemoveAll", _ClippingPlaneRemoveAll())
 FreeCADGui.addCommand("FEM_ConstantVacuumPermittivity", _ConstantVacuumPermittivity())

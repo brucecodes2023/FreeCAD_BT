@@ -101,6 +101,8 @@ Gui::ToolBarItem* Workbench::setupToolBars() const
     model->setCommand("Model");
     *model << "FEM_Analysis"
            << "FEM_FirstPrinciplesStudy"
+           << "FEM_CalculiXStaticStudy"
+           << "FEM_CalculiXThermalStudy"
            << "Separator"
            << "FEM_MaterialSolid"
            << "FEM_MaterialFluid"
@@ -166,6 +168,7 @@ Gui::ToolBarItem* Workbench::setupToolBars() const
     Gui::ToolBarItem* solve = new Gui::ToolBarItem(root);
     solve->setCommand("Solve");
     *solve << "FEM_FirstPrinciplesStudy"
+           << "FEM_StudyGuidedWizard"
            << "FEM_CompSolvers"
            << "Separator"
            << "FEM_CompMechEquations"
@@ -175,7 +178,8 @@ Gui::ToolBarItem* Workbench::setupToolBars() const
            << "FEM_EquationHeat"
            << "Separator"
            << "FEM_SolverControl"
-           << "FEM_SolverRun";
+           << "FEM_SolverRun"
+           << "FEM_StudyGuidedWizard";
 
     Gui::ToolBarItem* results = new Gui::ToolBarItem(root);
     results->setCommand("Results");
@@ -296,6 +300,8 @@ Gui::MenuItem* Workbench::setupMenuBar() const
     model->setCommand("M&odel");
     *model << "FEM_Analysis"
            << "FEM_FirstPrinciplesStudy"
+           << "FEM_CalculiXStaticStudy"
+           << "FEM_CalculiXThermalStudy"
            << "Separator" << material << elegeom << "Separator" << elec << fluid << geom << mech
            << thermal
            << "Separator"
@@ -320,6 +326,7 @@ Gui::MenuItem* Workbench::setupMenuBar() const
     root->insertItem(item, solve);
     solve->setCommand("&Solve");
     *solve << "FEM_FirstPrinciplesStudy"
+           << "FEM_StudyGuidedWizard"
            << "FEM_CompSolvers"
            << "Separator"
            << "FEM_CompMechEquations"
@@ -329,7 +336,8 @@ Gui::MenuItem* Workbench::setupMenuBar() const
            << "FEM_EquationHeat"
            << "Separator"
            << "FEM_SolverControl"
-           << "FEM_SolverRun";
+           << "FEM_SolverRun"
+           << "FEM_StudyGuidedWizard";
 
     Gui::MenuItem* results = new Gui::MenuItem;
     root->insertItem(item, results);
