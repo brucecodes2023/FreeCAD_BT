@@ -34,6 +34,7 @@
 #include <QPainter>
 #include <QPointer>
 #include <QTextStream>
+#include <QTimer>
 #include <QTimerEvent>
 #include <QToolTip>
 #include <QScrollBar>
@@ -53,6 +54,7 @@
 #include "Application.h"
 #include "BitmapFactory.h"
 #include "Control.h"
+#include "Document.h"
 #include "MainWindow.h"
 #include "MDIView.h"
 #include "NaviCube.h"
@@ -62,6 +64,9 @@
 #include "Tree.h"
 #include "TreeParams.h"
 #include "View3DInventorViewer.h"
+#include "ViewProviderDocumentObject.h"
+
+#include <App/DocumentObject.h>
 
 FC_LOG_LEVEL_INIT("Dock", true, true);
 
@@ -405,6 +410,7 @@ public:
         Application::Instance->signalActivateView.connect([this](const MDIView*) { refresh(); });
         Application::Instance->signalInEdit.connect([this](const ViewProviderDocumentObject&) {
             refresh();
+            QTimer::singleShot(0, []() { OverlayManager::instance()->onTaskViewUpdate(); });
         });
         Application::Instance->signalResetEdit.connect([this](const ViewProviderDocumentObject&) {
             refresh();
@@ -722,9 +728,14 @@ public:
             delta += paddedCubeSize - rectBottom.height();
         }
         int rh = std::max(h - ofs.width() - delta, 10);
-        w -= ofs.height();
+        const int rightInset = std::max(0, ofs.height());
+        int rightWidth = std::max(rect.width(), static_cast<int>(OverlayParams::getDockOverlayMinimumSize()));
+        int rightX = w - rightWidth - rightInset;
+        if (rightX < 0) {
+            rightX = 0;
+        }
 
-        _right.tabWidget->setRect(QRect(w - rect.width(), ofs.width(), rect.width(), rh));
+        _right.tabWidget->setRect(QRect(rightX, ofs.width(), rightWidth, rh));
 
         if (_right.tabWidget->count() && _right.tabWidget->isVisible()
             && _right.tabWidget->getState() <= OverlayTabWidget::State::Normal) {
@@ -1685,6 +1696,9 @@ void OverlayManager::onTaskViewUpdate()
 {
     auto taskview = qobject_cast<TaskView::TaskView*>(sender());
     if (!taskview) {
+        taskview = Control().taskPanel();
+    }
+    if (!taskview) {
         return;
     }
     QDockWidget* dock = nullptr;
@@ -1695,11 +1709,63 @@ void OverlayManager::onTaskViewUpdate()
     }
     if (dock) {
         auto it = d->_overlayMap.find(dock);
-        if (it == d->_overlayMap.end() || it->second->tabWidget->count() < 2
-            || it->second->tabWidget->getAutoMode() != OverlayTabWidget::AutoMode::TaskShow) {
+        if (it == d->_overlayMap.end()) {
             return;
         }
-        d->onToggleDockWidget(dock, taskview->isEmpty(false) ? -2 : 2);
+        auto* tab = it->second->tabWidget;
+        if (tab->getAutoMode() != OverlayTabWidget::AutoMode::TaskShow && !tab->keepTabVisible()) {
+            return;
+        }
+        const bool empty = taskview->isEmpty(false);
+        if (tab->count() >= 2) {
+            d->onToggleDockWidget(dock, empty ? -2 : 2);
+        }
+        if (!empty) {
+            tab->openedForTask = true;
+            tab->setUserPinned(true);
+            if (tab->getState() == OverlayTabWidget::State::Hint
+                || tab->getState() == OverlayTabWidget::State::HintHidden
+                || tab->getState() == OverlayTabWidget::State::Hidden
+                || !tab->isVisible()) {
+                tab->setState(OverlayTabWidget::State::Showing);
+            }
+        }
+        else if (tab->keepTabVisible() && tab->openedForTask) {
+            tab->openedForTask = false;
+            tab->setUserPinned(false);
+            if (tab->getState() <= OverlayTabWidget::State::Normal) {
+                tab->setState(OverlayTabWidget::State::Hint);
+            }
+        }
+        else if (empty && tab->keepTabVisible() && !tab->isUserPinned()
+                 && tab->getState() == OverlayTabWidget::State::Normal) {
+            tab->setState(OverlayTabWidget::State::Hint);
+        }
+        const int index = tab->dockWidgetIndex(dock);
+        if (index >= 0) {
+            QString title = QDockWidget::tr("Tasks");
+            if (!empty) {
+                if (auto* guiDoc = Application::Instance->editDocument()) {
+                    if (auto* vp = dynamic_cast<ViewProviderDocumentObject*>(guiDoc->getInEdit())) {
+                        if (auto* obj = vp->getObject()) {
+                            const char* label = obj->Label.getValue();
+                            if (label && label[0]) {
+                                title = QString::fromUtf8(label);
+                            }
+                        }
+                    }
+                }
+                if (title == QDockWidget::tr("Tasks")) {
+                    if (auto* dlg = Control().activeDialog()) {
+                        if (!dlg->objectName().isEmpty()) {
+                            title = dlg->objectName();
+                        }
+                    }
+                }
+            }
+            tab->setTabText(index, title);
+        }
+        refresh(tab);
     }
 }
 
@@ -1724,6 +1790,10 @@ void OverlayManager::onDockWidgetTitleChange(const QString& title)
     }
     int index = tabWidget->dockWidgetIndex(dock);
     if (index >= 0) {
+        if (tabWidget->keepTabVisible() && title == QDockWidget::tr("Tasks")
+            && Control().taskPanel() && !Control().taskPanel()->isEmpty(false)) {
+            return;
+        }
         tabWidget->setTabText(index, title);
     }
 }

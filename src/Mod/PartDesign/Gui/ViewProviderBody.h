@@ -110,6 +110,8 @@ protected:
     void unifyVisualProperty(const App::Property* prop);
     /// Set Feature viewprovider into visual body mode
     void setVisualBodyMode(bool bodymode);
+    /// Grey/italic tree items for features after Tip (SolidWorks rollback look)
+    void syncAfterTipVisuals();
 
 private:
     static const char* BodyModeEnum[];

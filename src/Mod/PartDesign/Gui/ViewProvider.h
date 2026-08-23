@@ -68,6 +68,9 @@ public:
 
     void setTipIcon(bool onoff);
 
+    /// SolidWorks FeatureManager: grey/italic features after Body Tip (rollback).
+    void setAfterTip(bool onoff);
+
     // body mode means that the object is part of a body and that the body is used to set the
     // visual properties, not the features. Hence setting body mode to true will hide most
     // viewprovider properties.
@@ -121,6 +124,7 @@ protected:
     ViewProvider* previouslyShownViewProvider {nullptr};
 
     bool isSetTipIcon {false};
+    bool isSetAfterTip {false};
 
 private:
     Gui::CoinPtr<PartGui::SoPreviewShape> pcToolPreview;

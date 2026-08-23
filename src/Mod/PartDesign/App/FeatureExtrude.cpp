@@ -513,9 +513,13 @@ App::DocumentObjectExecReturn* FeatureExtrude::buildExtrusion(ExtrudeOptions opt
             dir.Reverse();
         }
 
-        if (sketchshape.isNull()) {
+        if (sketchshape.isNull() || (makeface && !sketchshape.hasSubShape(TopAbs_FACE))) {
             return new App::DocumentObjectExecReturn(
-                QT_TRANSLATE_NOOP("Exception", "Creating a face from sketch failed")
+                QT_TRANSLATE_NOOP(
+                    "Exception",
+                    "Creating a face from sketch failed. The sketch must be a closed contour. "
+                    "Use Sketch → Validate Sketch → Check Closed Contour, then Pad."
+                )
             );
         }
         sketchshape.move(invObjLoc);

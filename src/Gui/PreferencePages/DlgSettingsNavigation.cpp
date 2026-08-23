@@ -96,6 +96,7 @@ void DlgSettingsNavigation::saveSettings()
 
     ui->checkBoxZoomAtCursor->onSave();
     ui->checkBoxInvertZoom->onSave();
+    ui->checkBoxTrackpadScrollZooms->onSave();
     ui->checkBoxDisableTilt->onSave();
     ui->rotationCenterSize->onSave();
     ui->rotationCenterColor->onSave();
@@ -147,6 +148,7 @@ void DlgSettingsNavigation::loadSettings()
 {
     ui->checkBoxZoomAtCursor->onRestore();
     ui->checkBoxInvertZoom->onRestore();
+    ui->checkBoxTrackpadScrollZooms->onRestore();
     ui->checkBoxDisableTilt->onRestore();
     ui->rotationCenterSize->onRestore();
     ui->rotationCenterColor->onRestore();

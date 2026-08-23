@@ -24,18 +24,25 @@
  ***************************************************************************/
 
 #include <cmath>
+#include <numeric>
+#include <utility>
 
 #include <BRep_Tool.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
 #include <Precision.hxx>
+#include <Standard_Failure.hxx>
 #include <TopExp.hxx>
+#include <TopExp_Explorer.hxx>
 #include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Vertex.hxx>
+#include <TopoDS_Wire.hxx>
 #include <gp_Pnt.hxx>
 
 #include <App/Document.h>
 #include <Base/Console.h>
+#include <Mod/Part/App/Geometry.h>
 
 #include "GeometryFacade.h"
 #include "SketchAnalysis.h"
@@ -975,30 +982,172 @@ int SketchAnalysis::autoconstraint(double precision, double angleprecision, bool
 }
 
 
-std::vector<Base::Vector3d> SketchAnalysis::getOpenVertices() const
+SketchAnalysis::ClosedContourStatus SketchAnalysis::analyseClosedContour(double gapTolerance) const
 {
-    std::vector<Base::Vector3d> points;
-    TopoDS_Shape shape = sketch->Shape.getValue();
+    ClosedContourStatus status;
+    if (!sketch) {
+        return status;
+    }
 
-    Base::Placement Plm = sketch->Placement.getValue();
+    struct Endpoint
+    {
+        int geoId = -1;
+        Sketcher::PointPos pos = Sketcher::PointPos::none;
+        Base::Vector3d point;
+    };
 
-    Base::Placement invPlm = Plm.inverse();
+    std::vector<Endpoint> endpoints;
+    int closedCurveCount = 0;
+    const std::vector<Part::Geometry*>& geom = sketch->getInternalGeometry();
+    endpoints.reserve(geom.size() * 2);
 
-    // build up map vertex->edge
-    TopTools_IndexedDataMapOfShapeListOfShape vertex2Edge;
-    TopExp::MapShapesAndAncestors(shape, TopAbs_VERTEX, TopAbs_EDGE, vertex2Edge);
-    for (int i = 1; i <= vertex2Edge.Extent(); ++i) {
-        const TopTools_ListOfShape& los = vertex2Edge.FindFromIndex(i);
-        if (los.Extent() != 2) {
-            const TopoDS_Vertex& vertex = TopoDS::Vertex(vertex2Edge.FindKey(i));
-            gp_Pnt pnt = BRep_Tool::Pnt(vertex);
-            Base::Vector3d pos;
-            invPlm.multVec(Base::Vector3d(pnt.X(), pnt.Y(), pnt.Z()), pos);
-            points.push_back(pos);
+    auto addBoundedEndpoints = [&](const Part::Geometry* geo, int geoId) {
+        const auto* bounded = dynamic_cast<const Part::GeomBoundedCurve*>(geo);
+        if (!bounded) {
+            return;
+        }
+        Base::Vector3d start = bounded->getStartPoint();
+        Base::Vector3d end = bounded->getEndPoint();
+        if (const auto* arc = dynamic_cast<const Part::GeomArcOfConic*>(geo)) {
+            start = arc->getStartPoint(/*emulateCCWXY=*/true);
+            end = arc->getEndPoint(/*emulateCCWXY=*/true);
+        }
+        endpoints.push_back({geoId, Sketcher::PointPos::start, start});
+        endpoints.push_back({geoId, Sketcher::PointPos::end, end});
+    };
+
+    for (std::size_t i = 0; i < geom.size(); ++i) {
+        auto gf = GeometryFacade::getFacade(geom[i]);
+        if (gf->getConstruction()) {
+            continue;
+        }
+        const Part::Geometry* geo = gf->getGeometry();
+        if (SketchObject::isClosedCurve(geo)) {
+            ++closedCurveCount;
+            continue;
+        }
+        addBoundedEndpoints(geo, static_cast<int>(i));
+    }
+
+    const int count = static_cast<int>(endpoints.size());
+    std::vector<int> parent(count);
+    std::iota(parent.begin(), parent.end(), 0);
+    auto findRoot = [&](auto&& self, int i) -> int {
+        if (parent[i] != i) {
+            parent[i] = self(self, parent[i]);
+        }
+        return parent[i];
+    };
+    auto unite = [&](int a, int b) {
+        a = findRoot(findRoot, a);
+        b = findRoot(findRoot, b);
+        if (a != b) {
+            parent[b] = a;
+        }
+    };
+    auto indexOf = [&](int geoId, Sketcher::PointPos pos) -> int {
+        for (int i = 0; i < count; ++i) {
+            if (endpoints[i].geoId == geoId && endpoints[i].pos == pos) {
+                return i;
+            }
+        }
+        return -1;
+    };
+
+    for (const auto* constraint : sketch->Constraints.getValues()) {
+        if (constraint->Type != Sketcher::Coincident && constraint->Type != Sketcher::Tangent
+            && constraint->Type != Sketcher::Perpendicular) {
+            continue;
+        }
+        if (constraint->FirstPos != Sketcher::PointPos::start
+            && constraint->FirstPos != Sketcher::PointPos::end) {
+            continue;
+        }
+        if (constraint->SecondPos != Sketcher::PointPos::start
+            && constraint->SecondPos != Sketcher::PointPos::end) {
+            continue;
+        }
+        const int a = indexOf(constraint->First, constraint->FirstPos);
+        const int b = indexOf(constraint->Second, constraint->SecondPos);
+        if (a >= 0 && b >= 0) {
+            unite(a, b);
         }
     }
 
-    return points;
+    const double tol = std::max(gapTolerance, Precision::Confusion() * 1000.0);
+    const double tol2 = tol * tol;
+    for (int i = 0; i < count; ++i) {
+        for (int j = i + 1; j < count; ++j) {
+            if (findRoot(findRoot, i) == findRoot(findRoot, j)) {
+                continue;
+            }
+            if ((endpoints[i].point - endpoints[j].point).Sqr() <= tol2) {
+                ++status.missingCoincidenceCount;
+            }
+        }
+    }
+
+    std::vector<int> incidences(count, 0);
+    for (int i = 0; i < count; ++i) {
+        ++incidences[findRoot(findRoot, i)];
+    }
+
+    std::vector<char> reported(count, 0);
+    for (int i = 0; i < count; ++i) {
+        const int root = findRoot(findRoot, i);
+        if (incidences[root] != 1 || reported[root]) {
+            continue;
+        }
+        reported[root] = 1;
+        ++status.openEndpointCount;
+        status.gapPoints.push_back(endpoints[i].point);
+    }
+
+    // Near-miss pairs that are not already flagged as a dangling endpoint.
+    for (int i = 0; i < count; ++i) {
+        for (int j = i + 1; j < count; ++j) {
+            if (findRoot(findRoot, i) == findRoot(findRoot, j)) {
+                continue;
+            }
+            if ((endpoints[i].point - endpoints[j].point).Sqr() > tol2) {
+                continue;
+            }
+            status.gapPoints.push_back((endpoints[i].point + endpoints[j].point) * 0.5);
+        }
+    }
+
+    status.hasClosedContour = closedCurveCount > 0
+        || (count > 0 && status.openEndpointCount == 0 && status.missingCoincidenceCount == 0);
+
+    const TopoDS_Shape shape = sketch->Shape.getValue();
+    if (!shape.IsNull()) {
+        TopExp_Explorer explorer(shape, TopAbs_WIRE);
+        for (; explorer.More(); explorer.Next()) {
+            const TopoDS_Wire wire = TopoDS::Wire(explorer.Current());
+            if (!wire.Closed() && !BRep_Tool::IsClosed(wire)) {
+                continue;
+            }
+            try {
+                BRepBuilderAPI_MakeFace mkFace(wire);
+                if (mkFace.IsDone() && !mkFace.Face().IsNull()) {
+                    status.canMakeFace = true;
+                    break;
+                }
+            }
+            catch (const Standard_Failure&) {
+            }
+        }
+    }
+    else if (status.hasClosedContour) {
+        status.canMakeFace = closedCurveCount > 0;
+    }
+
+    return status;
+}
+
+std::vector<Base::Vector3d> SketchAnalysis::getOpenVertices() const
+{
+    return analyseClosedContour().gapPoints;
 }
 
 std::set<int> SketchAnalysis::getDegeneratedGeometries(double tolerance) const

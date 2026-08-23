@@ -43,14 +43,19 @@
 #include <QByteArray>
 #include <QCursor>
 #include <QMenu>
+#include <QNativeGestureEvent>
+#include <QWheelEvent>
+#include <QWidget>
 
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numbers>
 
 #include <Base/Interpreter.h>
 #include <App/Application.h>
+#include <FCConfig.h>
 
 #include "Navigation/NavigationStyle.h"
 #include "Navigation/NavigationStylePy.h"
@@ -63,8 +68,10 @@
 #include "MouseSelection.h"
 #include "Navigation/NavigationAnimator.h"
 #include "Navigation/NavigationAnimation.h"
+#include "Quarter/devices/InputDevice.h"
 #include "Selection.h"
 #include "SoFullPathHelper.h"
+#include "SoTouchEvents.h"
 #include "View3DInventorViewer.h"
 #include "ViewParams.h"
 
@@ -491,6 +498,8 @@ void NavigationStyle::initialize()
     this->hasDragged = false;
     this->hasPanned = false;
     this->hasZoomed = false;
+    this->nativeGestureActive = false;
+    this->lastNativePinchTime = SbTime::zero();
 }
 
 void NavigationStyle::finalize()
@@ -2272,12 +2281,16 @@ SbBool NavigationStyle::processSoEvent(const SoEvent* const ev)
     bool processed = false;
     bool offeredtoViewerEventBase = false;
 
-    // handle mouse wheel zoom
+    // mouse wheel / trackpad scroll (pan by default; see processWheelEvent)
     if (ev->isOfType(SoMouseWheelEvent::getClassTypeId())) {
         auto const event = static_cast<const SoMouseWheelEvent*>(ev);
         processed = processWheelEvent(event);
         viewer->processSoEventBase(ev);
         offeredtoViewerEventBase = true;
+    }
+    else if (ev->isOfType(SoGestureEvent::getClassTypeId())) {
+        processed = processGestureEvent(ev);
+        offeredtoViewerEventBase = processed;
     }
 
     if (!processed && !offeredtoViewerEventBase) {
@@ -2535,9 +2548,272 @@ SbBool NavigationStyle::processWheelEvent(const SoMouseWheelEvent* const event)
     const SbVec2s pos(event->getPosition());
     const SbVec2f posn = normalizePixelPos(pos);
 
-    // handle mouse wheel zoom
-    doZoom(viewer->getSoRenderManager()->getCamera(), event->getDelta(), posn);
+    // Fallback when Qt did not consume the wheel (rare). Match Modern CAD:
+    // unmodified scroll pans; classic zoom-on-scroll is opt-in.
+    const bool scrollZooms = App::GetApplication()
+                                 .GetParameterGroupByPath("User parameter:BaseApp/Preferences/View")
+                                 ->GetBool("TrackpadScrollZooms", false);
+    const int delta = event->getDelta();
+    if (scrollZooms) {
+        doZoom(viewer->getSoRenderManager()->getCamera(), delta, posn);
+    }
+    else {
+        // Approximate a wheel notch as a short pan (Coin has no pixel delta).
+        trackpadPanByPixels(posn, 0.0F, static_cast<float>(delta) * 0.25F);
+    }
     return true;
+}
+
+bool NavigationStyle::isTouchTiltEnabled() const
+{
+#ifdef FC_OS_MACOSX
+    const bool disableByDefault = false;
+#else
+    const bool disableByDefault = true;
+#endif
+    return !App::GetApplication()
+                .GetParameterGroupByPath("User parameter:BaseApp/Preferences/View")
+                ->GetBool("DisableTouchTilt", disableByDefault);
+}
+
+SbVec2f NavigationStyle::qtPositionToNormalized(const QPointF& globalPos)
+{
+    if (!viewer) {
+        return {0.5F, 0.5F};
+    }
+
+    QWidget* target = viewer->viewport() ? viewer->viewport() : viewer;
+    const QPointF local = target->mapFromGlobal(globalPos);
+    const SbVec2s logicalSize(
+        static_cast<short>(std::max(1, target->width())),
+        static_cast<short>(std::max(1, target->height()))
+    );
+    const SbVec2s pixpos = SIM::Coin3D::Quarter::InputDevice::toDevicePixelPosition(
+        local,
+        logicalSize,
+        viewer->devicePixelRatio()
+    );
+    return normalizePixelPos(pixpos);
+}
+
+void NavigationStyle::trackpadPanByPixels(const SbVec2f& posn, float dxPixels, float dyPixels)
+{
+    SoCamera* camera = viewer ? viewer->getSoRenderManager()->getCamera() : nullptr;
+    if (!camera) {
+        return;
+    }
+
+    const SbViewportRegion& vp = viewer->getSoRenderManager()->getViewportRegion();
+    const SbVec2s size = vp.getViewportSizePixels();
+    const float width = std::max(1, static_cast<int>(size[0]));
+    const float height = std::max(1, static_cast<int>(size[1]));
+    const SbVec2f delta(dxPixels / width, dyPixels / height);
+    if (delta[0] == 0.0F && delta[1] == 0.0F) {
+        return;
+    }
+
+    setupPanningPlane(camera);
+    panCamera(camera, vp.getViewportAspectRatio(), panningplane, posn + delta, posn);
+    hasPanned = true;
+}
+
+void NavigationStyle::trackpadOrbitByPixels(const SbVec2f& posn, float dxPixels, float dyPixels)
+{
+    if (!viewer) {
+        return;
+    }
+
+    const SbViewportRegion& vp = viewer->getSoRenderManager()->getViewportRegion();
+    const SbVec2s size = vp.getViewportSizePixels();
+    const float width = std::max(1, static_cast<int>(size[0]));
+    const float height = std::max(1, static_cast<int>(size[1]));
+    const float gain = std::max(0.1F, getSensitivity());
+    const SbVec2f delta(gain * dxPixels / width, gain * dyPixels / height);
+    if (delta[0] == 0.0F && delta[1] == 0.0F) {
+        return;
+    }
+
+    spin_simplified(posn + delta, posn);
+    hasDragged = true;
+}
+
+bool NavigationStyle::handleTrackpadWheelEvent(QWheelEvent* event)
+{
+    if (!viewer || !event || isSeekMode()) {
+        return false;
+    }
+
+    // Pinch zoom/rotate already owns this motion; ignore extra wheel events.
+    // Applies to both trackpad two-finger scroll and physical mouse wheel.
+    if (nativeGestureActive
+        || (SbTime::getTimeOfDay() - lastNativePinchTime).getValue() < 0.08) {
+        return true;
+    }
+
+    stopAnimating();
+
+    QPointF pixel = event->pixelDelta();
+    if (pixel.isNull()) {
+        pixel = QPointF(event->angleDelta()) / 8.0;
+    }
+    pixel *= viewer->devicePixelRatio();
+
+    const SbVec2f posn = qtPositionToNormalized(event->globalPosition());
+    const Qt::KeyboardModifiers mods = event->modifiers();
+
+    // Cmd/Option(/Control) + scroll → orbit. Qt maps Command to ControlModifier
+    // on macOS; MetaModifier is the physical Control key.
+    if (mods.testFlag(Qt::AltModifier) || mods.testFlag(Qt::ControlModifier)
+        || mods.testFlag(Qt::MetaModifier)) {
+        trackpadOrbitByPixels(posn, static_cast<float>(pixel.x()), static_cast<float>(pixel.y()));
+        return true;
+    }
+
+    // Shift + scroll / Shift + wheel → zoom
+    if (mods.testFlag(Qt::ShiftModifier)) {
+        int delta = event->angleDelta().y();
+        if (delta == 0) {
+            delta = static_cast<int>(std::lround(pixel.y()));
+        }
+        if (delta != 0) {
+            doZoom(viewer->getSoRenderManager()->getCamera(), delta, posn);
+        }
+        return true;
+    }
+
+    // Unmodified scroll / wheel → pan (Modern CAD). Classic FreeCAD
+    // zoom-on-vertical-scroll remains available via TrackpadScrollZooms.
+    const bool scrollZooms = App::GetApplication()
+                                 .GetParameterGroupByPath("User parameter:BaseApp/Preferences/View")
+                                 ->GetBool("TrackpadScrollZooms", false);
+    if (scrollZooms) {
+        if (!qFuzzyIsNull(pixel.x())) {
+            trackpadPanByPixels(posn, static_cast<float>(pixel.x()), 0.0F);
+        }
+        if (event->angleDelta().y() != 0) {
+            doZoom(viewer->getSoRenderManager()->getCamera(), event->angleDelta().y(), posn);
+        }
+    }
+    else {
+        trackpadPanByPixels(posn, static_cast<float>(pixel.x()), static_cast<float>(pixel.y()));
+    }
+    return true;
+}
+
+bool NavigationStyle::handleNativeGestureEvent(QNativeGestureEvent* event)
+{
+    if (!viewer || !event || isSeekMode()) {
+        return false;
+    }
+
+    switch (event->gestureType()) {
+        case Qt::BeginNativeGesture:
+            nativeGestureActive = true;
+            return true;
+        case Qt::EndNativeGesture:
+            nativeGestureActive = false;
+            return true;
+        case Qt::ZoomNativeGesture:
+        case Qt::RotateNativeGesture:
+        case Qt::SmartZoomNativeGesture:
+            break;
+        default:
+            return false;
+    }
+
+    nativeGestureActive = true;
+    lastNativePinchTime = SbTime::getTimeOfDay();
+    stopAnimating();
+
+    SoCamera* camera = viewer->getSoRenderManager()->getCamera();
+    if (!camera) {
+        return true;
+    }
+
+    const SbVec2f posn = qtPositionToNormalized(event->globalPosition());
+
+    if (event->gestureType() == Qt::SmartZoomNativeGesture) {
+        viewAll();
+        return true;
+    }
+
+    if (event->gestureType() == Qt::ZoomNativeGesture) {
+        // Pinch is zoom-only (no pan / tilt). Matches Modern CAD trackpad contract.
+        const float scaleDelta = static_cast<float>(event->value());
+        float factor = 1.0F + scaleDelta;
+        if (factor <= 0.0F) {
+            return true;
+        }
+        float logfactor = -std::log(factor);
+        if (this->invertZoom) {
+            logfactor = -logfactor;
+        }
+        doZoom(camera, logfactor, posn);
+        return true;
+    }
+
+    // RotateNativeGesture is the twist component of a pinch — ignore so pinch
+    // stays zoom-only. Orbit remains Cmd/Option + two-finger swipe.
+    return true;
+}
+
+SbBool NavigationStyle::processGestureEvent(const SoEvent* const ev)
+{
+    if (!viewer || !ev) {
+        return false;
+    }
+
+#ifdef FC_OS_MACOSX
+    // Two-finger pan arrives as QWheelEvent on macOS. Ignore the Qt pan
+    // gesture so we do not pan twice. Pinch is handled via QNativeGestureEvent
+    // when available; fall through if that path has not fired yet.
+    if (ev->isOfType(SoGesturePanEvent::getClassTypeId())) {
+        return true;
+    }
+    if (ev->isOfType(SoGesturePinchEvent::getClassTypeId())
+        && (nativeGestureActive
+            || (SbTime::getTimeOfDay() - lastNativePinchTime).getValue() < 0.08)) {
+        return true;
+    }
+#endif
+
+    SoCamera* camera = viewer->getSoRenderManager()->getCamera();
+    if (!camera) {
+        return true;
+    }
+
+    stopAnimating();
+    setupPanningPlane(camera);
+    const float ratio = viewer->getSoRenderManager()->getViewportRegion().getViewportAspectRatio();
+
+    if (ev->isOfType(SoGesturePanEvent::getClassTypeId())) {
+        const auto* pan = static_cast<const SoGesturePanEvent*>(ev);
+        const SbVec2f panDist = normalizePixelPos(pan->deltaOffset);
+        panCamera(camera, ratio, panningplane, panDist, SbVec2f(0, 0));
+        hasPanned = true;
+        return true;
+    }
+
+    if (ev->isOfType(SoGesturePinchEvent::getClassTypeId())) {
+        const auto* pinch = static_cast<const SoGesturePinchEvent*>(ev);
+        if (pinch->state == SoGestureEvent::SbGSEnd
+            || pinch->state == SoGestureEvent::SbGsCanceled) {
+            return true;
+        }
+
+        // Pinch = zoom only. Pan is two-finger swipe / wheel; orbit is Cmd+swipe.
+        if (pinch->deltaZoom > 0.0) {
+            float logfactor = -std::log(static_cast<float>(pinch->deltaZoom));
+            if (this->invertZoom) {
+                logfactor = -logfactor;
+            }
+            doZoom(camera, logfactor, normalizePixelPos(pinch->curCenter));
+        }
+        hasZoomed = true;
+        return true;
+    }
+
+    return false;
 }
 
 void NavigationStyle::setPopupMenuEnabled(const SbBool on)

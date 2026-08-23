@@ -37,6 +37,7 @@
 #include <QLineEdit>
 #include <QListView>
 #include <QMdiSubWindow>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
@@ -46,6 +47,7 @@
 #include <QStackedWidget>
 #include <QShowEvent>
 #include <QDateTime>
+#include <QStringList>
 
 #include "StartView.h"
 #include "FileCardDelegate.h"
@@ -56,6 +58,8 @@
 #include <App/Document.h>
 #include <App/DocumentObject.h>
 #include <App/Application.h>
+#include <App/Property.h>
+#include <App/PropertyStandard.h>
 #include <Base/Console.h>
 #include <Base/Exception.h>
 #include <Base/Interpreter.h>
@@ -164,23 +168,6 @@ StartView::StartView(QWidget* parent)
     _dashboardTitle->setObjectName(QStringLiteral("DashboardTitle"));
     documentsContentLayout->addWidget(_dashboardTitle);
 
-    auto metricsRow = gsl::owner<QWidget*>(new QWidget);
-    metricsRow->setObjectName(QStringLiteral("DashboardMetricsRow"));
-    auto metricsLayout = gsl::owner<QHBoxLayout*>(new QHBoxLayout(metricsRow));
-    metricsLayout->setContentsMargins({});
-    metricsLayout->setSpacing(12);
-    metricsLayout->addWidget(createMetricCard(_metricFilesTitle, _metricFilesValue));
-    metricsLayout->addWidget(createMetricCard(_metricProjectsTitle, _metricProjectsValue));
-    metricsLayout->addWidget(createMetricCard(_metricGraphicsTitle, _metricGraphicsValue));
-    metricsLayout->addWidget(createMetricCard(_metricHealthTitle, _metricHealthValue));
-    metricsLayout->addWidget(createMetricCard(_metricUnitsTitle, _metricUnitsValue));
-    metricsLayout->addStretch();
-    documentsContentLayout->addWidget(metricsRow);
-
-    if (QWidget* tips = createTipsBanner()) {
-        documentsContentLayout->addWidget(tips);
-    }
-
     _commandSearch = gsl::owner<QLineEdit*>(new QLineEdit());
     _commandSearch->setObjectName(QStringLiteral("DashboardCommandSearch"));
     _commandSearch->setClearButtonEnabled(true);
@@ -197,6 +184,21 @@ StartView::StartView(QWidget* parent)
     );
     documentsContentLayout->addWidget(_commandSearch);
 
+    if (QWidget* tips = createTipsBanner()) {
+        documentsContentLayout->addWidget(tips);
+    }
+
+    _newFileLabel = gsl::owner<QLabel*>(new QLabel());
+    documentsContentLayout->addWidget(_newFileLabel);
+
+    auto createNewRow = gsl::owner<QWidget*>(new QWidget);
+    auto flowLayout = gsl::owner<FlowLayout*>(new FlowLayout);
+    flowLayout->setContentsMargins({});
+    createNewRow->setObjectName(QStringLiteral("CreateNewRow"));
+    createNewRow->setLayout(flowLayout);
+    documentsContentLayout->addWidget(createNewRow);
+    configureNewFileButtons(flowLayout);
+
     _projectsLabel = gsl::owner<QLabel*>(new QLabel());
     documentsContentLayout->addWidget(_projectsLabel);
 
@@ -206,22 +208,6 @@ StartView::StartView(QWidget* parent)
     projectsLayout->setContentsMargins({});
     _projectsRow->setLayout(projectsLayout);
     documentsContentLayout->addWidget(_projectsRow);
-
-    _newFileLabel = gsl::owner<QLabel*>(new QLabel());
-    documentsContentLayout->addWidget(_newFileLabel);
-
-    auto createNewRow = gsl::owner<QWidget*>(new QWidget);
-    auto flowLayout = gsl::owner<FlowLayout*>(new FlowLayout);
-
-    // Reset margins of layout to provide consistent spacing
-    flowLayout->setContentsMargins({});
-
-    // This allows new file widgets to be targeted via QSS
-    createNewRow->setObjectName(QStringLiteral("CreateNewRow"));
-    createNewRow->setLayout(flowLayout);
-
-    documentsContentLayout->addWidget(createNewRow);
-    configureNewFileButtons(flowLayout);
 
     _recentFilesLabel = gsl::owner<QLabel*>(new QLabel());
     documentsContentLayout->addWidget(_recentFilesLabel);
@@ -250,6 +236,20 @@ StartView::StartView(QWidget* parent)
     }
 
     documentsContentLayout->setSpacing(static_cast<int>(cardSpacing));
+
+    auto metricsRow = gsl::owner<QWidget*>(new QWidget);
+    metricsRow->setObjectName(QStringLiteral("DashboardMetricsRow"));
+    auto metricsLayout = gsl::owner<QHBoxLayout*>(new QHBoxLayout(metricsRow));
+    metricsLayout->setContentsMargins({});
+    metricsLayout->setSpacing(12);
+    metricsLayout->addWidget(createMetricCard(_metricFilesTitle, _metricFilesValue));
+    metricsLayout->addWidget(createMetricCard(_metricProjectsTitle, _metricProjectsValue));
+    metricsLayout->addWidget(createMetricCard(_metricGraphicsTitle, _metricGraphicsValue));
+    metricsLayout->addWidget(createMetricCard(_metricHealthTitle, _metricHealthValue));
+    metricsLayout->addWidget(createMetricCard(_metricUnitsTitle, _metricUnitsValue));
+    metricsLayout->addStretch();
+    documentsContentLayout->addWidget(metricsRow);
+
     documentsContentLayout->addStretch();
 
 
@@ -343,6 +343,11 @@ void StartView::configureNewFileButtons(QLayout* layout) const
          tr("Creates a project folder for related parts, assemblies, and drawings"),
          QLatin1String(":/icons/folder.svg")}
     ));
+    auto pinFolderBtn = gsl::owner<NewFileButton*>(new NewFileButton(
+        {tr("Pin Folder"),
+         tr("Keeps a folder on Home so you can open its files later"),
+         QLatin1String(":/icons/folder.svg")}
+    ));
     auto continueLast = gsl::owner<NewFileButton*>(new NewFileButton(
         {tr("Continue"),
          tr("Opens the last FreeCAD file you worked on"),
@@ -361,6 +366,7 @@ void StartView::configureNewFileButtons(QLayout* layout) const
     layout->addWidget(draft);
     layout->addWidget(arch);
     layout->addWidget(newProject);
+    layout->addWidget(pinFolderBtn);
     layout->addWidget(continueLast);
     layout->addWidget(newEmptyFile);
     layout->addWidget(openFile);
@@ -373,6 +379,7 @@ void StartView::configureNewFileButtons(QLayout* layout) const
     connect(draft, &QPushButton::clicked, this, &StartView::newDraftFile);
     connect(arch, &QPushButton::clicked, this, &StartView::newArchFile);
     connect(newProject, &QPushButton::clicked, this, &StartView::newProject);
+    connect(pinFolderBtn, &QPushButton::clicked, this, &StartView::pinFolder);
     connect(continueLast, &QPushButton::clicked, this, &StartView::continueLastFile);
 }
 
@@ -563,6 +570,17 @@ void StartView::newProject()
     refreshDashboardMetrics();
 }
 
+void StartView::pinFolder()
+{
+    const QString path = QFileDialog::getExistingDirectory(this, tr("Pin Folder"));
+    if (path.isEmpty()) {
+        return;
+    }
+    _projectsModel.addProject(path);
+    rebuildProjectCards();
+    refreshDashboardMetrics();
+}
+
 QWidget* StartView::createMetricCard(QLabel*& title, QLabel*& value)
 {
     auto* card = gsl::owner<QFrame*>(new QFrame());
@@ -624,6 +642,63 @@ int StartView::countDocumentErrors() const
     return errors;
 }
 
+int StartView::countSketchIssues(QString* detail) const
+{
+    const Base::Type sketchType = Base::Type::fromName("Sketcher::SketchObject");
+    if (sketchType.isBad()) {
+        if (detail) {
+            *detail = tr("Sketcher is not loaded");
+        }
+        return 0;
+    }
+
+    int underconstrained = 0;
+    int openContour = 0;
+    int sketches = 0;
+    for (auto* doc : App::GetApplication().getDocuments()) {
+        if (!doc) {
+            continue;
+        }
+        for (auto* obj : doc->getObjects()) {
+            if (!obj || !obj->isDerivedFrom(sketchType)) {
+                continue;
+            }
+            const auto* geometry = dynamic_cast<const App::PropertyLists*>(
+                obj->getPropertyByName("Geometry")
+            );
+            if (!geometry || geometry->getSize() == 0) {
+                continue;
+            }
+            ++sketches;
+            const auto* fully = dynamic_cast<const App::PropertyBool*>(
+                obj->getPropertyByName("FullyConstrained")
+            );
+            if (fully && !fully->getValue()) {
+                ++underconstrained;
+            }
+            const auto* closed = dynamic_cast<const App::PropertyBool*>(
+                obj->getPropertyByName("ClosedContour")
+            );
+            if (closed && !closed->getValue()) {
+                ++openContour;
+            }
+        }
+    }
+
+    if (detail) {
+        if (sketches == 0) {
+            *detail = tr("No sketches with geometry in open documents");
+        }
+        else {
+            *detail = tr("%1 sketch(es): %2 underconstrained, %3 open contour")
+                          .arg(sketches)
+                          .arg(underconstrained)
+                          .arg(openContour);
+        }
+    }
+    return underconstrained + openContour;
+}
+
 void StartView::rebuildProjectCards()
 {
     if (!_projectsRow) {
@@ -640,14 +715,16 @@ void StartView::rebuildProjectCards()
 
     _projectsModel.loadProjects();
     if (_projectsModel.projectCount() == 0) {
-        auto* empty = gsl::owner<QLabel*>(
-            new QLabel(tr("No projects yet. Create a project folder to group related files."))
-        );
+        auto* empty = gsl::owner<QLabel*>(new QLabel(
+            tr("No pinned folders yet. Use Pin Folder or New Project to keep a workspace on Home.")
+        ));
+        empty->setWordWrap(true);
         layout->addWidget(empty);
         return;
     }
 
     for (int row = 0; row < _projectsModel.rowCount(); ++row) {
+        const QString path = _projectsModel.pathAt(row);
         const QString name = _projectsModel.data(_projectsModel.index(row, 0), Qt::DisplayRole).toString();
         const int fileCount =
             _projectsModel.data(_projectsModel.index(row, 0), Start::ProjectsModel::FileCountRole)
@@ -657,20 +734,30 @@ void StartView::rebuildProjectCards()
              tr("%1 FreeCAD file(s)").arg(fileCount),
              QLatin1String(":/icons/folder.svg")}
         ));
-        connect(button, &QPushButton::clicked, this, [this, row]() { openProjectAt(row); });
+        button->setToolTip(tr("%1\nLeft-click to open a file. Right-click to unpin.").arg(path));
+        button->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(button, &QPushButton::clicked, this, [this, path]() { openProjectPath(path); });
+        connect(button, &QWidget::customContextMenuRequested, this, [this, button, path](const QPoint& pos) {
+            QMenu menu(button);
+            QAction* unpin = menu.addAction(tr("Unpin folder"));
+            if (menu.exec(button->mapToGlobal(pos)) == unpin) {
+                _projectsModel.removeProject(path);
+                rebuildProjectCards();
+                refreshDashboardMetrics();
+            }
+        });
         layout->addWidget(button);
     }
 }
 
-void StartView::openProjectAt(int row)
+void StartView::openProjectPath(const QString& path)
 {
-    const QString path = _projectsModel.pathAt(row);
     if (path.isEmpty()) {
         return;
     }
     const QString filename = QFileDialog::getOpenFileName(
         this,
-        tr("Open File in Project"),
+        tr("Open File in Folder"),
         path,
         tr("FreeCAD files (*.FCStd *.fcstd);;All files (*)")
     );
@@ -683,6 +770,11 @@ void StartView::openProjectAt(int row)
     catch (Base::Exception& e) {
         Base::Console().error(e.getMessage().c_str());
     }
+}
+
+void StartView::openProjectAt(int row)
+{
+    openProjectPath(_projectsModel.pathAt(row));
 }
 
 void StartView::refreshDashboardMetrics()
@@ -720,12 +812,15 @@ void StartView::refreshDashboardMetrics()
 
     if (_metricHealthValue) {
         const int errors = countDocumentErrors();
-        _metricHealthValue->setText(QString::number(errors));
-        _metricHealthValue->setToolTip(
-            errors == 0 ? tr("No recompute errors in open documents")
-                        : tr("%1 object(s) in error. Open the document and recompute.")
-                              .arg(errors)
-        );
+        QString sketchDetail;
+        const int sketchIssues = countSketchIssues(&sketchDetail);
+        const int total = errors + sketchIssues;
+        _metricHealthValue->setText(total == 0 ? tr("OK") : QString::number(total));
+        QStringList parts;
+        parts << (errors == 0 ? tr("No recompute errors")
+                              : tr("%1 object(s) in error").arg(errors));
+        parts << sketchDetail;
+        _metricHealthValue->setToolTip(parts.join(QLatin1String("\n")));
     }
 
     if (_metricUnitsValue) {
@@ -910,14 +1005,14 @@ void StartView::retranslateUi()
         _dashboardTitle->setText(tr("Home"));
     }
     if (_projectsLabel) {
-        _projectsLabel->setText(h2Start + tr("Projects") + h2End);
+        _projectsLabel->setText(h2Start + tr("Pinned folders") + h2End);
     }
     if (_metricFilesTitle) {
         _metricFilesTitle->setText(tr("Recent files"));
-        _metricProjectsTitle->setText(tr("Projects"));
+        _metricProjectsTitle->setText(tr("Pinned folders"));
         _metricGraphicsTitle->setText(tr("3D graphics"));
         if (_metricHealthTitle) {
-            _metricHealthTitle->setText(tr("Recompute errors"));
+            _metricHealthTitle->setText(tr("Model health"));
         }
         if (_metricUnitsTitle) {
             _metricUnitsTitle->setText(tr("Navigation"));
@@ -925,9 +1020,8 @@ void StartView::retranslateUi()
     }
     if (_tipsLabel) {
         _tipsLabel->setText(tr(
-            "Home never shows the ribbon. Open a file to model. "
-            "New profiles use SolidWorks navigation; Fusion 360 is in Preferences → Display → Navigation. "
-            "On Apple Silicon, use software OpenGL if the 3D view lags."
+            "Create or open a file to start modeling. The feature tree floats over the 3D view — "
+            "hover the left edge if it auto-hides. File and Edit stay in the Mac menu bar."
         ));
     }
     if (_tipsDismiss) {
@@ -937,7 +1031,7 @@ void StartView::retranslateUi()
         _commandSearch->setPlaceholderText(tr("Search commands…"));
     }
 
-    _newFileLabel->setText(h2Start + tr("New File") + h2End);
+    _newFileLabel->setText(h2Start + tr("Start a design") + h2End);
     if (_examplesLabel) {
         _examplesLabel->setText(h1Start + tr("Examples") + h1End);
     }

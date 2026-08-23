@@ -72,13 +72,14 @@ class CommandCreateJointFixed:
             "Pixmap": "Assembly_CreateJointFixed",
             "MenuText": QT_TRANSLATE_NOOP(
                 "Assembly_CreateJointFixed",
-                "Fixed Joint",
+                "Fixed Joint (Coincident / Lock)",
             ),
             "Accel": "F",
             "ToolTip": QT_TRANSLATE_NOOP(
                 "Assembly_CreateJointFixed",
-                "<p>1 - If an assembly is active : Creates a joint statically locking two parts together, preventing any movement or rotation</p>"
-                "<p>2 - If a part is active: Positions sub-parts by matching selected coordinate systems. The second part selected will move.</p>",
+                "<p>Locks two parts together (SolidWorks Coincident / Lock mate equivalent).</p>"
+                "<p>1 - If an assembly is active: creates a joint that prevents movement or rotation.</p>"
+                "<p>2 - If a part is active: matches selected coordinate systems; the second part moves.</p>",
             ),
             "CmdType": "ForEdit",
         }
@@ -100,11 +101,11 @@ class CommandCreateJointRevolute:
     def GetResources(self):
         return {
             "Pixmap": "Assembly_CreateJointRevolute",
-            "MenuText": QT_TRANSLATE_NOOP("Assembly_CreateJointRevolute", "Revolute Joint"),
+            "MenuText": QT_TRANSLATE_NOOP("Assembly_CreateJointRevolute", "Revolute Joint (Hinge)"),
             "Accel": "R",
             "ToolTip": QT_TRANSLATE_NOOP(
                 "Assembly_CreateJointRevolute",
-                "Creates a revolute joint allowing rotation around a single axis between selected parts",
+                "Creates a hinge-style revolute joint (SolidWorks Hinge mate) allowing rotation around one axis",
             ),
             "CmdType": "ForEdit",
         }
@@ -123,11 +124,13 @@ class CommandCreateJointCylindrical:
     def GetResources(self):
         return {
             "Pixmap": "Assembly_CreateJointCylindrical",
-            "MenuText": QT_TRANSLATE_NOOP("Assembly_CreateJointCylindrical", "Cylindrical Joint"),
+            "MenuText": QT_TRANSLATE_NOOP(
+                "Assembly_CreateJointCylindrical", "Cylindrical Joint (Concentric)"
+            ),
             "Accel": "C",
             "ToolTip": QT_TRANSLATE_NOOP(
                 "Assembly_CreateJointCylindrical",
-                "Creates a cylindrical joint that allows rotation around and translation along a single axis between assembled parts",
+                "Creates a cylindrical joint (SolidWorks Concentric-like) allowing rotation and translation along one axis",
             ),
             "CmdType": "ForEdit",
         }
@@ -379,6 +382,151 @@ class CommandCreateJointBelt:
         activateJoint(12)
 
 
+class MatePickerDialog(QtWidgets.QDialog):
+    """Guided SolidWorks/Fusion mate chooser (maps onto Ondsel joint types)."""
+
+    MATES = ()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(
+            QtWidgets.QApplication.translate("Assembly_CreateMate", "Insert Mate")
+        )
+        self.setMinimumWidth(420)
+        self._index = 0
+
+        layout = QtWidgets.QVBoxLayout(self)
+
+        self.banner = QtWidgets.QLabel()
+        self.banner.setWordWrap(True)
+        layout.addWidget(self.banner)
+        self._refreshGroundBanner()
+
+        intro = QtWidgets.QLabel(
+            QtWidgets.QApplication.translate(
+                "Assembly_CreateMate",
+                "Choose a mate type, then click two faces, edges, or vertices "
+                "from different parts in the 3D view.",
+            )
+        )
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+
+        self.list = QtWidgets.QListWidget()
+        self.list.setMinimumHeight(220)
+        for name, index, note in self.MATES:
+            item = QtWidgets.QListWidgetItem(f"{name}\n  {note}")
+            item.setData(QtCore.Qt.UserRole, index)
+            self.list.addItem(item)
+        self.list.setCurrentRow(0)
+        self.list.currentRowChanged.connect(self._onRowChanged)
+        self.list.itemDoubleClicked.connect(lambda _item: self.accept())
+        layout.addWidget(self.list)
+
+        self.detail = QtWidgets.QLabel()
+        self.detail.setWordWrap(True)
+        layout.addWidget(self.detail)
+        self._onRowChanged(0)
+
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        buttons.button(QtWidgets.QDialogButtonBox.Ok).setText(
+            QtWidgets.QApplication.translate("Assembly_CreateMate", "Create mate")
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _refreshGroundBanner(self):
+        if UtilsAssembly.isAssemblyGrounded():
+            self.banner.setText(
+                QtWidgets.QApplication.translate(
+                    "Assembly_CreateMate",
+                    "Assembly has a grounded part — ready for mates.",
+                )
+            )
+            self.banner.setStyleSheet("color: #2a7a2a;")
+        else:
+            self.banner.setText(
+                QtWidgets.QApplication.translate(
+                    "Assembly_CreateMate",
+                    "No grounded part — ground one component first, or mates will not lock.",
+                )
+            )
+            self.banner.setStyleSheet("color: #b06000; font-weight: 500;")
+
+    def _onRowChanged(self, row):
+        if row < 0 or row >= len(self.MATES):
+            return
+        name, index, note = self.MATES[row]
+        self._index = index
+        joint_name = JointObject.JointTypes[index]
+        self.detail.setText(
+            QtWidgets.QApplication.translate(
+                "Assembly_CreateMate",
+                "Creates Assembly joint “%1”. %2",
+            )
+            .replace("%1", joint_name)
+            .replace("%2", note)
+        )
+
+    def selectedJointIndex(self):
+        item = self.list.currentItem()
+        if item is not None:
+            return int(item.data(QtCore.Qt.UserRole))
+        return self._index
+
+
+class CommandCreateMate:
+    """SolidWorks/Fusion-oriented mate picker that maps familiar names onto Ondsel joints."""
+
+    # (display name, joint type index into JointObject.JointTypes, short note)
+    MATES = (
+        ("Coincident / Lock", 0, "Fixed joint — faces or points coincide"),
+        ("Hinge", 1, "Revolute — rotate about one axis"),
+        ("Concentric", 2, "Cylindrical — share an axis; spin + slide"),
+        ("Slider", 3, "Translate along one axis"),
+        ("Ball / Universal", 4, "Spherical pivot"),
+        ("Distance", 5, "Keep a fixed distance"),
+        ("Parallel", 6, "Keep axes/planes parallel"),
+        ("Perpendicular", 7, "Keep axes/planes perpendicular"),
+        ("Angle", 8, "Fix the angle between axes"),
+    )
+
+    def GetResources(self):
+        return {
+            "Pixmap": "Assembly_CreateJointFixed",
+            "MenuText": QT_TRANSLATE_NOOP("Assembly_CreateMate", "Insert Mate…"),
+            "Accel": "M",
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Assembly_CreateMate",
+                "Guided SolidWorks/Fusion-style mate: pick a type, then two references "
+                "in the 3D view. Maps to Assembly (Ondsel) joints.",
+            ),
+            "CmdType": "ForEdit",
+        }
+
+    def IsActive(self):
+        return isCreateJointActive()
+
+    def Activated(self):
+        if not UtilsAssembly.assembly_has_at_least_n_parts(2):
+            msg = QtWidgets.QApplication.translate(
+                "Assembly_CreateMate",
+                "Insert at least two parts before creating a mate.",
+            )
+            App.Console.PrintWarning(msg + "\n")
+            Gui.getMainWindow().showMessage(msg, 5000)
+            return
+
+        MatePickerDialog.MATES = self.MATES
+        dlg = MatePickerDialog(Gui.getMainWindow())
+        if dlg.exec_() != QtWidgets.QDialog.Accepted:
+            return
+        activateJoint(dlg.selectedJointIndex())
+
+
 class CommandGroupGearBelt:
     def GetCommands(self):
         return ("Assembly_CreateJointGears", "Assembly_CreateJointBelt")
@@ -441,6 +589,14 @@ def createGroundedJoint(obj):
     Gui.doCommandGui("JointObject.ViewProviderGroundedJoint(ground.ViewObject)")
 
     Gui.doCommand("UtilsAssembly.activeAssembly().Document.recompute()")
+    label = obj.Label if getattr(obj, "Label", None) else obj.Name
+    App.Console.PrintMessage(
+        QtWidgets.QApplication.translate(
+            "Assembly",
+            "Grounded “%1” — mates can now lock the assembly.",
+        ).replace("%1", label)
+        + "\n"
+    )
     return Gui.doCommandEval("ground")
 
 
@@ -576,6 +732,7 @@ class CommandCreateJointRigidGroup:
 
 if App.GuiUp:
     Gui.addCommand("Assembly_ToggleGrounded", CommandToggleGrounded())
+    Gui.addCommand("Assembly_CreateMate", CommandCreateMate())
     Gui.addCommand("Assembly_CreateJointFixed", CommandCreateJointFixed())
     Gui.addCommand("Assembly_CreateJointRevolute", CommandCreateJointRevolute())
     Gui.addCommand("Assembly_CreateJointCylindrical", CommandCreateJointCylindrical())

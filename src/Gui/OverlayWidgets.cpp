@@ -34,6 +34,7 @@
 #include <QPointer>
 #include <QSpacerItem>
 #include <QSplitter>
+#include <QStackedWidget>
 #include <QTabBar>
 #include <QTextStream>
 #include <QTimerEvent>
@@ -390,7 +391,7 @@ OverlayTabWidget::OverlayTabWidget(QWidget* parent, Qt::DockWidgetArea pos)
             break;
         case Qt::RightDockWidgetArea:
             _RightOverlay = this;
-            setTabPosition(QTabWidget::East);
+            setTabPosition(QTabWidget::West);
             splitter->setOrientation(Qt::Vertical);
             cmdHide = Application::Instance->commandManager().getCommandByName(
                 "Std_DockOverlayToggleRight"
@@ -419,6 +420,13 @@ OverlayTabWidget::OverlayTabWidget(QWidget* parent, Qt::DockWidgetArea pos)
     proxyWidget = new OverlayProxyWidget(this);
     proxyWidget->hide();
     _setOverlayMode(proxyWidget, OverlayOption::Enable);
+
+    if (pos == Qt::LeftDockWidgetArea || pos == Qt::RightDockWidgetArea) {
+        edgeGrip = new OverlaySizeGrip(this, false);
+        edgeGrip->setObjectName(QStringLiteral("OverlayEdgeGrip"));
+        connect(edgeGrip, &OverlaySizeGrip::dragMove, this, &OverlayTabWidget::onSizeGripMove);
+        edgeGrip->hide();
+    }
 
     setOverlayMode(true);
     hide();
@@ -462,6 +470,7 @@ OverlayTabWidget::OverlayTabWidget(QWidget* parent, Qt::DockWidgetArea pos)
 
     connect(tabBar(), &QTabBar::tabBarClicked, this, &OverlayTabWidget::onCurrentChanged);
     connect(tabBar(), &QTabBar::tabMoved, this, &OverlayTabWidget::onTabMoved);
+    tabBar()->setExpanding(false);
     tabBar()->installEventFilter(this);
 
     timer.setSingleShot(true);
@@ -532,11 +541,14 @@ void OverlayTabWidget::setAnimation(qreal t)
 
 void OverlayTabWidget::startShow()
 {
-    if (isVisible() || _state > State::Normal) {
+    if (_state > State::Normal) {
+        return;
+    }
+    if (isVisible() && !keepTabVisible()) {
         return;
     }
 
-    int duration = OverlayParams::getDockOverlayAnimationDuration();
+    int duration = keepTabVisible() ? 0 : OverlayParams::getDockOverlayAnimationDuration();
     bool setmode = _state != State::Showing;
     if (duration) {
         _animator->setStartValue(1.0);
@@ -574,7 +586,7 @@ void OverlayTabWidget::startHide()
             && _animator->startValue().toReal() == 0.0)) {
         return;
     }
-    int duration = OverlayParams::getDockOverlayAnimationDuration();
+    int duration = keepTabVisible() ? 0 : OverlayParams::getDockOverlayAnimationDuration();
     if (!duration) {
         hide();
     }
@@ -827,8 +839,16 @@ void OverlayTabWidget::restore(ParameterGrp::handle handle)
     int height = handle->GetInt("Height", minimumSizeHint.height());
     int offset1 = handle->GetInt("Offset1", 0);
     int offset2 = handle->GetInt("Offset3", 0);
+    if (keepTabVisible()) {
+        constexpr int kTaskOverlayWidth = 400;
+        if (width > kTaskOverlayWidth) {
+            width = kTaskOverlayWidth;
+        }
+        offset1 = 0;
+        offset2 = 0;
+    }
     setOffset(QSize(offset1, offset2));
-    setSizeDelta(handle->GetInt("Offset2", 0));
+    setSizeDelta(keepTabVisible() ? 0 : handle->GetInt("Offset2", 0));
 
     // Special handling for broken state in #24963.
     //
@@ -1165,21 +1185,32 @@ void OverlayTabWidget::setState(State state)
             // fall through
         case State::Showing:
             _state = state;
-            hide();
+            if (!keepTabVisible()) {
+                hide();
+            }
             if (dockArea == Qt::RightDockWidgetArea) {
-                setTabPosition(East);
+                setTabPosition(keepTabVisible() ? West : East);
             }
             else if (dockArea == Qt::BottomDockWidgetArea) {
                 setTabPosition(South);
             }
-            if (this->count() == 1) {
+            if (this->count() == 1 && !keepTabVisible()) {
                 tabBar()->hide();
+            }
+            else if (keepTabVisible()) {
+                tabBar()->show();
             }
             _graphicsEffectTab->setEnabled(false);
             titleBar->show();
             splitter->show();
+            if (edgeGrip) {
+                edgeGrip->setVisible(!keepTabVisible() || !tabBar()->isVisible());
+            }
             if (state == State::Showing) {
                 OverlayManager::instance()->refresh(this);
+            }
+            if (keepTabVisible()) {
+                setupLayout();
             }
             break;
         case State::Hint:
@@ -1192,7 +1223,10 @@ void OverlayTabWidget::setState(State state)
                 tabBar()->show();
                 titleBar->hide();
                 splitter->hide();
-                _graphicsEffectTab->setEnabled(true);
+                if (edgeGrip) {
+                    edgeGrip->hide();
+                }
+                _graphicsEffectTab->setEnabled(!keepTabVisible());
                 show();
                 raise();
                 proxyWidget->raise();
@@ -1203,6 +1237,9 @@ void OverlayTabWidget::setState(State state)
                     setTabPosition(North);
                 }
                 OverlayManager::instance()->refresh(this);
+                if (keepTabVisible()) {
+                    setupLayout();
+                }
             }
             break;
         case State::HintHidden:
@@ -1250,6 +1287,9 @@ bool OverlayTabWidget::checkAutoHide() const
     }
 
     if (autoMode == AutoMode::TaskShow) {
+        if (keepTabVisible() && userPinned) {
+            return false;
+        }
         if (isTransparent()) {
             return false;
         }
@@ -1266,6 +1306,9 @@ bool OverlayTabWidget::checkAutoHide() const
 void OverlayTabWidget::leaveEvent(QEvent*)
 {
     if (titleBar && QWidget::mouseGrabber() == titleBar) {
+        return;
+    }
+    if (edgeGrip && QWidget::mouseGrabber() == edgeGrip) {
         return;
     }
     OverlayManager::instance()->refresh();
@@ -1538,7 +1581,7 @@ void OverlayTabWidget::setOverlayMode(bool enable)
     touched = false;
 
     if (_state <= State::Normal) {
-        titleBar->setVisible(!enable || OverlayManager::instance()->isMouseTransparent());
+        titleBar->setVisible(true);
         for (int i = 0, c = splitter->count(); i < c; ++i) {
             auto handle = qobject_cast<OverlaySplitterHandle*>(splitter->handle(i));
             if (handle) {
@@ -1557,7 +1600,8 @@ void OverlayTabWidget::setOverlayMode(bool enable)
     }
     else if (
         enable && !isTransparent()
-        && (autoMode == AutoMode::EditShow || autoMode == AutoMode::AutoHide)
+        && (autoMode == AutoMode::EditShow || autoMode == AutoMode::AutoHide
+            || autoMode == AutoMode::TaskShow || keepTabVisible())
     ) {
         option = OverlayOption::Disable;
     }
@@ -1585,7 +1629,7 @@ void OverlayTabWidget::setOverlayMode(bool enable)
         tabBar()->setToolTip(proxyWidget->toolTip());
         tabBar()->show();
     }
-    else if (OverlayParams::getDockOverlayHideTabBar() || count() == 1) {
+    else if ((OverlayParams::getDockOverlayHideTabBar() || count() == 1) && !keepTabVisible()) {
         tabBar()->hide();
     }
     else {
@@ -1612,7 +1656,12 @@ bool OverlayTabWidget::getAutoHideRect(QRect& rect) const
                 rect.setTop(std::max(rect.top(), _TopOverlay->rectOverlay.bottom()));
             }
             if (dockArea == Qt::RightDockWidgetArea) {
-                rect.setLeft(rect.left() + std::max(rect.width() - hintWidth, 0));
+                int strip = keepTabVisible() ? std::max(28, tabBarThickness()) : hintWidth;
+                if (strip < 1) {
+                    strip = 8;
+                }
+                const int right = rect.x() + rect.width();
+                rect.setRect(std::max(0, right - strip), rect.y(), strip, rect.height());
             }
             else {
                 rect.setRight(rect.right() - std::max(rect.width() - hintWidth, 0));
@@ -1637,7 +1686,8 @@ bool OverlayTabWidget::getAutoHideRect(QRect& rect) const
         default:
             break;
     }
-    return _state != State::Showing && overlaid && checkAutoHide();
+    return _state != State::Showing && checkAutoHide()
+        && (overlaid || (keepTabVisible() && autoMode == AutoMode::TaskShow));
 }
 
 void OverlayTabWidget::setOffset(const QSize& ofs)
@@ -1703,6 +1753,8 @@ void OverlayTabWidget::setRect(QRect rect)
             break;
     }
 
+    snapKeepTabVisibleRect(rect);
+
     if (hGrp && rect.size() != rectOverlay.size()) {
         Base::StateLocker lock(_saving);
         hGrp->SetInt("Width", rect.width());
@@ -1715,22 +1767,36 @@ void OverlayTabWidget::setRect(QRect rect)
     if (getAutoHideRect(rect) || _state == State::Hint || _state == State::Hidden) {
         QRect rectHint = rect;
         if (_state != State::Hint && _state != State::Hidden) {
-            startHide();
+            if (keepTabVisible() && OverlayParams::getDockOverlayHintTabBar() && count()) {
+                setState(State::Hint);
+            }
+            else {
+                startHide();
+            }
         }
         else if (count() && OverlayParams::getDockOverlayHintTabBar()) {
             switch (dockArea) {
                 case Qt::LeftDockWidgetArea:
-                case Qt::RightDockWidgetArea:
+                case Qt::RightDockWidgetArea: {
+                    int strip = tabBarThickness();
+                    if (strip <= 0) {
+                        strip = std::max(22, tabBar()->sizeHint().width());
+                    }
                     if (dockArea == Qt::LeftDockWidgetArea) {
-                        rect.setWidth(tabBar()->width());
+                        rect.setWidth(strip);
                     }
                     else {
-                        rect.setLeft(rect.left() + rect.width() - tabBar()->width());
+                        const int right = rect.x() + rect.width();
+                        const int pin = keepTabVisible() ? std::max(strip, 28) : strip;
+                        rect.setRect(std::max(0, right - pin), rect.y(), pin, rect.height());
                     }
-                    rect.setHeight(
-                        std::max(rect.height(), tabBar()->y() + tabBar()->sizeHint().height() + 5)
-                    );
+                    if (!keepTabVisible()) {
+                        rect.setHeight(
+                            std::max(rect.height(), tabBar()->y() + tabBar()->sizeHint().height() + 5)
+                        );
+                    }
                     break;
+                }
                 case Qt::BottomDockWidgetArea:
                 case Qt::TopDockWidgetArea:
                     if (dockArea == Qt::TopDockWidgetArea) {
@@ -1745,6 +1811,21 @@ void OverlayTabWidget::setRect(QRect rect)
                     break;
                 default:
                     break;
+            }
+
+            if (QWidget* mdi = getMainWindow()->getMdiArea()) {
+                const QRect bounds(0, 0, mdi->width(), mdi->height());
+                QRect clipped = rect.intersected(bounds);
+                if (clipped.width() < 22) {
+                    int strip = std::max(28, tabBarThickness());
+                    clipped.setRect(
+                        std::max(0, bounds.width() - strip),
+                        std::max(0, rect.y()),
+                        strip,
+                        std::min(rect.height(), bounds.height())
+                    );
+                }
+                rect = clipped;
             }
 
             setGeometry(rect.translated(offset));
@@ -1777,6 +1858,9 @@ void OverlayTabWidget::addWidget(QDockWidget* dock, const QString& title)
     if (!getMainWindow() || !getMainWindow()->getMdiArea()) {
         return;
     }
+    if (dockWidgetIndex(dock) >= 0) {
+        return;
+    }
 
     OverlayManager::instance()->registerDockWidget(dock->objectName(), this);
 
@@ -1797,11 +1881,16 @@ void OverlayTabWidget::addWidget(QDockWidget* dock, const QString& title)
     dock->show();
     splitter->addWidget(dock);
     auto dummyWidget = new QWidget(this);
+    dummyWidget->hide();
     addTab(dummyWidget, title);
     connect(dock, &QObject::destroyed, dummyWidget, &QObject::deleteLater);
 
     dock->setFeatures(dock->features() & ~QDockWidget::DockWidgetFloatable);
-    if (count() == 1) {
+    dock->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    if (QWidget* inner = dock->widget()) {
+        inner->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    }
+    if (count() == 1 && !keepTabVisible()) {
         QRect rect = dock->geometry();
         QSize sizeMain = getMainWindow()->getMdiArea()->size();
         switch (dockArea) {
@@ -1872,29 +1961,142 @@ void OverlayTabWidget::removeWidget(QDockWidget* dock, QDockWidget* lastDock)
 void OverlayTabWidget::resizeEvent(QResizeEvent* ev)
 {
     QTabWidget::resizeEvent(ev);
+    if (keepTabVisible() && _state <= State::Hint) {
+        setupLayout();
+        return;
+    }
     if (_state <= State::Normal) {
         timer.start(10);
     }
 }
 
+bool OverlayTabWidget::keepTabVisible() const
+{
+    return dockArea == Qt::RightDockWidgetArea;
+}
+
+void OverlayTabWidget::snapKeepTabVisibleRect(QRect& rect) const
+{
+    if (!keepTabVisible() || !getMainWindow() || !getMainWindow()->getMdiArea()) {
+        return;
+    }
+    QWidget* mdi = getMainWindow()->getMdiArea();
+    constexpr int kExpanded = 400;
+    const int strip = std::max(28, tabBarThickness());
+    const int width = (_state <= State::Normal) ? kExpanded : strip;
+    rect.setRect(std::max(0, mdi->width() - width), 0, width, std::max(10, mdi->height()));
+}
+
+int OverlayTabWidget::tabBarThickness() const
+{
+    if (!tabBar()->isVisible() || (count() == 1 && !keepTabVisible())) {
+        return 0;
+    }
+    const QSize hint = tabBar()->sizeHint();
+    int thickness = (dockArea == Qt::LeftDockWidgetArea || dockArea == Qt::RightDockWidgetArea)
+        ? hint.width()
+        : hint.height();
+    if (thickness < 22) {
+        thickness = 22;
+    }
+    if (thickness > 36) {
+        thickness = 36;
+    }
+    return thickness;
+}
+
+void OverlayTabWidget::layoutModernCadTaskOverlay()
+{
+    QTabBar* bar = tabBar();
+    bar->show();
+    bar->setShape(QTabBar::RoundedWest);
+    bar->setExpanding(false);
+
+    for (int i = 0, c = count(); i < c; ++i) {
+        if (QWidget* dummy = widget(i)) {
+            dummy->hide();
+        }
+    }
+    for (auto* stack : findChildren<QStackedWidget*>(QString(), Qt::FindDirectChildrenOnly)) {
+        stack->hide();
+    }
+
+    const QRect inner = contentsRect();
+    if (inner.width() <= 0 || inner.height() <= 0) {
+        return;
+    }
+
+    if (_state == State::Hint || splitter->isHidden()) {
+        constexpr int kTabStrip = 28;
+        const int strip = std::min(inner.width(), std::max(kTabStrip, tabBarThickness()));
+        bar->setGeometry(inner.x(), inner.y(), strip, inner.height());
+        bar->raise();
+        if (titleBar) {
+            titleBar->hide();
+        }
+        splitter->hide();
+        if (edgeGrip) {
+            edgeGrip->hide();
+        }
+        return;
+    }
+
+    constexpr int kTabStrip = 28;
+    const int strip = std::min(kTabStrip, std::max(22, inner.width() / 8));
+    const int titleH = widgetMinSize(this, true);
+    bar->setGeometry(inner.x(), inner.y(), strip, inner.height());
+    if (titleBar) {
+        titleBar->setGeometry(inner.x() + strip, inner.y(), inner.width() - strip, titleH);
+        titleBar->show();
+        titleBar->raise();
+    }
+    splitter->setGeometry(
+        inner.x() + strip,
+        inner.y() + titleH,
+        inner.width() - strip,
+        std::max(0, inner.height() - titleH)
+    );
+    splitter->show();
+    splitter->raise();
+    bar->raise();
+    if (edgeGrip) {
+        edgeGrip->hide();
+    }
+}
+
 void OverlayTabWidget::setupLayout()
 {
+    if (keepTabVisible() && _state <= State::Hint) {
+        layoutModernCadTaskOverlay();
+        return;
+    }
+
     if (_state > State::Normal) {
         return;
     }
 
-    if (count() == 1) {
-        tabSize = 0;
+    tabSize = tabBarThickness();
+    if (tabBar()->isVisible() && tabSize > 0) {
+        switch (tabPosition()) {
+            case West:
+                tabBar()->setGeometry(0, 0, tabSize, height());
+                break;
+            case East:
+                tabBar()->setGeometry(width() - tabSize, 0, tabSize, height());
+                break;
+            case North:
+                tabBar()->setGeometry(0, 0, width(), tabSize);
+                break;
+            case South:
+                tabBar()->setGeometry(0, height() - tabSize, width(), tabSize);
+                break;
+        }
     }
-    else {
-        int tsize;
-        if (dockArea == Qt::LeftDockWidgetArea || dockArea == Qt::RightDockWidgetArea) {
-            tsize = tabBar()->width();
+    for (int i = 0, c = count(); i < c; ++i) {
+        if (QWidget* dummy = widget(i)) {
+            dummy->hide();
+            dummy->setGeometry(0, 0, 0, 0);
         }
-        else {
-            tsize = tabBar()->height();
-        }
-        tabSize = tsize;
     }
     int titleBarSize = widgetMinSize(this, true);
     QRect rect, rectTitle;
@@ -1956,6 +2158,28 @@ void OverlayTabWidget::setupLayout()
     }
     splitter->setGeometry(rect);
     titleBar->setGeometry(rectTitle);
+    splitter->show();
+    splitter->raise();
+    titleBar->raise();
+    if (tabBar()->isVisible()) {
+        tabBar()->raise();
+    }
+    if (edgeGrip) {
+        constexpr int gripWidth = 8;
+        if (keepTabVisible() && tabBar()->isVisible()) {
+            edgeGrip->hide();
+        }
+        else {
+            if (dockArea == Qt::LeftDockWidgetArea) {
+                edgeGrip->setGeometry(width() - gripWidth, 0, gripWidth, height());
+            }
+            else {
+                edgeGrip->setGeometry(0, 0, gripWidth, height());
+            }
+            edgeGrip->show();
+            edgeGrip->raise();
+        }
+    }
 }
 
 void OverlayTabWidget::setCurrent(QDockWidget* widget)
@@ -2000,7 +2224,24 @@ void OverlayTabWidget::onSplitterResize(int index)
 
 void OverlayTabWidget::onCurrentChanged(int index)
 {
-    setState(State::Showing);
+    if (keepTabVisible()) {
+        const bool empty = !Control().taskPanel() || Control().taskPanel()->isEmpty(false);
+        if (_state == State::Hint || _state == State::HintHidden || _state == State::Hidden) {
+            userPinned = true;
+            setState(State::Showing);
+        }
+        else if (_state <= State::Normal && empty) {
+            userPinned = false;
+            setState(State::Hint);
+            return;
+        }
+        else {
+            userPinned = true;
+        }
+    }
+    else {
+        setState(State::Showing);
+    }
 
     auto sizes = splitter->sizes();
     int i = 0;
@@ -2415,13 +2656,14 @@ OverlaySizeGrip::OverlaySizeGrip(QWidget* parent, bool vertical)
     : QWidget(parent)
     , vertical(vertical)
 {
+    setObjectName(QStringLiteral("OverlayEdgeGrip"));
     if (vertical) {
-        this->setFixedHeight(6);
+        this->setFixedHeight(8);
         this->setMinimumWidth(widgetMinSize(this, true));
         this->setCursor(Qt::SizeVerCursor);
     }
     else {
-        this->setFixedWidth(6);
+        this->setFixedWidth(8);
         this->setMinimumHeight(widgetMinSize(this, true));
         this->setCursor(Qt::SizeHorCursor);
     }
@@ -2431,11 +2673,18 @@ OverlaySizeGrip::OverlaySizeGrip(QWidget* parent, bool vertical)
 void OverlaySizeGrip::paintEvent(QPaintEvent*)
 {
     QPainter painter(this);
-    painter.setPen(Qt::transparent);
-    painter.setOpacity(0.5);
-    painter.setBrush(QBrush(palette().color(QPalette::Shadow), Qt::Dense6Pattern));
-    QRect rect(this->rect());
-    painter.drawRect(rect);
+    painter.setPen(Qt::NoPen);
+    painter.setOpacity(0.85);
+    painter.setBrush(palette().color(QPalette::Mid));
+    painter.drawRect(rect());
+    painter.setOpacity(1.0);
+    painter.setBrush(palette().color(QPalette::Highlight));
+    if (vertical) {
+        painter.drawRect(QRect(rect().x(), rect().center().y() - 12, rect().width(), 24));
+    }
+    else {
+        painter.drawRect(QRect(rect().center().x() - 1, rect().center().y() - 16, 2, 32));
+    }
 }
 
 void OverlaySizeGrip::mouseMoveEvent(QMouseEvent* me)
@@ -2451,11 +2700,19 @@ void OverlaySizeGrip::mouseMoveEvent(QMouseEvent* me)
     }
 }
 
-void OverlaySizeGrip::mousePressEvent(QMouseEvent*)
-{}
+void OverlaySizeGrip::mousePressEvent(QMouseEvent* me)
+{
+    if (me->button() == Qt::LeftButton) {
+        grabMouse();
+    }
+}
 
-void OverlaySizeGrip::mouseReleaseEvent(QMouseEvent*)
-{}
+void OverlaySizeGrip::mouseReleaseEvent(QMouseEvent* me)
+{
+    if (me->button() == Qt::LeftButton && QWidget::mouseGrabber() == this) {
+        releaseMouse();
+    }
+}
 
 // -----------------------------------------------------------
 

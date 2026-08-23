@@ -83,6 +83,8 @@ const QString TaskFeaturePick::getFeatureStatusString(const featureStatus st)
             return tr("Base plane");
         case afterTip:
             return tr("Feature is located after the tip of the body");
+        case openContour:
+            return tr("Sketch is not a closed contour (Pad needs a closed outline)");
     }
 
     return QString();
@@ -220,6 +222,9 @@ void TaskFeaturePick::updateList()
                 item->setHidden(false);
                 break;
             case afterTip:
+                item->setHidden(true);
+                break;
+            case openContour:
                 item->setHidden(true);
                 break;
         }

@@ -185,6 +185,18 @@ public:
     void solvesketch(int& status, int& dofs, bool updategeo);
 
     // third type of routines
+    struct ClosedContourStatus
+    {
+        bool hasClosedContour = false;
+        bool canMakeFace = false;
+        int openEndpointCount = 0;
+        int missingCoincidenceCount = 0;
+        std::vector<Base::Vector3d> gapPoints;
+    };
+
+    /// SolidWorks-style closed-contour check used by Pad/extrude.
+    /// Reports unconstrained endpoints even when OCCT has sewn a tiny gap.
+    ClosedContourStatus analyseClosedContour(double gapTolerance = 0.1) const;
     std::vector<Base::Vector3d> getOpenVertices() const;
 
 private:

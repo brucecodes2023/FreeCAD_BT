@@ -594,8 +594,8 @@ CmdPartDesignNewSketch::CmdPartDesignNewSketch()
 {
     sAppModule = "PartDesign";
     sGroup = QT_TR_NOOP("PartDesign");
-    sMenuText = QT_TR_NOOP("New Sketch");
-    sToolTipText = QT_TR_NOOP("Creates a new sketch");
+    sMenuText = QT_TR_NOOP("Sketch");
+    sToolTipText = QT_TR_NOOP("Creates a new sketch. Click a plane or face in the 3D view.");
     sWhatsThis = "PartDesign_NewSketch";
     sStatusTip = sToolTipText;
     sPixmap = "Sketcher_NewSketch";
@@ -767,6 +767,25 @@ unsigned validateSketches(
             continue;
         }
 
+        // Pad/Pocket need a closed contour (SolidWorks-style). Prefer the
+        // ClosedContour property maintained by the sketcher solver.
+        if (auto* skObj = freecad_cast<Sketcher::SketchObject*>(*s)) {
+            bool closed = skObj->ClosedContour.getValue();
+            if (!closed) {
+                try {
+                    const auto contour = skObj->analyseClosedContour();
+                    closed = contour.hasClosedContour || contour.canMakeFace;
+                }
+                catch (...) {
+                    closed = false;
+                }
+            }
+            if (!closed) {
+                status.push_back(PartDesignGui::TaskFeaturePick::openContour);
+                continue;
+            }
+        }
+
         // All checks passed - found a valid sketch
         if (firstFreeSketch == sketches.end()) {
             firstFreeSketch = s;
@@ -908,12 +927,17 @@ void prepareProfileBased(
             feature->recomputeFeature();
         }
 
-        std::string FeatName = cmd->getUniqueObjectName(which.c_str(), pcActiveBody);
+        std::string nameBase = which;
+        if (const char* fusion = PartDesignGui::fusionFeatureNameBase(which.c_str())) {
+            nameBase = fusion;
+        }
+        std::string FeatName = cmd->getUniqueObjectName(nameBase.c_str(), pcActiveBody);
 
         cmd->openCommand(std::string("Make ") + which);
 
         FCMD_OBJ_CMD(pcActiveBody, "newObject('PartDesign::" << which << "','" << FeatName << "')");
         auto Feat = pcActiveBody->getDocument()->getObject(FeatName.c_str());
+        PartDesignGui::applyFusionFeatureLabel(Feat, which.c_str());
 
         auto objCmd = Gui::Command::getObjectCmd(feature);
 
@@ -1264,7 +1288,7 @@ CmdPartDesignPad::CmdPartDesignPad()
 {
     sAppModule = "PartDesign";
     sGroup = QT_TR_NOOP("PartDesign");
-    sMenuText = QT_TR_NOOP("Pad");
+    sMenuText = QT_TR_NOOP("Extrude");
     sToolTipText = QT_TR_NOOP("Extrudes the selected sketch or profile and adds it to the body");
     sWhatsThis = "PartDesign_Pad";
     sStatusTip = sToolTipText;
@@ -1293,7 +1317,7 @@ CmdPartDesignPocket::CmdPartDesignPocket()
 {
     sAppModule = "PartDesign";
     sGroup = QT_TR_NOOP("PartDesign");
-    sMenuText = QT_TR_NOOP("Pocket");
+    sMenuText = QT_TR_NOOP("Extrude Cut");
     sToolTipText = QT_TR_NOOP("Extrudes the selected sketch or profile and removes it from the body");
     sWhatsThis = "PartDesign_Pocket";
     sStatusTip = sToolTipText;
@@ -1429,7 +1453,7 @@ CmdPartDesignGroove::CmdPartDesignGroove()
 {
     sAppModule = "PartDesign";
     sGroup = QT_TR_NOOP("PartDesign");
-    sMenuText = QT_TR_NOOP("Groove");
+    sMenuText = QT_TR_NOOP("Revolve Cut");
     sToolTipText = QT_TR_NOOP(
         "Revolves the sketch or profile around a line or axis and removes it from the body"
     );
@@ -1499,7 +1523,7 @@ CmdPartDesignAdditivePipe::CmdPartDesignAdditivePipe()
 {
     sAppModule = "PartDesign";
     sGroup = QT_TR_NOOP("PartDesign");
-    sMenuText = QT_TR_NOOP("Additive Pipe");
+    sMenuText = QT_TR_NOOP("Sweep");
     sToolTipText = QT_TR_NOOP(
         "Sweeps the selected sketch or profile along a path and adds it to the body"
     );
@@ -1549,7 +1573,7 @@ CmdPartDesignSubtractivePipe::CmdPartDesignSubtractivePipe()
 {
     sAppModule = "PartDesign";
     sGroup = QT_TR_NOOP("PartDesign");
-    sMenuText = QT_TR_NOOP("Subtractive Pipe");
+    sMenuText = QT_TR_NOOP("Sweep Cut");
     sToolTipText = QT_TR_NOOP(
         "Sweeps the selected sketch or profile along a path and removes it from the body"
     );
@@ -1599,7 +1623,7 @@ CmdPartDesignAdditiveLoft::CmdPartDesignAdditiveLoft()
 {
     sAppModule = "PartDesign";
     sGroup = QT_TR_NOOP("PartDesign");
-    sMenuText = QT_TR_NOOP("Additive Loft");
+    sMenuText = QT_TR_NOOP("Loft");
     sToolTipText = QT_TR_NOOP(
         "Lofts the selected sketch or profile along a path and adds it to the body"
     );
@@ -1649,7 +1673,7 @@ CmdPartDesignSubtractiveLoft::CmdPartDesignSubtractiveLoft()
 {
     sAppModule = "PartDesign";
     sGroup = QT_TR_NOOP("PartDesign");
-    sMenuText = QT_TR_NOOP("Subtractive Loft");
+    sMenuText = QT_TR_NOOP("Loft Cut");
     sToolTipText = QT_TR_NOOP(
         "Lofts the selected sketch or profile along a path and removes it from the body"
     );
@@ -1698,7 +1722,7 @@ CmdPartDesignAdditiveHelix::CmdPartDesignAdditiveHelix()
 {
     sAppModule = "PartDesign";
     sGroup = QT_TR_NOOP("PartDesign");
-    sMenuText = QT_TR_NOOP("Additive Helix");
+    sMenuText = QT_TR_NOOP("Coil");
     sToolTipText = QT_TR_NOOP(
         "Sweeps the selected sketch or profile along a helix and adds it to the body"
     );
@@ -1782,7 +1806,7 @@ CmdPartDesignSubtractiveHelix::CmdPartDesignSubtractiveHelix()
 {
     sAppModule = "PartDesign";
     sGroup = QT_TR_NOOP("PartDesign");
-    sMenuText = QT_TR_NOOP("Subtractive Helix");
+    sMenuText = QT_TR_NOOP("Coil Cut");
     sToolTipText = QT_TR_NOOP(
         "Sweeps the selected sketch or profile along a helix and removes it from the body"
     );
@@ -1937,7 +1961,11 @@ void finishDressupFeature(
     }
     str << "])";
 
-    std::string FeatName = cmd->getUniqueObjectName(which.c_str(), base);
+    std::string nameBase = which;
+    if (const char* fusion = PartDesignGui::fusionFeatureNameBase(which.c_str())) {
+        nameBase = fusion;
+    }
+    std::string FeatName = cmd->getUniqueObjectName(nameBase.c_str(), base);
 
     auto body = PartDesignGui::getBodyFor(base, false);
     if (!body) {
@@ -1946,6 +1974,7 @@ void finishDressupFeature(
     cmd->openCommand(std::string("Make ") + which);
     FCMD_OBJ_CMD(body, "newObject('PartDesign::" << which << "','" << FeatName << "')");
     auto Feat = body->getDocument()->getObject(FeatName.c_str());
+    PartDesignGui::applyFusionFeatureLabel(Feat, which.c_str());
     FCMD_OBJ_CMD(Feat, "Base = " << str.str());
     if (useAllEdges && (which.compare("Fillet") == 0 || which.compare("Chamfer") == 0)) {
         FCMD_OBJ_CMD(Feat, "UseAllEdges = True");
@@ -2125,7 +2154,7 @@ CmdPartDesignThickness::CmdPartDesignThickness()
 {
     sAppModule = "PartDesign";
     sGroup = QT_TR_NOOP("PartDesign");
-    sMenuText = QT_TR_NOOP("Thickness");
+    sMenuText = QT_TR_NOOP("Shell");
     sToolTipText = QT_TR_NOOP("Applies thickness and removes the selected faces");
     sWhatsThis = "PartDesign_Thickness";
     sStatusTip = sToolTipText;
@@ -2184,7 +2213,11 @@ void prepareTransformed(
     std::function<void(App::DocumentObject*, std::vector<App::DocumentObject*>)> func
 )
 {
-    std::string FeatName = cmd->getUniqueObjectName(which.c_str(), pcActiveBody);
+    std::string nameBase = which;
+    if (const char* fusion = PartDesignGui::fusionFeatureNameBase(which.c_str())) {
+        nameBase = fusion;
+    }
+    std::string FeatName = cmd->getUniqueObjectName(nameBase.c_str(), pcActiveBody);
 
     auto worker = [=](std::vector<App::DocumentObject*> features) {
         std::string msg("Make ");
@@ -2197,6 +2230,7 @@ void prepareTransformed(
                                        // next command comes up
 
         auto Feat = pcActiveBody->getDocument()->getObject(FeatName.c_str());
+        PartDesignGui::applyFusionFeatureLabel(Feat, which.c_str());
 
         if (features.empty()) {
             FCMD_OBJ_CMD(Feat, "TransformMode = \"Whole shape\"");
@@ -2310,7 +2344,7 @@ CmdPartDesignLinearPattern::CmdPartDesignLinearPattern()
 {
     sAppModule = "PartDesign";
     sGroup = QT_TR_NOOP("PartDesign");
-    sMenuText = QT_TR_NOOP("Linear Pattern");
+    sMenuText = QT_TR_NOOP("Pattern");
     sToolTipText = QT_TR_NOOP(
         "Duplicates the selected features or the active body in a linear pattern"
     );
@@ -2384,7 +2418,7 @@ CmdPartDesignPolarPattern::CmdPartDesignPolarPattern()
 {
     sAppModule = "PartDesign";
     sGroup = QT_TR_NOOP("PartDesign");
-    sMenuText = QT_TR_NOOP("Polar Pattern");
+    sMenuText = QT_TR_NOOP("Circular Pattern");
     sToolTipText = QT_TR_NOOP(
         "Duplicates the selected features or the active body in a circular pattern"
     );
@@ -2620,7 +2654,7 @@ CmdPartDesignBoolean::CmdPartDesignBoolean()
 {
     sAppModule = "PartDesign";
     sGroup = QT_TR_NOOP("PartDesign");
-    sMenuText = QT_TR_NOOP("Boolean Operation");
+    sMenuText = QT_TR_NOOP("Combine");
     sToolTipText = QT_TR_NOOP(
         "Applies boolean operations with the selected objects and the active body"
     );
@@ -2641,9 +2675,14 @@ void CmdPartDesignBoolean::activated(int iMsg)
     Gui::SelectionFilter BodyFilter("SELECT Part::Feature COUNT 1..");
 
     openCommand(QT_TRANSLATE_NOOP("Command", "Create Boolean"));
-    std::string FeatName = getUniqueObjectName("Boolean", pcActiveBody);
+    std::string nameBase = "Boolean";
+    if (const char* fusion = PartDesignGui::fusionFeatureNameBase("Boolean")) {
+        nameBase = fusion;
+    }
+    std::string FeatName = getUniqueObjectName(nameBase.c_str(), pcActiveBody);
     FCMD_OBJ_CMD(pcActiveBody, "newObject('PartDesign::Boolean','" << FeatName << "')");
     auto Feat = pcActiveBody->getDocument()->getObject(FeatName.c_str());
+    PartDesignGui::applyFusionFeatureLabel(Feat, "Boolean");
 
     // If we don't add an object to the boolean group then don't update the body
     // as otherwise this will fail and it will be marked as invalid

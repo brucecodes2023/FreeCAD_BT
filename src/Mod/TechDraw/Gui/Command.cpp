@@ -106,8 +106,8 @@ CmdTechDrawPageDefault::CmdTechDrawPageDefault() : Command("TechDraw_PageDefault
 {
     sAppModule = "TechDraw";
     sGroup = QT_TR_NOOP("TechDraw");
-    sMenuText = QT_TR_NOOP("New Page");
-    sToolTipText = QT_TR_NOOP("Creates a new page with the default template");
+    sMenuText = QT_TR_NOOP("New Drawing Page");
+    sToolTipText = QT_TR_NOOP("Creates a new drawing page with the default template");
     sWhatsThis = "TechDraw_PageDefault";
     sStatusTip = sToolTipText;
     sPixmap = "actions/TechDraw_PageDefault";
@@ -296,7 +296,7 @@ CmdTechDrawView::CmdTechDrawView() : Command("TechDraw_View")
 {
     sAppModule = "TechDraw";
     sGroup = QT_TR_NOOP("TechDraw");
-    sMenuText = QT_TR_NOOP("New View");
+    sMenuText = QT_TR_NOOP("Insert View");
     sToolTipText = QT_TR_NOOP(
         "Inserts a new view into the current page based on the selected object in the tree view "
         "or 3D view.\n"
@@ -1056,8 +1056,9 @@ CmdTechDrawProjectionGroup::CmdTechDrawProjectionGroup() : Command("TechDraw_Pro
 {
     sAppModule = "TechDraw";
     sGroup = QT_TR_NOOP("TechDraw");
-    sMenuText = QT_TR_NOOP("Projection Group");
-    sToolTipText = QT_TR_NOOP("Inserts multiple new linked views of the selected objects in the current page");
+    sMenuText = QT_TR_NOOP("Insert Multiview");
+    sToolTipText = QT_TR_NOOP(
+        "Inserts a projection group (linked orthographic views) of the selected objects on the current page");
     sWhatsThis = "TechDraw_ProjectionGroup";
     sStatusTip = sToolTipText;
     sPixmap = "actions/TechDraw_ProjectionGroup";

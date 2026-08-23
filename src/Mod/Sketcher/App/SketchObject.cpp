@@ -27,6 +27,7 @@
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepBuilderAPI_MakeVertex.hxx>
 #include <GCPnts_AbscissaPoint.hxx>
+#include <Standard_Failure.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Shape.hxx>
 
@@ -101,6 +102,16 @@ SketchObject::SketchObject() : geoLastId(0)
                       "Sketch",
                       (App::PropertyType)(App::Prop_Output | App::Prop_ReadOnly | App::Prop_Hidden),
                       "Sketch is fully constrained");
+    ADD_PROPERTY_TYPE(LastDoF,
+                      (0),
+                      "Sketch",
+                      (App::PropertyType)(App::Prop_Output | App::Prop_ReadOnly | App::Prop_Hidden),
+                      "Degrees of freedom from the last solver run");
+    ADD_PROPERTY_TYPE(ClosedContour,
+                      (true),
+                      "Sketch",
+                      (App::PropertyType)(App::Prop_Output | App::Prop_ReadOnly | App::Prop_Hidden),
+                      "Sketch has a closed contour that Pad/extrude can use");
     ADD_PROPERTY_TYPE(Exports,
                       (nullptr),
                       "Sketch",
@@ -438,6 +449,21 @@ Part::TopoShape SketchObject::buildInternals(const Part::TopoShape &edges) const
             }
             catch (const Part::NullShapeException&) {
                 // An open-only sketch has no bounded regions, so a null face result is expected.
+            }
+            if (!result.hasSubShape(TopAbs_FACE)) {
+                try {
+                    result = Part::TopoShape(getID(), getDocument()->getStringHasher())
+                                 .makeElementFace(
+                                     edges.getSubTopoShapes(TopAbs_WIRE),
+                                     "",
+                                     "Part::FaceMakerBullseye",
+                                     nullptr
+                                 );
+                }
+                catch (const Base::Exception&) {
+                }
+                catch (const Standard_Failure&) {
+                }
             }
         }
 
@@ -2241,6 +2267,14 @@ std::vector<Base::Vector3d> SketchObject::getOpenVertices() const
         points = analyser->getOpenVertices();
 
     return points;
+}
+
+SketchAnalysis::ClosedContourStatus SketchObject::analyseClosedContour(double gapTolerance) const
+{
+    if (analyser) {
+        return analyser->analyseClosedContour(gapTolerance);
+    }
+    return {};
 }
 
 // Python Sketcher feature ---------------------------------------------------------

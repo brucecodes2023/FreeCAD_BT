@@ -24,6 +24,10 @@
 
 #pragma once
 
+#include <QString>
+#include <string>
+#include <vector>
+
 /** \file PartDesign/Gui/Utils.h
  *  This file contains some utility function used over PartDesignGui module
  */
@@ -121,5 +125,18 @@ std::vector<App::DocumentObject*> collectMovableDependencies(
 );
 /// Relink sketches and datums to target body's origin
 void relinkToOrigin(App::DocumentObject* feature, PartDesign::Body* body);
+
+/**
+ * Fusion-style display name for a PartDesign type id suffix (e.g. "Pad" → "Extrude").
+ * Used for object Name/Label defaults in the tree. TypeId stays PartDesign::Pad etc.
+ * Returns nullptr when no rename applies (use the FreeCAD type name).
+ */
+const char* fusionFeatureNameBase(const char* typeSuffix);
+
+/** Translated Label for a PartDesign type (e.g. Pocket → "Extrude Cut"). */
+QString fusionFeatureLabel(const char* typeSuffix);
+
+/** Apply Fusion tree Label after creating a feature (keeps TypeId/API names). */
+void applyFusionFeatureLabel(App::DocumentObject* feature, const char* typeSuffix);
 
 }  // namespace PartDesignGui

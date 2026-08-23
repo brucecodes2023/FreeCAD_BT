@@ -1,0 +1,69 @@
+% FreeCAD_BT — robotics first-principles lecture notes (short)
+% Compile standalone, or \input after stripping the preamble / \begin{document}.
+% Related plan: Documents/README.md (R1), modern-cad-design.tex
+\documentclass[11pt]{article}
+\usepackage[margin=1.1in]{geometry}
+\usepackage{amsmath}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\title{Robotics from Assembly\\[0.4em]
+\large FreeCAD\_BT first-principles notes}
+\author{Lecture fragment --- drop into guides as needed}
+\date{August 2026}
+
+\begin{document}
+\maketitle
+\noindent\textit{Status:} R1 \textbf{Partial} (\texttt{Documents/README.md}). Assembly joints are the kinematic source of truth; robotics runs \emph{parallel} with mates (H1), not after them.
+
+\section*{Definitions}
+
+\begin{description}
+  \item[Reference frame.] A rigid placement $(\mathrm{R},\mathbf{p})$ on a part or joint coordinate system. Mates relate frames; export only copies parameters --- it does not invent new geometry.
+  \item[Constraint / DOF.] An unconstrained rigid body in 3D has 6 DOF. Each mate removes some; a revolute leaves one angle, a slider one length, Fixed removes relative motion. Sketch DoF and assembly DoF are analogous counting problems at different layers.
+  \item[Grounded root.] Exactly one part fixed to the assembly world. Same role as SolidWorks Fixed / Fusion Ground. UI: \texttt{Assembly\_ToggleGrounded}. Solver code $-6$ means ungrounded.
+  \item[Joint type $\to$ state.] Motional joints contribute coordinates to a state vector $\mathbf{q}$. Serial path: order matters. Inventory path: list joints; external code chooses topology.
+  \item[Export as interface.] JSON/CSV (or a trajectory object) is the contract between CAD and control. FreeCAD stays the modeller; the controller lives outside this slice.
+\end{description}
+
+\section*{Two paths (do not conflate)}
+
+\paragraph{(A) Serial arm / gimbal --- trajectory.}
+Command \texttt{Robot\_FromAssembly} (menu: ``Trajectory from Assembly''). Registered by \texttt{RobotTools.CommandFromAssembly.register\_commands}; also listed on the Assembly workbench menu-only list and on the Robotics toolbar (\texttt{Robot/Gui/Workbench.cpp}). Pipeline:
+\begin{center}
+\texttt{assembly\_chain.analyze\_assembly}
+$\;\to\;$
+\texttt{chain\_graph.order\_serial\_chain}
+$\;\to\;$
+\texttt{Robot::TrajectoryObject}
+\end{center}
+Optionally writes approximate DH CSV for legacy \texttt{Robot::Robot6Axis} (always six rows: pad / truncate). Motional types scanned: Revolute, Slider, Cylindrical. Branched or disconnected graphs take the longest path and warn --- this is \emph{not} full non-serial IK. Downstream simulate: \texttt{Robot\_Simulate}.
+
+\paragraph{(B) Drone / multi-rotor --- joint inventory.}
+Intended path: dump Assembly joints to generic JSON (primary) + CSV via \texttt{RobotTools.joint\_inventory} --- \texttt{inventory\_from\_assembly}, \texttt{write\_joint\_inventory}, schema \texttt{freecad.robot.joint\_inventory}. Includes Revolute / Slider / Cylindrical / Fixed and Grounded markers. Explicitly does \emph{not} build a \texttt{TrajectoryObject} or solve multi-branch kinematics. \textbf{Status:} library is in-tree; no Gui command is registered yet --- call the module from the Python console until a command lands. Prefer this generic export over Kuka for drones.
+
+\section*{Source of truth and export preference}
+
+Assembly (Ondsel) mates --- \texttt{Assembly\_CreateMate}, \texttt{Assembly\_CreateJointRevolute}, \ldots{} --- own kinematics for both paths. Rebuild export when mates change. Kuka remains available for arms: \texttt{Robot\_ExportKukaCompact}, \texttt{Robot\_ExportKukaFull}, \texttt{KukaExporter.py}. For drones, inventoring joints in CSV/JSON is the preferred interface; KRL is arm-oriented.
+
+\section*{What we built vs.\ what we did not}
+
+\begin{description}
+  \item[Built (this slice).] \texttt{Robot\_FromAssembly}; \texttt{RobotTools/}\{ \texttt{assembly\_chain}, \texttt{chain\_graph}, \texttt{joint\_inventory}, \texttt{test\_chain\_graph} \}; workbench menu label \textbf{Robotics} (\texttt{InitGui.py}); Modern CAD packs enable RobotWorkbench.
+  \item[Partial / mid-flight.] R1 trajectory bridge works for serial-ish chains; inventory export is usable as a library but not yet a menu command.
+  \item[Non-goals.] Production CFD; mate-driven in-place while editing (F4 is Partial \texttt{HoldIsolate} only); replacing OCCT; full ROS/URDF stack in this slice.
+\end{description}
+
+\section*{First-principles hooks (expand later)}
+
+\begin{enumerate}
+  \item Name frames: world, grounded part, each joint CS.
+  \item Count DOF before and after mates; ground first.
+  \item Map each joint type to a state coordinate ($\theta$, $s$, \ldots).
+  \item Choose path A (ordered chain $\to$ trajectory / DH) or path B (inventory $\to$ external multi-rotor stack).
+  \item Treat the file as the contract; re-export when the assembly changes.
+\end{enumerate}
+
+\noindent\textit{Thesis in one line:} Assembly mates define kinematics; Robotics either serializes a chain into a trajectory or inventories joints for multi-branch machines --- never both in one command.
+
+\end{document}

@@ -70,14 +70,11 @@ SketcherValidation::SketcherValidation(Sketcher::SketchObject* Obj, QWidget* par
     ui->checkBoxIgnoreConstruction->setEnabled(true);
     std::array tolerances = {
         // NOLINTBEGIN
-        Precision::Confusion() / 100.0,
-        Precision::Confusion() / 10.0,
         Precision::Confusion(),
-        Precision::Confusion() * 10.0,
-        Precision::Confusion() * 100.0,
         Precision::Confusion() * 1000.0,
-        Precision::Confusion() * 10000.0,
-        Precision::Confusion() * 100000.0
+        0.01,
+        0.1,
+        1.0
         // NOLINTEND
     };
 
@@ -85,7 +82,7 @@ SketcherValidation::SketcherValidation(Sketcher::SketchObject* Obj, QWidget* par
     for (double it : tolerances) {
         ui->comboBoxTolerance->addItem(loc.toString(it), QVariant(it));
     }
-    ui->comboBoxTolerance->setCurrentIndex(5);
+    ui->comboBoxTolerance->setCurrentIndex(3);
     ui->comboBoxTolerance->setEditable(true);
     const double bottom = 0.0;
     const double top = 10.0;
@@ -219,14 +216,74 @@ void SketcherValidation::onHighlightButtonClicked()
         return;
     }
 
-    std::vector<Base::Vector3d> points;
-
-    points = sketch->getOpenVertices();
-
     hidePoints();
+
+    double prec = Precision::Confusion();
+    bool ok = false;
+    QLocale loc;
+    prec = loc.toDouble(ui->comboBoxTolerance->currentText(), &ok);
+    if (!ok) {
+        prec = 0.1;
+    }
+
+    const auto contour = sketch->analyseClosedContour(prec);
+    int missing = sketch->detectMissingPointOnPointConstraints(
+        prec,
+        !ui->checkBoxIgnoreConstruction->isChecked()
+    );
+
+    std::vector<Base::Vector3d> points = contour.gapPoints;
+    if (missing > 0) {
+        for (const auto& id : sketch->getMissingPointOnPointConstraints()) {
+            points.push_back(id.v);
+        }
+    }
+
     if (!points.empty()) {
         showPoints(points);
     }
+
+    ui->fixButton->setEnabled(missing > 0);
+
+    if (contour.hasClosedContour && contour.canMakeFace && missing == 0
+        && contour.openEndpointCount == 0) {
+        Gui::TranslatedNotification(
+            *sketch,
+            tr("Closed contour"),
+            tr("Closed contour — ready to Pad / extrude.")
+        );
+        return;
+    }
+
+    if (missing > 0) {
+        Gui::TranslatedUserWarning(
+            *sketch,
+            tr("Open contour"),
+            tr("This sketch looks closed but %1 endpoint pair(s) are not coincident.\n"
+               "Pad needs coincident constraints, not just points that sit near each other.\n"
+               "Gaps are highlighted. Click Fix to add the missing coincidences.")
+                .arg(missing)
+        );
+        return;
+    }
+
+    if (contour.openEndpointCount > 0) {
+        Gui::TranslatedUserWarning(
+            *sketch,
+            tr("Open contour"),
+            tr("%1 open endpoint(s) highlighted. Connect them with coincident constraints "
+               "before Pad / extrude.")
+                .arg(contour.openEndpointCount)
+        );
+        return;
+    }
+
+    Gui::TranslatedUserWarning(
+        *sketch,
+        tr("Cannot make a face"),
+        tr("No closed contour that Pad can extrude. The outline may be self-intersecting, "
+           "zero-area, or empty.")
+    );
 }
 
 void SketcherValidation::onFindConstraintClicked()

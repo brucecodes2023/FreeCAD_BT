@@ -162,6 +162,15 @@ int SketchObject::solve(bool updateGeoAfterSolving /*=true*/)
 
     lastSolveTime = solvedSketch.getSolveTime();
 
+    LastDoF.setValue(lastDoF);
+    try {
+        const auto contour = analyseClosedContour();
+        ClosedContour.setValue(contour.hasClosedContour || contour.canMakeFace);
+    }
+    catch (...) {
+        ClosedContour.setValue(false);
+    }
+
     // In uncommon situations, the analysis of QR decomposition leads to full rank, but the result
     // does not converge. We avoid marking a sketch as fully constrained when no convergence is
     // achieved.

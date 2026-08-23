@@ -93,7 +93,7 @@
 \vspace{0.7em}
 {\large\color{applegray} Close the gap from FreeCAD toward SolidWorks and Fusion~360, starting on the FreeCAD foundation and shipping first on Apple Silicon.\par}
 \vspace{1.1em}
-\noindent{\footnotesize\color{applegray} Repository \; \textbf{brucecodes2023/FreeCAD\_BT} \hfill Branch \; \textbf{cursor/modern-cad-phase1-953c} \hfill Updated \; \textbf{13~August~2026}}
+\noindent{\footnotesize\color{applegray} Repository \; \textbf{brucecodes2023/FreeCAD\_BT} \hfill Branch \; \textbf{cursor/modern-cad-phase1-953c} \hfill Updated \; \textbf{22~August~2026}}
 \endgroup
 
 \vspace{0.9em}
@@ -131,7 +131,8 @@ tab while we work: \fp{Documents/README.md} (also linked from repo-root
 SolidWorks is the target \emph{feel} (FeatureManager, CommandManager-like strip,
 familiar mouse, guided simulation). Fusion is the target \emph{shell} (ribbon
 while modeling, dashboard on launch). FreeCAD is the \emph{foundation} (OCCT
-kernel, Body/Tip history, workbenches, CalculiX + Elmer).
+kernel, Body/Tip history, workbenches, CalculiX + Elmer). Stay on OCCT --- STEP
+must-have; do not plan kernel migration.
 
 The gap is closed in this order, because that is the order the codebase actually
 supports:
@@ -160,7 +161,7 @@ A2 & Modern CAD behavior pack & \done & Nav, cube, combo view, ribbon flag. \\
 A3 & View cube defaults & \done & Top-right, size 132. \\
 A4 & First-start onboarding & \done & Applies Modern CAD pack once. \\
 A5 & Fusion 360 nav class & \done & Additive; MMB pan / Shift+MMB orbit. Default stays SolidWorks. \\
-A6 & Fusion-style ribbon & \partialst & QAT, overflow, captions, sketch contextual tabs. Mac QA remaining. \\
+A6 & Fusion-style ribbon & \done & Workbench tabs, large/small groups, overflow, native Mac menus. \\
 \midrule
 B0 & Traffic lights already native & \done & Finding; no code move. \\
 B1 & Unified title + toolbar & \done & \fp{setUnifiedTitleAndToolBarOnMac(true)}. \\
@@ -183,18 +184,18 @@ C5 & Metal / Qt RHI viewport & \later & Real M5 fix. Near-term: vsync + software
 \textbf{ID} & \textbf{Item} & \textbf{Status} & \textbf{Notes} \\
 \midrule
 D1 & Home dashboard & \partialst & Metrics, tips, command search, projects, new-file cards. \\
-D2 & Project folders & \partialst & Create + list; open file from folder. \\
-D3 & Dashboard health widgets & \partialst & Drawing + Continue; recompute errors; GPU warning; search. \\
+D2 & Project folders & \done & Create, pin, unpin, open a file from the folder. \\
+D3 & Dashboard health widgets & \done & Recompute errors + sketch DoF/open-contour on Model health. \\
 \midrule
 E1 & Modern CAD Light/Dark tokens & \partialst & Cool gray + SW blue; iterate on Mac. \\
-E2 & Denser Feature tree / icons & \partialst & Pack: 32px toolbars, tree icon 24 / indent 10. \\
+E2 & Denser Feature tree / icons & \done & Pack: 32px toolbars, tree icon 20 / indent 8. \\
 E3 & Viewport / PD preview colors & \partialst & Gradient off; dress-up preview blue-gray. \\
 E4 & Custom sketch/feature icons & \later & Optional icon set. \\
 \midrule
-F1 & Rollback bar & \later & Body/Tip history UX. \\
+F1 & Rollback bar & \partialst & History slider under Combo View moves Body Tip. \\
 F2 & Topological naming UX & \later & Kernel work, not chrome. \\
 F3 & Sketch-in-tree FeatureManager & \later & Single tree like SW. \\
-F4 & In-context assembly edits & \later & Beyond Ondsel joints. \\
+F4 & Edit-in-place / in-context & \textbf{P0} / \partialst{} & Edit Part + Return + HoldIsolate; not full SW in-place. \\
 \midrule
 G1 & First Principles study stub & \wip & Elmer elasticity + heat; labeled WIP. \\
 G2 & Guided equation wizard & \partialst & Mesh / material / BC checklist before solve. \\
@@ -241,19 +242,17 @@ toolbars while a document is open.
 \textbf{Shipped}
 \begin{itemize}
   \item \fp{Gui::RibbonBar} / \fp{RibbonManager} consume the workbench \fp{ToolBarItem} tree.
-  \item Tabs = toolbars; groups split on separators; workbench combo on the tab row.
+  \item Tabs = enabled workbenches (icons + names). Clicking a tab activates that workbench.
+  \item Panels = that workbench's toolbars with large primary commands and small stacked icons.
   \item Hidden when the active MDI view is \fp{StartView}.
   \item Classic \fp{QToolBar}s hidden while ribbon is on (including after sketch \fp{setState}).
   \item Preference \fp{BaseApp/Preferences/MainWindow/UseRibbon} (default on; off in GUI tests).
   \item Ribbon sits above the MDI area, not inside the 22\,px unified title bar.
-  \item Quick Access strip: New, Save, Undo, Redo.
+  \item File / Edit / View stay in the native macOS menu bar.
   \item Per-page overflow chevron (\texttt{»}) when groups do not fit.
-  \item Fusion-sized captions (toolbar icon size from prefs, text under icon).
-  \item Contextual tabs: \fp{Unavailable} (sketch edit) toolbars shown only while a sketch is in edit.
 \end{itemize}
 
-\textbf{Still to polish on Mac:} height vs traffic lights, overflow at laptop widths,
-optional QAT customization.
+Mac visual QA accepted 13 Aug 2026.
 
 % ============================ WORKSTREAM D ==================================
 \section{Workstream D \; Home dashboard}
@@ -268,20 +267,20 @@ recent files, examples. Metrics are placeholders for later health/solver widgets
 \subsection{D2 \textemdash{} Projects}
 \fp{Start::ProjectsModel} stores folder paths under
 \fp{BaseApp/Preferences/Mod/Start/Projects}. New Project picks a parent folder,
-creates a named directory and a \fp{.freecad-project} JSON marker, then lists
-the project. Clicking opens a file dialog in that folder. Not a SolidWorks
-assembly project yet --- a workspace folder.
+creates a named directory and a \fp{.freecad-project} JSON marker. Pin Folder
+adds an existing directory. Clicking a card opens a file dialog in that folder;
+right-click unpins. Not a SolidWorks assembly project --- a workspace folder.
 
-\subsection{D3 \textemdash{} Dashboard widgets (partial)}
+\subsection{D3 \textemdash{} Dashboard widgets}
 \begin{itemize}
   \item Templates: Part Design Body, Assembly, Drawing (TechDraw), plus Continue last file.
   \item Document health: recompute error count across open documents.
+  \item Sketch health: underconstrained (DoF) and open-contour sketches on the same card.
   \item In-page command search (\fp{Gui::CommandCompleter}).
   \item Units / navigation style on a metric card.
   \item What's-new / first-run tips (dismissible).
   \item Mac GPU warning when the OpenGL renderer string looks like Metal 90.x.
 \end{itemize}
-Pinned folders and sketch-solver health remain later.
 
 % ============================ WORKSTREAM E ==================================
 \section{Workstream E \; SolidWorks-like facelift}
@@ -299,8 +298,8 @@ Apply from Preferences $\rightarrow$ Preference Packs, on top of the Modern CAD
 behavior pack. Visual QA waits for a Mac launch.
 
 \subsection{E2--E4 \textemdash{} Density, viewport, icons}
-Packs set toolbar icons to 32\,px and denser Feature tree (icon 24, indent 10,
-item spacing 1). Viewport gradient stays off. PartDesign dress-up preview is
+Packs set toolbar icons to 32\,px and denser Feature tree (icon 20, indent 8,
+no extra item padding). Viewport gradient stays off. PartDesign dress-up preview is
 blue-gray instead of magenta (\fp{StyleParameters.h}). Custom SW-like glyphs (E4)
 remain later.
 
@@ -315,14 +314,19 @@ Assembly is \fp{AssemblyObject} + OndselSolver joints (kinematic), not SW mates.
 
 \textbf{Gaps vs SolidWorks}
 \begin{itemize}
-  \item F1 --- no real rollback bar on the history tip.
+  \item F1 --- History slider under Combo View rolls \fp{Body::Tip}; tree does not yet grey suppressed features.
   \item F2 --- topological naming is still fragile after face edits.
   \item F3 --- sketch is a separate object; no single FeatureManager tree.
-  \item F4 --- no in-context assembly edits / SW-style mates driving geometry.
+  \item F4 --- Partial: dbl-click Edit Part / Return + HoldIsolate; not full SW in-place / mates driving geometry.
 \end{itemize}
 
-Do not schedule F before D/E are usable on a Mac. When F starts, work in
-\fp{src/Mod/PartDesign/} and \fp{src/App/Document.cpp}, not in QSS.
+Do not schedule F2 topological naming before F1 is usable on a Mac. When F
+continues, work in \fp{src/Mod/PartDesign/} and \fp{src/App/Document.cpp}, not in QSS.
+
+\subsection{F1 \textemdash{} Rollback bar (partial)}
+\fp{PartDesignGui::RollbackBar} sits under Combo View. It lists solid features in
+the active Body and sets \fp{Tip} from a slider. One drag is one undo. Features
+after the Tip remain in the tree (no suppress/grey yet).
 
 % ============================ WORKSTREAM G ==================================
 \section{Workstream G \; Simulation / first principles}
@@ -412,16 +416,15 @@ root cause.
 \midrule
 Phase 1 & Familiar defaults & A1, A3, A2, A4 \done \\
 Phase 2 & Native Mac chrome + arm64 & B1, B2, B4, C1, C2, C3 \done \\
-Phase 3 & Shell + look v0 & A6, D1, D2, E1, G1 \partialst{} / \wip \\
-Phase 4 & Shell/look polish (source in; Mac QA) & A6 polish, D3, E2--E3 \partialst{} \\
-Phase 5 & Modeling UX & F1--F4 \\
-Phase 6 & Simulation depth + Metal & G4, C5, B3, C4 (A5/G2/G3 started) \\
+Phase 3 & Shell + look v0 & A6 \done; D1/E1 \partialst{}; D2 \done; G1 \wip \\
+Phase 4 & Shell/look polish & D3 \done; E2 \done; E3 \partialst{} \\
+Phase 5 & Modeling UX (current) & F1 \partialst{}; H1+F4 P0 (assembly-early); F2/F3 later \\
+Phase 6 & Simulation depth + Metal & G4, C5, B3, C4 (A5/G2/G3 started); Drawings/Sims wait \\
 \bottomrule
 \end{tabularx}
 
 \vspace{0.6em}
-Phase 3 is the current working phase. Modeling kernel (F) and Metal (C5) wait
-until a Mac build has validated Phase 3 visually.
+Phase 5 is assembly-early: H1 mates + F4 edit-in-place are P0 together; robotics parallel. Stay on OCCT. F2, Metal (C5), Drawings/Sims wait.
 
 % ============================ VALIDATION ===================================
 \section{Validation plan}
@@ -431,8 +434,8 @@ until a Mac build has validated Phase 3 visually.
 \textbf{Change} & \textbf{How it is proven} \\
 \midrule
 A1--A4 defaults / pack & Fresh profile: SW orbit, cube top-right, Modern CAD applied once. \\
-A6 ribbon & Document open $\rightarrow$ ribbon + QAT; Home $\rightarrow$ no ribbon; overflow \texttt{»}; sketch edit shows contextual tabs. \\
-D1--D3 dashboard & Home shows metrics, tips, search, New Project, Drawing, Continue. \\
+A6 ribbon & Document open $\rightarrow$ workbench tabs + large/small groups; Home $\rightarrow$ no ribbon; File/Edit in native Mac menu. \\
+D1--D3 dashboard & Home shows metrics, tips, search, New Project, Pin Folder, Drawing, Continue. \\
 E1--E3 look & Modern CAD Light/Dark; 32px icons; flat viewport; PD dress-up blue-gray. \\
 G1--G3 FEM & First Principles Elmer stub; Guided Wizard; CalculiX static/thermal presets. \\
 A5 Fusion nav & Preferences lists Fusion 360; default remains SolidWorks. \\
@@ -516,6 +519,17 @@ copy launches, you may \texttt{rm -rf} the git clone, \fp{build/}, and
 Update this list every time the plan or the code moves. Newest first.
 
 \begin{itemize}
+  \item \textbf{14 Aug 2026 --- Tasks pin + Sketch tab + click-in-view plane.}
+        Right overlay flush to the window edge. Clicking the tab pins it open.
+        Create Sketch uses a Sketch tab and a Sketch plane field (click in the
+        3D view, no attachment dropdown).
+  \item \textbf{13 Aug 2026 --- Phase 4 polish + F1 rollback.} Home Model health
+        includes sketch DoF and open contours. Feature tree denser. History
+        slider under Combo View rolls Body Tip.
+  \item \textbf{13 Aug 2026 --- Floating browser + Home restack.} Combo View
+        overlays the 3D view. Home leads with search and Start a design.
+  \item \textbf{13 Aug 2026 --- A6 ribbon accepted; D2 pin folders.} Workbench-tab
+        ribbon with large/small commands. Home can pin and unpin folders.
   \item \textbf{13 Aug 2026 --- Remaining IDs (source).} A5 Fusion nav; A6 QAT /
         overflow / contextual tabs; D3 dashboard widgets; E2/E3 density + PD
         previews; G2 wizard; G3 CalculiX presets. Mac compile walkthrough added.

@@ -70,7 +70,7 @@ ViewProvider2DObjectGrid::ViewProvider2DObjectGrid()
     );
     ADD_PROPERTY_TYPE(
         ShowOnlyInEditMode,
-        (true),
+        (false),
         "Grid",
         (App::PropertyType)(App::Prop_None),
         "Show only while in edit mode"

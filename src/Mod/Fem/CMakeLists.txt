@@ -398,6 +398,7 @@ SET(FemTestsApp_SRCS
     femtest/app/test_solver_z88.py
     femtest/app/test_gmsh.py
     femtest/app/test_study_presets.py
+    femtest/app/test_physics_modules.py
 )
 
 SET(FemTestsFiles_SRCS
@@ -599,6 +600,7 @@ SET(FemTools_SRCS
     femtools/membertools.py
     femtools/migrate_app.py
     femtools/objecttools.py
+    femtools/physics_modules.py
     femtools/study_presets.py
     femtools/tokrules.py
 )

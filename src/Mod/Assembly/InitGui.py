@@ -65,6 +65,7 @@ class AssemblyWorkbench(Workbench):
         import CommandCreateAssembly
         import CommandInsertLink
         import CommandInsertNewPart
+        import CommandEditPart
         import CommandCreateJoint
         import CommandSolveAssembly
         import CommandExportASMT
@@ -85,6 +86,8 @@ class AssemblyWorkbench(Workbench):
         cmdList = [
             "Assembly_CreateAssembly",
             "Assembly_Insert",
+            "Assembly_EditPart",
+            "Assembly_ReturnFromEdit",
             "Assembly_SolveAssembly",
             "Assembly_CreateView",
             "Assembly_CreateSnapshot",
@@ -98,7 +101,16 @@ class AssemblyWorkbench(Workbench):
             "Assembly_SelectJointsOfComponent",
         ]
 
+        # Robotics bridge (Robot workbench): trajectory from motional joints
+        try:
+            from RobotTools.CommandFromAssembly import register_commands
+            register_commands()
+            cmdListMenuOnly = cmdListMenuOnly + ["Robot_FromAssembly"]
+        except Exception:
+            pass
+
         cmdListJoints = [
+            "Assembly_CreateMate",
             "Assembly_ToggleGrounded",
             "Assembly_CreateJointRigidGroup",
             "Separator",
@@ -138,20 +150,39 @@ class AssemblyWorkbench(Workbench):
 
     def ContextMenu(self, recipient):
         import UtilsAssembly
+        import CommandEditPart
 
         assembly = UtilsAssembly.activeAssembly()
+        selection = Gui.Selection.getSelectionEx("*", 0)
+
+        if CommandEditPart.getEditSession() is not None:
+            self.appendContextMenu("", ["Assembly_ReturnFromEdit"])
+
         if assembly is None:
             return
 
-        selection = Gui.Selection.getSelectionEx("*", 0)
         if not selection:
             return
 
         for sel in selection:
+            # Tree selection of a component link with no sub-element
+            if not sel.SubElementNames and assembly.hasObject(sel.Object, True):
+                if sel.Object.isDerivedFrom("App::Link") or sel.Object.isDerivedFrom(
+                    "Assembly::AssemblyLink"
+                ):
+                    self.appendContextMenu(
+                        "",
+                        ["Assembly_EditPart", "Assembly_SelectJointsOfComponent"],
+                    )
+                    return
+
             for sub_name in sel.SubElementNames:
                 comp, new_sub = UtilsAssembly.getComponentReference(assembly, sel.Object, sub_name)
                 if comp:
-                    self.appendContextMenu("", ["Assembly_SelectJointsOfComponent"])
+                    self.appendContextMenu(
+                        "",
+                        ["Assembly_EditPart", "Assembly_SelectJointsOfComponent"],
+                    )
                     return
 
     def setWatchers(self):
@@ -219,6 +250,23 @@ class AssemblyWorkbench(Workbench):
             def shouldShow(self):
                 return super().shouldShow()
 
+        class AssemblyEditPartWatcher(AssemblyBaseWatcher):
+            """Shows Edit Part / Return while an assembly is active."""
+
+            def __init__(self):
+                super().__init__()
+                self.commands = ["Assembly_EditPart", "Assembly_ReturnFromEdit"]
+                self.title = translate("Assembly", "Edit Part")
+
+            def shouldShow(self):
+                import CommandEditPart
+
+                if CommandEditPart.getEditSession() is not None:
+                    return True
+                if not super().shouldShow():
+                    return False
+                return UtilsAssembly.assembly_has_at_least_n_parts(1)
+
         class AssemblyGroundWatcher(AssemblyBaseWatcher):
             """Shows 'Ground' when the active assembly has no grounded parts."""
 
@@ -241,6 +289,7 @@ class AssemblyWorkbench(Workbench):
             def __init__(self):
                 super().__init__()
                 self.commands = [
+                    "Assembly_CreateMate",
                     "Assembly_CreateJointFixed",
                     "Assembly_CreateJointRevolute",
                     "Assembly_CreateJointCylindrical",
@@ -295,6 +344,7 @@ class AssemblyWorkbench(Workbench):
             AssemblyCreateWatcher(),
             AssemblyActivateWatcher(),
             AssemblyInsertWatcher(),
+            AssemblyEditPartWatcher(),
             AssemblyGroundWatcher(),
             AssemblyJointsWatcher(),
             AssemblyToolsWatcher(),

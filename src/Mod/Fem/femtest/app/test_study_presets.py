@@ -107,3 +107,25 @@ class TestStudyPresets(unittest.TestCase):
         self.assertIn(mesh, status["meshes"])
         self.assertIn(material, status["materials"])
         self.assertIn(constraint, status["constraints"])
+
+    def test_guided_scenarios_drone_robot(self):
+        scenarios = study_presets.list_guided_scenarios(tag="drone")
+        ids = [s.id for s in scenarios]
+        self.assertIn("drone_frame_static", ids)
+        self.assertIn("electronics_thermal", ids)
+
+        analysis, solver, material, scenario = study_presets.setup_guided_scenario(
+            self.document, "drone_frame_static"
+        )
+        self.document.recompute()
+        self.assertEqual(scenario.id, "drone_frame_static")
+        self.assertEqual(solver.AnalysisType, "static")
+        self.assertIn(solver, analysis.Group)
+        self.assertIn(material, analysis.Group)
+
+        analysis2, solver2, material2, scenario2 = study_presets.setup_guided_scenario(
+            self.document, "electronics_thermal"
+        )
+        self.assertEqual(scenario2.setup, "setup_calculix_thermal_study")
+        self.assertEqual(solver2.AnalysisType, "thermomech")
+        self.assertIn(material2, analysis2.Group)

@@ -88,9 +88,18 @@ cat > "$DEST/Contents/MacOS/FreeCAD" <<EOF
 #!/bin/bash
 ROOT="$ROOT"
 export PREFIX="\$ROOT/.pixi/envs/default"
+PLUGINS="\$ROOT/build/release/qt-plugins"
 if [ -d "\$PREFIX" ]; then
     export CONDA_PREFIX="\$PREFIX"
     export PATH="\$PREFIX/bin:\$PATH"
+    if [ -d "\$PLUGINS" ]; then
+        export QT_PLUGIN_PATH="\$PLUGINS"
+        chflags -R nohidden "\$PLUGINS" 2>/dev/null || true
+    else
+        export QT_PLUGIN_PATH="\$PREFIX/lib/qt6/plugins"
+        export QT_QPA_PLATFORM_PLUGIN_PATH="\$PREFIX/lib/qt6/plugins/platforms"
+        chflags -R nohidden "\$PREFIX/lib/qt6/plugins" 2>/dev/null || true
+    fi
 fi
 exec "\$ROOT/build/release/bin/FreeCAD" "\$@"
 EOF

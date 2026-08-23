@@ -47,6 +47,8 @@
 #include "ViewProviderBody.h"
 #include "Utils.h"
 #include "ViewProvider.h"
+#include <Gui/ViewProviderCoordinateSystem.h>
+#include <Gui/TreeItemMode.h>
 
 
 using namespace PartDesignGui;
@@ -107,6 +109,17 @@ void ViewProviderBody::attach(App::DocumentObject* pcFeat)
             this->onChangedObject(vp, prop);
         }
     );
+
+    if (auto* body = getObject<PartDesign::Body>()) {
+        if (auto* originObj = body->Origin.getValue()) {
+            if (auto* vpo = dynamic_cast<Gui::ViewProviderCoordinateSystem*>(
+                    Gui::Application::Instance->getViewProvider(originObj)
+                )) {
+                vpo->showPersistentOrigin();
+            }
+        }
+        syncAfterTipVisuals();
+    }
 }
 
 void ViewProviderBody::onChangedObject(const Gui::ViewProvider& vp, const App::Property& prop)
@@ -334,22 +347,43 @@ void ViewProviderBody::updateData(const App::Property* prop)
         setVisualBodyMode(true);
     }
 
-    if (prop == &body->Tip) {
-        // We changed Tip
-        App::DocumentObject* tip = body->Tip.getValue();
-
-        auto features = body->Group.getValues();
-
-        // restore icons
-        for (auto feature : features) {
-            Gui::ViewProvider* vp = Gui::Application::Instance->getViewProvider(feature);
-            if (vp && vp->isDerivedFrom<PartDesignGui::ViewProvider>()) {
-                static_cast<PartDesignGui::ViewProvider*>(vp)->setTipIcon(feature == tip);
-            }
-        }
+    if (prop == &body->Tip || prop == &body->Group) {
+        // Tip / Group changed: restore tip icons and grey features after Tip.
+        syncAfterTipVisuals();
     }
 
     PartGui::ViewProviderPart::updateData(prop);
+}
+
+void ViewProviderBody::syncAfterTipVisuals()
+{
+    PartDesign::Body* body = getObject<PartDesign::Body>();
+    if (!body || !pcObject) {
+        return;
+    }
+
+    Gui::Document* gdoc = Gui::Application::Instance->getDocument(pcObject->getDocument());
+    if (!gdoc) {
+        return;
+    }
+
+    App::DocumentObject* tip = body->Tip.getValue();
+    bool afterTip = false;
+    for (App::DocumentObject* feature : body->Group.getValues()) {
+        Gui::ViewProvider* vp = gdoc->getViewProvider(feature);
+        if (auto* pdvp = dynamic_cast<PartDesignGui::ViewProvider*>(vp)) {
+            pdvp->setTipIcon(!afterTip && feature == tip);
+            pdvp->setAfterTip(afterTip);
+        }
+        else if (auto* vpd = dynamic_cast<Gui::ViewProviderDocumentObject*>(vp)) {
+            // Sketches / datums: italic label past Tip (icons stay workbench-owned).
+            gdoc->signalHighlightObject(*vpd, Gui::HighlightMode::Italic, afterTip, nullptr, nullptr);
+        }
+
+        if (feature == tip) {
+            afterTip = true;
+        }
+    }
 }
 
 void ViewProviderBody::onChanged(const App::Property* prop)

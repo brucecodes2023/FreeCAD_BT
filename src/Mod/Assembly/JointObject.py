@@ -143,11 +143,88 @@ JointParallelForbidden = [
 ]
 
 
-def solveIfAllowed(assembly, storePrev=False):
+def solveStatusMessage(status):
+    """Human-readable Assembly.solve() return codes (see AssemblyObject.pyi)."""
+    messages = {
+        0: None,
+        -1: translate(
+            "Assembly",
+            "Solver error — try Reverse, a different face/edge, or check for conflicting mates.",
+        ),
+        -2: translate(
+            "Assembly",
+            "Redundant constraint — this mate may duplicate an existing joint.",
+        ),
+        -3: translate(
+            "Assembly",
+            "Conflicting constraints — parts cannot satisfy all mates at once.",
+        ),
+        -4: translate("Assembly", "Over-constrained assembly — remove or suppress a mate."),
+        -5: translate(
+            "Assembly",
+            "Malformed joint — pick geometry from two different components.",
+        ),
+        -6: translate(
+            "Assembly",
+            "No grounded part — ground one component first (Insert → ground first part, "
+            "or Toggle Grounded), then remate.",
+        ),
+    }
+    return messages.get(
+        status,
+        translate("Assembly", "Solver returned status %1").replace("%1", str(status)),
+    )
+
+
+def reportSolveStatus(status, *, quiet_success=True):
+    """Print / status-bar feedback for a solve result. Returns True on success."""
+    if status == 0:
+        if not quiet_success:
+            msg = translate("Assembly", "Mate solved.")
+            App.Console.PrintMessage(msg + "\n")
+            if App.GuiUp:
+                Gui.getMainWindow().showMessage(msg, 3000)
+        return True
+    msg = solveStatusMessage(status)
+    if msg:
+        App.Console.PrintError(msg + "\n")
+        if App.GuiUp:
+            Gui.getMainWindow().showMessage(msg, 8000)
+    return False
+
+
+def solveIfAllowed(assembly, storePrev=False, quiet_success=True):
     if assembly.Type == "Assembly" and Preferences.preferences().GetBool(
         "SolveInJointCreation", True
     ):
-        assembly.solve(storePrev)
+        try:
+            status = assembly.solve(storePrev)
+        except Exception as exc:  # noqa: BLE001 — surface any solver failure to the user
+            App.Console.PrintError(
+                translate("Assembly", "Solve failed:") + f" {exc}\n"
+            )
+            if App.GuiUp:
+                Gui.getMainWindow().showMessage(
+                    translate("Assembly", "Solve failed — see Report view."), 8000
+                )
+            return -1
+        reportSolveStatus(status, quiet_success=quiet_success)
+        return status
+    return 0
+
+
+# SolidWorks / Fusion display aliases for joint types (FeatureManager-style labels).
+JointTypeMateAliases = {
+    "Fixed": translate("Assembly", "Coincident / Lock"),
+    "Revolute": translate("Assembly", "Hinge"),
+    "Cylindrical": translate("Assembly", "Concentric"),
+    "Slider": translate("Assembly", "Slider"),
+    "Ball": translate("Assembly", "Ball / Universal"),
+    "Distance": translate("Assembly", "Distance"),
+    "Parallel": translate("Assembly", "Parallel"),
+    "Perpendicular": translate("Assembly", "Perpendicular"),
+    "Angle": translate("Assembly", "Angle"),
+}
 
 
 def getContext(obj):
@@ -858,7 +935,7 @@ class Joint:
                 self.preventParallel(joint)
 
             if isAssembly:
-                solveIfAllowed(assembly, True)
+                solveIfAllowed(assembly, True, quiet_success=False)
             else:
                 self.updateJCSPlacements(joint)
 
@@ -1746,6 +1823,7 @@ class TaskAssemblyCreateJoint(QtCore.QObject):
         if not subclass:
             layout.setContentsMargins(0, 0, 0, 0)
             layout.setSpacing(0)
+        self._installGuidanceUi(layout)
         layout.addWidget(self.jForm)
 
         self.isolate_modes = ["Transparent", "Wireframe", "Hidden", "Disabled"]
@@ -1764,6 +1842,7 @@ class TaskAssemblyCreateJoint(QtCore.QObject):
         self.jForm.jointType.setCurrentIndex(jointTypeIndex)
         self.jType = JointTypes[self.jForm.jointType.currentIndex()]
         self.jForm.jointType.currentIndexChanged.connect(self.onJointTypeChanged)
+        self._refreshMateWindowTitle()
 
         if jointObj:
             Gui.Selection.clearSelection()
@@ -1851,13 +1930,127 @@ class TaskAssemblyCreateJoint(QtCore.QObject):
         self.createDeleteAction()
 
         self.addition_rejected = False
+        self.updatePickGuidance()
+        self._warnIfUngrounded()
+
+    def _installGuidanceUi(self, layout):
+        """SolidWorks-style two-reference guidance above the joint form."""
+        guide = QtWidgets.QWidget(self.form)
+        guide.setObjectName("MateGuidance")
+        v = QtWidgets.QVBoxLayout(guide)
+        v.setContentsMargins(4, 4, 4, 4)
+        v.setSpacing(4)
+
+        self.groundBanner = QtWidgets.QLabel(guide)
+        self.groundBanner.setWordWrap(True)
+        self.groundBanner.setObjectName("MateGroundBanner")
+        self.groundBanner.hide()
+        v.addWidget(self.groundBanner)
+
+        self.pickHint = QtWidgets.QLabel(guide)
+        self.pickHint.setWordWrap(True)
+        self.pickHint.setObjectName("MatePickHint")
+        v.addWidget(self.pickHint)
+
+        refs = QtWidgets.QFormLayout()
+        refs.setContentsMargins(0, 0, 0, 0)
+        self.ref1Status = QtWidgets.QLabel(translate("Assembly", "(click in 3D view)"))
+        self.ref2Status = QtWidgets.QLabel(translate("Assembly", "(click second part)"))
+        refs.addRow(translate("Assembly", "Reference 1"), self.ref1Status)
+        refs.addRow(translate("Assembly", "Reference 2"), self.ref2Status)
+        v.addLayout(refs)
+
+        layout.addWidget(guide)
+
+    def _refreshMateWindowTitle(self):
+        if self.activeType != "Assembly":
+            return
+        alias = JointTypeMateAliases.get(self.jType)
+        if alias:
+            title = translate("Assembly", "Mate: %1 (%2)").replace("%1", alias).replace(
+                "%2", self.jForm.jointType.currentText()
+            )
+        else:
+            title = translate("Assembly", "Joint: %1").replace(
+                "%1", self.jForm.jointType.currentText()
+            )
+        self.jForm.setWindowTitle(title)
+        self.form.setWindowTitle(title)
+
+    def _warnIfUngrounded(self):
+        if self.activeType != "Assembly":
+            return
+        if UtilsAssembly.isAssemblyGrounded():
+            self.groundBanner.hide()
+            return
+        self.groundBanner.setText(
+            translate(
+                "Assembly",
+                "No grounded part — mates will not hold. Ground one component "
+                "(Toggle Grounded) or re-insert with Ground first part = Always.",
+            )
+        )
+        self.groundBanner.setStyleSheet("color: #b06000; font-weight: 500;")
+        self.groundBanner.show()
+        App.Console.PrintWarning(self.groundBanner.text() + "\n")
+
+    def _formatRefLabel(self, ref):
+        try:
+            sname = UtilsAssembly.getObject(ref).Label
+            element_name = UtilsAssembly.getElementName(ref[1][0])
+            if element_name:
+                sname = f"{sname}.{element_name}"
+            return sname
+        except Exception:  # noqa: BLE001
+            return translate("Assembly", "(invalid)")
+
+    def updatePickGuidance(self):
+        """Update pick hint and reference slots as the user selects geometry."""
+        if not hasattr(self, "pickHint"):
+            return
+        n = len(self.refs)
+        empty1 = translate("Assembly", "(click in 3D view)")
+        empty2 = translate("Assembly", "(click second part)")
+        self.ref1Status.setText(self._formatRefLabel(self.refs[0]) if n >= 1 else empty1)
+        self.ref2Status.setText(self._formatRefLabel(self.refs[1]) if n >= 2 else empty2)
+
+        if n == 0:
+            hint = translate(
+                "Assembly",
+                "1 of 2 — click a face, edge, or vertex on the first part.",
+            )
+        elif n == 1:
+            hint = translate(
+                "Assembly",
+                "2 of 2 — click geometry on a different part. Solver runs when both are set.",
+            )
+        else:
+            hint = translate(
+                "Assembly",
+                "Both references set. Adjust Reverse / Offset if needed, then OK.",
+            )
+        self.pickHint.setText(hint)
+        if App.GuiUp:
+            Gui.getMainWindow().showMessage(hint, 0)
 
     def accept(self):
         if len(self.refs) != 2:
-            App.Console.PrintWarning(
-                translate("Assembly", "Select 2 elements from 2 separate parts")
+            msg = translate(
+                "Assembly",
+                "Select 2 elements from 2 separate parts (Reference 1 and Reference 2).",
             )
+            App.Console.PrintWarning(msg + "\n")
+            if App.GuiUp:
+                Gui.getMainWindow().showMessage(msg, 6000)
+            self.updatePickGuidance()
             return False
+
+        if self.activeType == "Assembly" and not UtilsAssembly.isAssemblyGrounded():
+            msg = translate(
+                "Assembly",
+                "Warning: assembly has no grounded part — placements may drift after OK.",
+            )
+            App.Console.PrintWarning(msg + "\n")
 
         self.deactivate()
 
@@ -1870,6 +2063,12 @@ class TaskAssemblyCreateJoint(QtCore.QObject):
         Gui.doCommand(cmds)
 
         self.assembly.recompute(True)
+        if self.activeType == "Assembly":
+            try:
+                status = self.assembly.solve(False)
+                reportSolveStatus(status, quiet_success=False)
+            except Exception as exc:  # noqa: BLE001
+                App.Console.PrintError(translate("Assembly", "Final solve failed:") + f" {exc}\n")
 
         Gui.ActiveDocument.commitCommand()
         return True
@@ -1909,6 +2108,8 @@ class TaskAssemblyCreateJoint(QtCore.QObject):
         UtilsAssembly.setJointsPickableState(self.doc, True)
         if Gui.Control.activeDialog():
             Gui.Control.closeDialog()
+        if App.GuiUp:
+            Gui.getMainWindow().showMessage("", 1)
 
     def handleInitialSelection(self):
         selection = Gui.Selection.getSelectionEx("*", 0)
@@ -1976,6 +2177,8 @@ class TaskAssemblyCreateJoint(QtCore.QObject):
         self.jType = JointTypes[self.jForm.jointType.currentIndex()]
         self.joint.Proxy.setJointType(self.joint, self.jType)
         self.adaptUi()
+        self._refreshMateWindowTitle()
+        self.updatePickGuidance()
 
     def onAngleChanged(self, quantity):
         self.joint.Angle = self.jForm.angleSpinbox.property("rawValue")
@@ -2240,6 +2443,7 @@ class TaskAssemblyCreateJoint(QtCore.QObject):
                 sname = sname + "." + element_name
             simplified_names.append(sname)
         self.jForm.featureList.addItems(simplified_names)
+        self.updatePickGuidance()
 
     def updateLimits(self):
         needLengthLimits = self.jType in JointUsingLimitLength
@@ -2410,6 +2614,19 @@ class TaskAssemblyCreateJoint(QtCore.QObject):
         if not acceptable:
             self.addition_rejected = True
             Gui.Selection.removeSelection(doc_name, obj_name, sub_name)
+            if len(self.refs) >= 2:
+                msg = translate(
+                    "Assembly",
+                    "Mate already has two references — remove one from the list to replace it.",
+                )
+            else:
+                msg = translate(
+                    "Assembly",
+                    "Pick a different part — both mate references must be on separate components.",
+                )
+            App.Console.PrintWarning(msg + "\n")
+            if App.GuiUp:
+                Gui.getMainWindow().showMessage(msg, 5000)
             return
 
         # Selection is acceptable so add it

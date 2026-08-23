@@ -53,14 +53,33 @@ The files are named "runPreDrag.asmt" and "dragging.log" and are located in the 
      </property>
     </widget>
    </item>
-   <item row="2" column="0">
+   <item row="2" column="0" colspan="2">
+    <widget class="Gui::PrefCheckBox" name="checkBoxSolveInJointCreation">
+     <property name="toolTip">
+      <string>Solve the assembly while creating or editing a mate/joint (recommended for SolidWorks-like live feedback)</string>
+     </property>
+     <property name="text">
+      <string>Solve while creating mates</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+     <property name="prefEntry" stdset="0">
+      <cstring>SolveInJointCreation</cstring>
+     </property>
+     <property name="prefPath" stdset="0">
+      <cstring>Mod/Assembly</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="0">
     <widget class="QLabel" name="groundFirstPartLabel">
      <property name="text">
       <string>Ground first part</string>
      </property>
     </widget>
    </item>
-   <item row="2" column="1">
+   <item row="3" column="1">
     <widget class="QComboBox" name="groundFirstPart">
      <property name="toolTip">
       <string>When inserting the first part in the assembly, it can be grounded automatically</string>
@@ -70,7 +89,7 @@ The files are named "runPreDrag.asmt" and "dragging.log" and are located in the 
      </property>
     </widget>
    </item>
-   <item row="2" column="2">
+   <item row="3" column="2">
     <spacer name="horSpacer">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -83,7 +102,7 @@ The files are named "runPreDrag.asmt" and "dragging.log" and are located in the 
      </property>
     </spacer>
    </item>
-   <item row="3" column="0">
+   <item row="4" column="0">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

@@ -166,6 +166,11 @@ CmdSketcherNewSketch::CmdSketcherNewSketch()
 void CmdSketcherNewSketch::activated(int iMsg)
 {
     Q_UNUSED(iMsg);
+    if (Gui::Command* partDesignSketch
+        = getGuiApplication()->commandManager().getCommandByName("PartDesign_NewSketch")) {
+        partDesignSketch->invoke(0);
+        return;
+    }
     Attacher::eMapMode mapmode = Attacher::mmDeactivated;
     std::string groupName;
     bool bAttach = false;
@@ -907,8 +912,8 @@ CmdSketcherValidateSketch::CmdSketcherValidateSketch()
     sAppModule = "Sketcher";
     sGroup = "Sketcher";
     sMenuText = QT_TR_NOOP("Validate Sketch");
-    sToolTipText = QT_TR_NOOP("Validates a sketch by checking for missing coincidences,\n"
-                              "invalid constraints, and degenerate geometry");
+    sToolTipText = QT_TR_NOOP("Checks a sketch for a closed contour (what Pad needs),\n"
+                              "missing coincidences, invalid constraints, and degenerate geometry");
     sWhatsThis = "Sketcher_ValidateSketch";
     sStatusTip = sToolTipText;
     eType = 0;

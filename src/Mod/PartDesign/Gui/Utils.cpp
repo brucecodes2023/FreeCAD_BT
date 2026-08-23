@@ -24,10 +24,13 @@
 
 
 #include <QMessageBox>
+#include <QObject>
+#include <cstring>
 #include <gp_Pln.hxx>
 #include <Precision.hxx>
 
 
+#include <App/Document.h>
 #include <App/Origin.h>
 #include <App/Datums.h>
 #include <App/Part.h>
@@ -707,6 +710,158 @@ void relinkToOrigin(App::DocumentObject* feat, PartDesign::Body* targetbody)
             }
         }
     }
+}
+
+const char* fusionFeatureNameBase(const char* typeSuffix)
+{
+    if (!typeSuffix) {
+        return nullptr;
+    }
+    // Internal TypeId suffixes stay Pad/Pocket/…; these are Name/Label bases only.
+    if (strcmp(typeSuffix, "Pad") == 0) {
+        return "Extrude";
+    }
+    if (strcmp(typeSuffix, "Pocket") == 0) {
+        return "ExtrudeCut";
+    }
+    if (strcmp(typeSuffix, "Revolution") == 0) {
+        return "Revolve";
+    }
+    if (strcmp(typeSuffix, "Groove") == 0) {
+        return "RevolveCut";
+    }
+    if (strcmp(typeSuffix, "AdditivePipe") == 0) {
+        return "Sweep";
+    }
+    if (strcmp(typeSuffix, "SubtractivePipe") == 0) {
+        return "SweepCut";
+    }
+    if (strcmp(typeSuffix, "AdditiveLoft") == 0) {
+        return "Loft";
+    }
+    if (strcmp(typeSuffix, "SubtractiveLoft") == 0) {
+        return "LoftCut";
+    }
+    if (strcmp(typeSuffix, "AdditiveHelix") == 0) {
+        return "Coil";
+    }
+    if (strcmp(typeSuffix, "SubtractiveHelix") == 0) {
+        return "CoilCut";
+    }
+    if (strcmp(typeSuffix, "Thickness") == 0) {
+        return "Shell";
+    }
+    if (strcmp(typeSuffix, "Mirrored") == 0) {
+        return "Mirror";
+    }
+    if (strcmp(typeSuffix, "LinearPattern") == 0) {
+        return "Pattern";
+    }
+    if (strcmp(typeSuffix, "PolarPattern") == 0) {
+        return "CircularPattern";
+    }
+    if (strcmp(typeSuffix, "Scaled") == 0) {
+        return "Scale";
+    }
+    if (strcmp(typeSuffix, "Boolean") == 0) {
+        return "Combine";
+    }
+    return nullptr;
+}
+
+QString fusionFeatureLabel(const char* typeSuffix)
+{
+    if (!typeSuffix) {
+        return {};
+    }
+    if (strcmp(typeSuffix, "Pad") == 0) {
+        return QObject::tr("Extrude");
+    }
+    if (strcmp(typeSuffix, "Pocket") == 0) {
+        return QObject::tr("Extrude Cut");
+    }
+    if (strcmp(typeSuffix, "Revolution") == 0) {
+        return QObject::tr("Revolve");
+    }
+    if (strcmp(typeSuffix, "Groove") == 0) {
+        return QObject::tr("Revolve Cut");
+    }
+    if (strcmp(typeSuffix, "AdditivePipe") == 0) {
+        return QObject::tr("Sweep");
+    }
+    if (strcmp(typeSuffix, "SubtractivePipe") == 0) {
+        return QObject::tr("Sweep Cut");
+    }
+    if (strcmp(typeSuffix, "AdditiveLoft") == 0) {
+        return QObject::tr("Loft");
+    }
+    if (strcmp(typeSuffix, "SubtractiveLoft") == 0) {
+        return QObject::tr("Loft Cut");
+    }
+    if (strcmp(typeSuffix, "AdditiveHelix") == 0) {
+        return QObject::tr("Coil");
+    }
+    if (strcmp(typeSuffix, "SubtractiveHelix") == 0) {
+        return QObject::tr("Coil Cut");
+    }
+    if (strcmp(typeSuffix, "Thickness") == 0) {
+        return QObject::tr("Shell");
+    }
+    if (strcmp(typeSuffix, "Mirrored") == 0) {
+        return QObject::tr("Mirror");
+    }
+    if (strcmp(typeSuffix, "LinearPattern") == 0) {
+        return QObject::tr("Pattern");
+    }
+    if (strcmp(typeSuffix, "PolarPattern") == 0) {
+        return QObject::tr("Circular Pattern");
+    }
+    if (strcmp(typeSuffix, "Scaled") == 0) {
+        return QObject::tr("Scale");
+    }
+    if (strcmp(typeSuffix, "Boolean") == 0) {
+        return QObject::tr("Combine");
+    }
+    return {};
+}
+
+void applyFusionFeatureLabel(App::DocumentObject* feature, const char* typeSuffix)
+{
+    if (!feature) {
+        return;
+    }
+    QString label = fusionFeatureLabel(typeSuffix);
+    if (label.isEmpty()) {
+        return;
+    }
+    // Keep Label unique when several Extrude/Extrude Cut features exist.
+    App::Document* doc = feature->getDocument();
+    if (!doc) {
+        feature->Label.setValue(label.toUtf8().constData());
+        return;
+    }
+    std::string unique = doc->getUniqueObjectName(label.toUtf8().constData());
+    // getUniqueObjectName sanitizes spaces; prefer readable Label with spaces + index.
+    if (label.contains(QLatin1Char(' '))) {
+        QString base = label;
+        int i = 1;
+        QString candidate = base;
+        while (true) {
+            bool taken = false;
+            for (auto* obj : doc->getObjects()) {
+                if (obj != feature && candidate == QString::fromUtf8(obj->Label.getValue())) {
+                    taken = true;
+                    break;
+                }
+            }
+            if (!taken) {
+                feature->Label.setValue(candidate.toUtf8().constData());
+                return;
+            }
+            candidate = QStringLiteral("%1%2").arg(base).arg(++i, 3, 10, QLatin1Char('0'));
+        }
+    }
+    feature->Label.setValue(unique.c_str());
 }
 
 }  // namespace PartDesignGui

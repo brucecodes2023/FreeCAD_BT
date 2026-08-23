@@ -35,11 +35,15 @@ from FreeCAD import Qt
 
 from PySide import QtGui
 
-from femtools.study_presets import get_study_checklist
+from femtools.physics_modules import format_catalog
+from femtools.study_presets import get_study_checklist, list_guided_scenarios
 
 CMD_MESH = "FEM_MeshGmshFromShape"
 CMD_MATERIAL = "FEM_MaterialSolid"
 CMD_RUN = "FEM_SolverRun"
+CMD_STATIC = "FEM_CalculiXStaticStudy"
+CMD_THERMAL = "FEM_CalculiXThermalStudy"
+CMD_FIRST_PRINCIPLES = "FEM_FirstPrinciplesStudy"
 
 
 def command_exists(name):
@@ -74,6 +78,44 @@ class StudyGuidedWizard(QtGui.QDialog):
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
+        # --- Quick-start scenarios (drone / robot structural + thermal) ---
+        scenario_box = QtGui.QGroupBox(
+            Qt.translate("FEM_StudyGuidedWizard", "Quick-start study (no CFD)")
+        )
+        scenario_layout = QtGui.QVBoxLayout(scenario_box)
+        scenario_hint = QtGui.QLabel(
+            Qt.translate(
+                "FEM_StudyGuidedWizard",
+                "Common drone / robot cases use CalculiX static or thermal presets. "
+                "Fluid / propulsion CFD is not available here.",
+            )
+        )
+        scenario_hint.setWordWrap(True)
+        scenario_layout.addWidget(scenario_hint)
+
+        row = QtGui.QHBoxLayout()
+        self._scenario_combo = QtGui.QComboBox()
+        self._scenario_combo.setSizePolicy(
+            QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Fixed
+        )
+        for scenario in list_guided_scenarios():
+            self._scenario_combo.addItem(scenario.title, scenario.id)
+        self._scenario_button = QtGui.QPushButton(
+            Qt.translate("FEM_StudyGuidedWizard", "Create study")
+        )
+        self._scenario_button.clicked.connect(self._create_scenario)
+        row.addWidget(self._scenario_combo)
+        row.addWidget(self._scenario_button)
+        scenario_layout.addLayout(row)
+
+        self._scenario_detail = QtGui.QLabel()
+        self._scenario_detail.setWordWrap(True)
+        scenario_layout.addWidget(self._scenario_detail)
+        self._scenario_combo.currentIndexChanged.connect(self._update_scenario_detail)
+        self._update_scenario_detail()
+        layout.addWidget(scenario_box)
+
+        # --- Checklist ---
         grid = QtGui.QGridLayout()
         self._mesh_status = QtGui.QLabel()
         self._material_status = QtGui.QLabel()
@@ -102,6 +144,35 @@ class StudyGuidedWizard(QtGui.QDialog):
         self._hint.setWordWrap(True)
         layout.addWidget(self._hint)
 
+        # --- Registered physics modules (First Principles extensibility) ---
+        modules_box = QtGui.QGroupBox(
+            Qt.translate("FEM_StudyGuidedWizard", "Registered physics modules")
+        )
+        modules_layout = QtGui.QVBoxLayout(modules_box)
+        modules_intro = QtGui.QLabel(
+            Qt.translate(
+                "FEM_StudyGuidedWizard",
+                "Addons register PDE factories via femtools.physics_modules.register. "
+                "First Principles Study attaches selected Elmer equations.",
+            )
+        )
+        modules_intro.setWordWrap(True)
+        modules_layout.addWidget(modules_intro)
+        self._modules_list = QtGui.QPlainTextEdit()
+        self._modules_list.setReadOnly(True)
+        self._modules_list.setMaximumHeight(120)
+        modules_layout.addWidget(self._modules_list)
+        fp_row = QtGui.QHBoxLayout()
+        self._first_principles_button = QtGui.QPushButton(
+            Qt.translate("FEM_StudyGuidedWizard", "First Principles Study…")
+        )
+        self._first_principles_button.setEnabled(command_exists(CMD_FIRST_PRINCIPLES))
+        self._first_principles_button.clicked.connect(self._run_first_principles)
+        fp_row.addWidget(self._first_principles_button)
+        fp_row.addStretch()
+        modules_layout.addLayout(fp_row)
+        layout.addWidget(modules_box)
+
         buttons = QtGui.QDialogButtonBox()
         self._refresh_button = buttons.addButton(
             Qt.translate("FEM_StudyGuidedWizard", "Refresh"),
@@ -117,8 +188,69 @@ class StudyGuidedWizard(QtGui.QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
+    def _update_scenario_detail(self):
+        scenario_id = self._scenario_combo.currentData()
+        scenarios = {s.id: s for s in list_guided_scenarios()}
+        scenario = scenarios.get(scenario_id)
+        if scenario is None:
+            self._scenario_detail.setText("")
+            return
+        self._scenario_detail.setText(
+            f"{scenario.description}\n{scenario.next_steps}"
+        )
+
+    def _create_scenario(self):
+        scenario_id = self._scenario_combo.currentData()
+        if not scenario_id:
+            return
+        # Map to existing toolbar commands when possible (keeps doCommand path).
+        scenarios = {s.id: s for s in list_guided_scenarios()}
+        scenario = scenarios.get(scenario_id)
+        if scenario is None:
+            return
+        self.accept()
+        if scenario.setup == "setup_calculix_static_study" and command_exists(CMD_STATIC):
+            FreeCADGui.runCommand(CMD_STATIC)
+            return
+        if scenario.setup == "setup_calculix_thermal_study" and command_exists(CMD_THERMAL):
+            FreeCADGui.runCommand(CMD_THERMAL)
+            return
+        # Fallback: call preset API directly.
+        import FemGui
+        from femtools import study_presets
+
+        doc = FreeCAD.ActiveDocument
+        if doc is None:
+            return
+        doc.openTransaction(f"Guided scenario {scenario_id}")
+        analysis = FemGui.getActiveAnalysis()
+        if analysis is not None and analysis.Document == doc:
+            analysis, solver, material, _ = study_presets.setup_guided_scenario(
+                doc, scenario_id, analysis
+            )
+        else:
+            analysis, solver, material, _ = study_presets.setup_guided_scenario(
+                doc, scenario_id
+            )
+        FemGui.setActiveAnalysis(analysis)
+        doc.commitTransaction()
+        doc.recompute()
+        QtGui.QMessageBox.information(
+            FreeCADGui.getMainWindow(),
+            scenario.title,
+            f"{scenario.description}\n\n{scenario.next_steps}",
+        )
+
+    def _run_first_principles(self):
+        if not command_exists(CMD_FIRST_PRINCIPLES):
+            return
+        self.accept()
+        FreeCADGui.runCommand(CMD_FIRST_PRINCIPLES)
+
     def refresh(self):
         import FemGui
+
+        self._modules_list.setPlainText(format_catalog())
 
         analysis = FemGui.getActiveAnalysis()
         if analysis is None:

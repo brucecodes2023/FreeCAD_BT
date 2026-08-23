@@ -93,6 +93,7 @@ void ViewProviderCoordinateSystem::attach(App::DocumentObject* pcObject)
 {
     Gui::ViewProviderDocumentObject::attach(pcObject);
     addDisplayMaskMode(pcGroupChildren, "Base");
+    showPersistentOrigin();
 }
 
 std::vector<std::string> ViewProviderCoordinateSystem::getDisplayModes() const
@@ -191,6 +192,34 @@ void ViewProviderCoordinateSystem::setPlaneLabelVisibility(bool val)
             vp->setLabelVisibility(val);
         }
     }
+}
+
+void ViewProviderCoordinateSystem::showPersistentOrigin()
+{
+    auto* origin = getObject<App::Origin>();
+    if (!origin) {
+        return;
+    }
+
+    setVisible(true);
+    setPlaneLabelVisibility(true);
+
+    auto show = [](App::DocumentObject* obj) {
+        if (!obj) {
+            return;
+        }
+        if (auto* vp = Gui::Application::Instance->getViewProvider(obj)) {
+            vp->setVisible(true);
+        }
+    };
+
+    for (auto* plane : origin->planes()) {
+        show(plane);
+    }
+    for (auto* axis : origin->axes()) {
+        show(axis);
+    }
+    show(origin->getOrigin());
 }
 
 void ViewProviderCoordinateSystem::applyDatumObjects(const DatumObjectFunc& func)

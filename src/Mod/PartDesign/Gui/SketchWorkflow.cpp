@@ -25,11 +25,17 @@
 #include <TopoDS.hxx>
 #include <TopoDS_Face.hxx>
 #include <boost/signals2.hpp>
+#include <cctype>
+#include <functional>
 #include <map>
 #include <string>
 #include <vector>
 #include <QApplication>
+#include <QFormLayout>
+#include <QLabel>
+#include <QLineEdit>
 #include <QMessageBox>
+#include <QTimer>
 
 
 #include "SketchWorkflow.h"
@@ -49,18 +55,24 @@
 #include <Mod/Sketcher/Gui/ViewProviderSketch.h>
 
 #include <App/Document.h>
+#include <App/Application.h>
 #include <App/Link.h>
 #include <App/Origin.h>
 #include <App/Datums.h>
 #include <App/Part.h>
 #include <Gui/Application.h>
+#include <Gui/BitmapFactory.h>
 #include <Gui/Command.h>
 #include <Gui/Control.h>
 #include <Gui/Document.h>
 #include <Gui/MainWindow.h>
 #include <Gui/ViewParams.h>
+#include <Gui/ViewProviderCoordinateSystem.h>
 #include <Gui/ViewProviderPlane.h>
+#include <Gui/Selection/Selection.h>
 #include <Gui/Selection/SelectionFilter.h>
+#include <Gui/TaskView/TaskDialog.h>
+#include <Gui/TaskView/TaskView.h>
 
 using namespace PartDesignGui;
 
@@ -192,6 +204,237 @@ public:
 
 private:
     mutable Gui::SelectionObject faceSelection;
+};
+
+bool startsWithFace(const std::string& sub)
+{
+    auto pos = sub.rfind("Face");
+    if (pos == std::string::npos) {
+        return false;
+    }
+    if (pos != 0 && sub[pos - 1] != '.') {
+        return false;
+    }
+    return pos + 4 == sub.size()
+        || std::isdigit(static_cast<unsigned char>(sub[pos + 4]));
+}
+
+std::string supportStringFromOriginPlane(App::DocumentObject* obj)
+{
+    if (auto* plane = dynamic_cast<App::Plane*>(obj)) {
+        if (auto* lcs = plane->getLCS()) {
+            return Gui::Command::getObjectCmd(lcs, "(") + ",['" + plane->getNameInDocument()
+                + "'])";
+        }
+        return Gui::Command::getObjectCmd(plane, "(", ",[''])");
+    }
+    return Gui::Command::getObjectCmd(obj, "(", ",[''])");
+}
+
+class SketchPlaneGate: public Gui::SelectionGate
+{
+public:
+    bool allow(App::Document*, App::DocumentObject* obj, const char* sub) override
+    {
+        if (!obj) {
+            return false;
+        }
+        if (obj->isDerivedFrom<App::Plane>() || obj->isDerivedFrom<PartDesign::Plane>()) {
+            return true;
+        }
+        if (sub && startsWithFace(sub)) {
+            return true;
+        }
+        if (obj->isDerivedFrom<PartDesign::ShapeBinder>()
+            || obj->isDerivedFrom<PartDesign::SubShapeBinder>()) {
+            return true;
+        }
+        notAllowedReason = QT_TR_NOOP("Pick a plane or planar face.");
+        return false;
+    }
+};
+
+class TaskSketchPlanePick: public Gui::TaskView::TaskBox, public Gui::SelectionObserver
+{
+public:
+    TaskSketchPlanePick(App::Document* doc, PartDesign::Body* body)
+        : TaskBox(
+              Gui::BitmapFactory().pixmap("Sketcher_NewSketch"),
+              QObject::tr("Sketch"),
+              true,
+              nullptr
+          )
+        , document(doc)
+        , body(body)
+    {
+        auto* label = new QLabel(QObject::tr(
+            "Click a plane or planar face in the 3D view. Origin planes are labeled XY, XZ, and YZ."
+        ));
+        label->setWordWrap(true);
+        label->setMargin(8);
+        groupLayout()->addWidget(label);
+
+        planeField = new QLineEdit;
+        planeField->setReadOnly(true);
+        planeField->setPlaceholderText(QObject::tr("Click in the 3D view"));
+        planeField->setClearButtonEnabled(false);
+        auto* form = new QFormLayout;
+        form->setContentsMargins(8, 4, 8, 8);
+        form->addRow(QObject::tr("Sketch plane"), planeField);
+        groupLayout()->addLayout(form);
+
+        Gui::Selection().clearSelection();
+        Gui::Selection().addSelectionGate(new SketchPlaneGate());
+        Gui::getMainWindow()->showMessage(
+            QObject::tr("Select a plane or planar face"),
+            0
+        );
+    }
+
+    ~TaskSketchPlanePick() override
+    {
+        Gui::Selection().rmvSelectionGate();
+        Gui::getMainWindow()->showMessage(QString(), 1);
+    }
+
+    bool hasPick() const
+    {
+        return !supportString.empty();
+    }
+
+    const std::string& getSupport() const
+    {
+        return supportString;
+    }
+
+protected:
+    void onSelectionChanged(const Gui::SelectionChanges& msg) override
+    {
+        if (msg.Type != Gui::SelectionChanges::AddSelection || !msg.pDocName || !msg.pObjectName) {
+            return;
+        }
+        App::Document* doc = App::GetApplication().getDocument(msg.pDocName);
+        if (!doc) {
+            return;
+        }
+        App::DocumentObject* obj = doc->getObject(msg.pObjectName);
+        if (!obj) {
+            return;
+        }
+
+        std::string support;
+        if (obj->isDerivedFrom<App::Plane>() || obj->isDerivedFrom<PartDesign::Plane>()) {
+            support = supportStringFromOriginPlane(obj);
+        }
+        else {
+            Gui::SelectionObject sel {msg};
+            const auto& subs = sel.getSubNames();
+            if (subs.empty() || !startsWithFace(subs[0])) {
+                if (auto* feat = dynamic_cast<Part::Feature*>(obj)) {
+                    if (!feat->Shape.getShape().isPlanar()) {
+                        return;
+                    }
+                    support = Gui::Command::getObjectCmd(obj, "(", ",[''])");
+                }
+                else {
+                    return;
+                }
+            }
+            else {
+                try {
+                    SupportFaceValidator validator {sel};
+                    validator.handleSelectedBody(body);
+                    validator.throwIfInvalid();
+                    support = validator.getSupport();
+                }
+                catch (...) {
+                    return;
+                }
+            }
+        }
+
+        supportString = std::move(support);
+        if (planeField) {
+            const char* label = obj->Label.getValue();
+            planeField->setText(label && label[0] ? QString::fromUtf8(label) : QString::fromUtf8(obj->getNameInDocument()));
+        }
+        App::Document* docPtr = document;
+        QTimer::singleShot(0, [docPtr]() { Gui::Control().accept(docPtr); });
+    }
+
+private:
+    App::Document* document;
+    PartDesign::Body* body;
+    std::string supportString;
+    QLineEdit* planeField {nullptr};
+};
+
+class TaskDlgSketchPlanePick: public Gui::TaskView::TaskDialog
+{
+public:
+    TaskDlgSketchPlanePick(
+        App::Document* doc,
+        PartDesign::Body* body,
+        std::function<void(const std::string&)> work,
+        std::function<void()> abort
+    )
+        : workFunction(std::move(work))
+        , abortFunction(std::move(abort))
+    {
+        pick = new TaskSketchPlanePick(doc, body);
+        Content.push_back(pick);
+        setObjectName(QStringLiteral("Sketch"));
+        setAutoCloseOnDeletedDocument(true);
+        if (doc) {
+            setDocumentName(doc->getName());
+        }
+    }
+
+    ~TaskDlgSketchPlanePick() override
+    {
+        if (accepted) {
+            try {
+                workFunction(pick->getSupport());
+            }
+            catch (...) {
+            }
+        }
+        else if (abortFunction) {
+            try {
+                abortFunction();
+            }
+            catch (...) {
+            }
+        }
+    }
+
+    bool accept() override
+    {
+        accepted = pick->hasPick();
+        return accepted;
+    }
+
+    bool reject() override
+    {
+        accepted = false;
+        return true;
+    }
+
+    QDialogButtonBox::StandardButtons getStandardButtons() const override
+    {
+        return QDialogButtonBox::Cancel;
+    }
+
+    bool isAllowedAlterDocument() const override
+    {
+        return false;
+    }
+
+private:
+    TaskSketchPlanePick* pick;
+    bool accepted {false};
+    std::function<void(const std::string&)> workFunction;
+    std::function<void()> abortFunction;
 };
 
 class SketchPreselection
@@ -381,140 +624,6 @@ private:
     std::string supportString;
 };
 
-class PlaneFinder
-{
-public:
-    PlaneFinder(App::Document* appdocument, PartDesign::Body* activeBody)
-        : appdocument(appdocument)
-        , activeBody(activeBody)
-    {}
-
-    std::vector<App::DocumentObject*> getPlanes() const
-    {
-        return planes;
-    }
-
-    std::vector<PartDesignGui::TaskFeaturePick::featureStatus> getStatus() const
-    {
-        return status;
-    }
-
-    unsigned countValidPlanes() const
-    {
-        return validPlaneCount;
-    }
-
-    void findBasePlanes()
-    {
-        try {
-            tryFindBasePlanes();
-        }
-        catch (const Base::Exception& ex) {
-            Base::Console().error("%s\n", ex.what());
-        }
-    }
-
-    void findDatumPlanes()
-    {
-        App::GeoFeatureGroupExtension* geoGroup = getGroupExtensionOfBody();
-        const std::vector<Base::Type> types
-            = {PartDesign::Plane::getClassTypeId(), App::Plane::getClassTypeId()};
-        auto datumPlanes = appdocument->getObjectsOfType(types);
-
-        for (auto plane : datumPlanes) {
-            if (std::find(planes.begin(), planes.end(), plane) != planes.end()) {
-                continue;  // Skip if already in planes (for base planes)
-            }
-
-            planes.push_back(plane);
-            // Check whether this plane belongs to the active body
-            if (activeBody->hasObject(plane, true)) {
-                if (!activeBody->isAfterInsertPoint(plane)) {
-                    validPlaneCount++;
-                    status.push_back(PartDesignGui::TaskFeaturePick::validFeature);
-                }
-                else {
-                    status.push_back(PartDesignGui::TaskFeaturePick::afterTip);
-                }
-            }
-            else {
-                PartDesign::Body* planeBody = PartDesign::Body::findBodyOf(plane);
-                if (planeBody) {
-                    if ((geoGroup && geoGroup->hasObject(planeBody, true))
-                        || !App::GeoFeatureGroupExtension::getGroupOfObject(planeBody)) {
-                        status.push_back(PartDesignGui::TaskFeaturePick::otherBody);
-                    }
-                    else {
-                        status.push_back(PartDesignGui::TaskFeaturePick::otherPart);
-                    }
-                }
-                else {
-                    if ((geoGroup && geoGroup->hasObject(plane, true))
-                        || App::GeoFeatureGroupExtension::getGroupOfObject(plane)) {
-                        status.push_back(PartDesignGui::TaskFeaturePick::otherPart);
-                    }
-                    else {
-                        status.push_back(PartDesignGui::TaskFeaturePick::notInBody);
-                    }
-                }
-            }
-        }
-    }
-
-    void findShapeBinderPlanes()
-    {
-
-        // Collect also shape binders consisting of a single planar face
-        auto shapeBinders(appdocument->getObjectsOfType(PartDesign::ShapeBinder::getClassTypeId()));
-        auto binders(appdocument->getObjectsOfType(PartDesign::SubShapeBinder::getClassTypeId()));
-        shapeBinders.insert(shapeBinders.end(), binders.begin(), binders.end());
-        for (auto binder : shapeBinders) {
-            // Check whether this plane belongs to the active body
-            if (activeBody->hasObject(binder)) {
-                Part::TopoShape shape = static_cast<Part::Feature*>(binder)->Shape.getShape();
-                if (shape.isPlanar()) {
-                    if (!activeBody->isAfterInsertPoint(binder)) {
-                        validPlaneCount++;
-                        planes.push_back(binder);
-                        status.push_back(PartDesignGui::TaskFeaturePick::validFeature);
-                    }
-                }
-            }
-        }
-    }
-
-private:
-    void tryFindBasePlanes()
-    {
-        auto* origin = activeBody->getOrigin();
-        for (auto plane : origin->planes()) {
-            planes.push_back(plane);
-            status.push_back(PartDesignGui::TaskFeaturePick::basePlane);
-            validPlaneCount++;
-        }
-    }
-
-    App::GeoFeatureGroupExtension* getGroupExtensionOfBody() const
-    {
-        App::GeoFeatureGroupExtension* geoGroup {nullptr};
-        if (activeBody) {
-            auto group(App::GeoFeatureGroupExtension::getGroupOfObject(activeBody));
-            if (group) {
-                geoGroup = group->getExtensionByType<App::GeoFeatureGroupExtension>();
-            }
-        }
-
-        return geoGroup;
-    }
-
-private:
-    App::Document* appdocument;
-    PartDesign::Body* activeBody;
-    unsigned validPlaneCount = 0;
-    std::vector<App::DocumentObject*> planes;
-    std::vector<PartDesignGui::TaskFeaturePick::featureStatus> status;
-};
-
 class SketchRequestSelection
 {
 public:
@@ -523,12 +632,12 @@ public:
         , activeBody(activeBody)
     {}
 
-    void findSupport()
+    void findSupport(bool useAttachmentDialog)
     {
         try {
             // Start command early, so undo will undo any Body creation
             guidocument->openCommand(QT_TRANSLATE_NOOP("Command", "New Sketch"));
-            tryFindSupport();
+            tryFindSupport(useAttachmentDialog);
         }
         catch (const RejectException&) {
             guidocument->abortCommand();
@@ -541,11 +650,16 @@ public:
     }
 
 private:
-    void tryFindSupport()
+    void tryFindSupport(bool useAttachmentDialog)
     {
         createBodyOrThrow();
 
-        createSketchAndShowAttachment();
+        if (useAttachmentDialog) {
+            createSketchAndShowAttachment();
+        }
+        else {
+            pickPlaneInView();
+        }
     }
 
     void createBodyOrThrow()
@@ -578,6 +692,7 @@ private:
         );
         if (vpo) {
             vpo->setTemporaryVisibility(Gui::DatumElement::Planes | Gui::DatumElement::Axes);
+            vpo->setTemporaryScale(Gui::ViewParams::instance()->getDatumTemporaryScaleFactor());
             vpo->setPlaneLabelVisibility(true);
         }
     }
@@ -652,156 +767,73 @@ private:
         if (vpo) {
             vpo->resetTemporaryVisibility();
             vpo->resetTemporarySize();
-            vpo->setPlaneLabelVisibility(false);
+            vpo->showPersistentOrigin();
         }
     }
 
-    void findAndSelectPlane()
+    void pickPlaneInView()
     {
-        App::Document* appdocument = guidocument->getDocument();
-        PlaneFinder planeFinder {appdocument, activeBody};
+        setOriginTemporaryVisibility();
 
-        planeFinder.findBasePlanes();
-        planeFinder.findDatumPlanes();
-        planeFinder.findShapeBinderPlanes();
-
-        std::vector<App::DocumentObject*> planes = planeFinder.getPlanes();
-        std::vector<PartDesignGui::TaskFeaturePick::featureStatus> status = planeFinder.getStatus();
-        unsigned validPlaneCount = planeFinder.countValidPlanes();
-
-        for (auto& plane : planes) {
-            auto* planeViewProvider
-                = Gui::Application::Instance->getViewProvider<Gui::ViewProviderPlane>(plane);
-
-            // skip updating planes from coordinate systems
-            if (!planeViewProvider || !planeViewProvider->getRole().empty()) {
-                continue;
-            }
-
-            planeViewProvider->setLabelVisibility(true);
-            planeViewProvider->setTemporaryScale(
-                Gui::ViewParams::instance()->getDatumTemporaryScaleFactor()
-            );
-        }
-
-        //
-        // Lambda definitions
-        //
-        App::Document* documentOfBody = appdocument;
+        App::Document* documentOfBody = guidocument->getDocument();
         PartDesign::Body* partDesignBody = activeBody;
 
-        auto restorePlaneVisibility = [planes]() {
-            for (auto& plane : planes) {
-                auto* planeViewProvider
-                    = Gui::Application::Instance->getViewProvider<Gui::ViewProviderPlane>(plane);
-                if (!planeViewProvider) {
-                    continue;
-                }
-
-                planeViewProvider->resetTemporarySize();
-                planeViewProvider->setLabelVisibility(false);
-            }
+        auto restoreOrigin = [partDesignBody]() {
+            resetOriginVisibility(partDesignBody);
         };
 
-        // Determines if user made a valid selection in dialog
-        auto acceptFunction =
-            [restorePlaneVisibility](const std::vector<App::DocumentObject*>& features) -> bool {
-            restorePlaneVisibility();
-            return !features.empty();
+        auto processFunction = [documentOfBody, partDesignBody, restoreOrigin](const std::string& support) {
+            restoreOrigin();
+            Gui::Selection().clearSelection();
+            createSketchOnSupport(documentOfBody, partDesignBody, support);
         };
 
-        // Called by dialog when user hits "OK" and accepter returns true
-        auto processFunction = [documentOfBody,
-                                partDesignBody](const std::vector<App::DocumentObject*>& features) {
-            SketchRequestSelection::createSketch(documentOfBody, partDesignBody, features);
-        };
-
-        // Called by dialog for "Cancel", or "OK" if accepter returns false
         std::string docname = documentOfBody->getName();
-        auto rejectFunction = [docname, restorePlaneVisibility]() {
-            restorePlaneVisibility();
+        auto rejectFunction = [docname, restoreOrigin]() {
+            restoreOrigin();
             Gui::Document* document = Gui::Application::Instance->getDocument(docname.c_str());
             if (document) {
                 document->abortCommand();
             }
         };
 
-        //
-        // End of lambda definitions
-        //
-
-        if (validPlaneCount == 0) {
-            throw MissingPlanesException();
-        }
-        else if (validPlaneCount == 1) {
-            processFunction(planes);
-        }
-        else if (validPlaneCount > 1) {
-            checkForShownDialog();
-            Gui::Selection().clearSelection();
-
-            // Show dialog and let user pick plane
-            Gui::Control().showDialog(new PartDesignGui::TaskDlgFeaturePick(
-                planes,
-                status,
-                acceptFunction,
-                processFunction,
-                true,
-                rejectFunction
-            ));
-        }
+        checkForShownDialog();
+        Gui::Selection().clearSelection();
+        Gui::Control().showDialog(
+            new TaskDlgSketchPlanePick(documentOfBody, partDesignBody, processFunction, rejectFunction)
+        );
     }
 
     void checkForShownDialog()
     {
         App::Document* appdocument = guidocument->getDocument();
         Gui::TaskView::TaskDialog* dlg = Gui::Control().activeDialog(appdocument);
-        PartDesignGui::TaskDlgFeaturePick* pickDlg
-            = qobject_cast<PartDesignGui::TaskDlgFeaturePick*>(dlg);
-        if (dlg && !pickDlg) {
-            QMessageBox msgBox(Gui::getMainWindow());
-            msgBox.setText(QObject::tr("A dialog is already open in the task panel"));
-            msgBox.setInformativeText(QObject::tr("Close this dialog?"));
-            msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-            msgBox.setDefaultButton(QMessageBox::Yes);
-            int ret = msgBox.exec();
-            if (ret == QMessageBox::Yes) {
-                Gui::Control().closeDialog();
-            }
-            else {
-                throw RejectException();
-            }
-        }
-
-        if (dlg) {
-            Gui::Control().closeDialog();
-        }
-    }
-
-    static void createSketch(
-        App::Document* documentOfBody,
-        PartDesign::Body* partDesignBody,
-        const std::vector<App::DocumentObject*>& features
-    )
-    {
-        // may happen when the user switched to an empty document while the
-        // dialog is open
-        if (features.empty()) {
+        if (!dlg) {
             return;
         }
+
+        QMessageBox msgBox(Gui::getMainWindow());
+        msgBox.setText(QObject::tr("A dialog is already open in the task panel"));
+        msgBox.setInformativeText(QObject::tr("Close this dialog?"));
+        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+        msgBox.setDefaultButton(QMessageBox::Yes);
+        if (msgBox.exec() != QMessageBox::Yes) {
+            throw RejectException();
+        }
+        Gui::Control().closeDialog();
+    }
+
+    static void createSketchOnSupport(
+        App::Document* documentOfBody,
+        PartDesign::Body* partDesignBody,
+        const std::string& supportString
+    )
+    {
+        if (supportString.empty()) {
+            return;
+        }
+
         std::string FeatName = documentOfBody->getUniqueObjectName("Sketch");
-        auto* plane = static_cast<App::Plane*>(features.front());
-        auto* lcs = plane->getLCS();
-
-        std::string supportString;
-        if (lcs) {
-            supportString = Gui::Command::getObjectCmd(lcs, "(") + ",['"
-                + plane->getNameInDocument() + "'])";
-        }
-        else {
-            supportString = Gui::Command::getObjectCmd(plane, "(", ",[''])");
-        }
-
         App::Document* doc = partDesignBody->getDocument();
         if (!doc->hasPendingTransaction()) {
             doc->openTransaction(QT_TRANSLATE_NOOP("Command", "New Sketch"));
@@ -815,7 +847,7 @@ private:
             Feat,
             "MapMode = '" << Attacher::AttachEngine::getModeName(Attacher::mmFlatFace) << "'"
         );
-        Gui::Command::updateActive();  // Make sure the AttachmentSupport's Placement property is updated
+        Gui::Command::updateActive();
         PartDesignGui::setEdit(Feat, partDesignBody);
     }
 
@@ -889,11 +921,9 @@ void SketchWorkflow::tryCreateSketch()
     auto filters = getFilters();
     SketchPreselection sketchOnFace {guidocument, activeBody, filters};
 
-    // Fast path: single face or datum plane, preference off, Shift not held.
+    // Fast path: single face or datum plane already selected.
     // If the face turns out to be non-planar or otherwise invalid, fall through
-    // to the attachment dialog instead of showing an error.
-    // A selected sketch, multiple references, no selection, Shift, or preference on
-    // all go through the attachment dialog.
+    // to picking a plane in the 3D view.
     if (!useAttachment && !shiftHeld && sketchOnFace.isSingleFaceOrPlane()) {
         try {
             sketchOnFace.createSupport();
@@ -901,18 +931,15 @@ void SketchWorkflow::tryCreateSketch()
             return;
         }
         catch (const WrongSupportException&) {
-            // Fall through to attachment dialog
         }
         catch (const WrongSelectionException&) {
-            // Fall through to attachment dialog
         }
         catch (const SupportNotPlanarException&) {
-            // Fall through to attachment dialog
         }
     }
 
     SketchRequestSelection requestSelection {guidocument, activeBody};
-    requestSelection.findSupport();
+    requestSelection.findSupport(useAttachment || shiftHeld);
 }
 
 std::tuple<bool, PartDesign::Body*> SketchWorkflow::shouldCreateBody()

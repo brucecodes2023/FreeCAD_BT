@@ -1271,7 +1271,7 @@ QList<ToolBar*> ToolBarManager::toolBars() const
     return tb;
 }
 
-void ToolBarManager::hideAllForRibbon()
+void ToolBarManager::hideAllForRibbon() const
 {
     const QList<ToolBar*> bars = toolBars();
     for (ToolBar* toolbar : bars) {

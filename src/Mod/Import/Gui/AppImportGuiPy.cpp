@@ -328,6 +328,7 @@ private:
                     Base::Console().message("Try to load STEP file without colors...\n");
 
                     Part::ImportStepParts(pcDoc, Utf8Name.c_str());
+                    Part::OCAF::ImportExportSettings::wrapImportedSolidsAsBodies(pcDoc);
                     pcDoc->recompute();
                 }
             }
@@ -374,6 +375,7 @@ private:
                 ocaf.setMode(mode);
             }
             auto ret = ocaf.loadShapes();
+            Part::OCAF::ImportExportSettings::wrapImportedSolidsAsBodies(pcDoc);
             hApp->Close(hDoc);
 
             if (ret) {

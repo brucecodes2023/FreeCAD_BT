@@ -42,7 +42,7 @@ ViewProviderRevolution::~ViewProviderRevolution() = default;
 
 void ViewProviderRevolution::setupContextMenu(QMenu* menu, QObject* receiver, const char* member)
 {
-    addDefaultAction(menu, QObject::tr("Edit Revolution"));
+    addDefaultAction(menu, QObject::tr("Edit Revolve"));
     PartDesignGui::ViewProviderSketchBased::setupContextMenu(menu, receiver, member);
 }
 

@@ -46,6 +46,9 @@ using namespace RobotGui;
 #if 0  // needed for Qt's lupdate utility
     qApp->translate("Workbench", "Robot");
     qApp->translate("Workbench", "Insert Robot");
+    qApp->translate("Workbench", "Assembly Bridge");
+    qApp->translate("Workbench", "Trajectory from Assembly (serial arm)");
+    qApp->translate("Workbench", "Export Assembly Joints");
     qApp->translate("Workbench", "&Robot");
     qApp->translate("Workbench", "Export Trajectory");
     qApp->translate("Gui::TaskView::TaskWatcherCommands", "Trajectory Tools");
@@ -123,6 +126,8 @@ Gui::ToolBarItem* Workbench::setupToolBars() const
     Gui::ToolBarItem* part = new Gui::ToolBarItem(root);
     part->setCommand("Robot");
     *part << "Robot_Create";
+    *part << "Robot_FromAssembly";
+    *part << "Robot_ExportJoints";
     *part << "Separator";
     *part << "Robot_CreateTrajectory";
     *part << "Robot_InsertWaypoint";
@@ -149,7 +154,14 @@ Gui::MenuItem* Workbench::setupMenuBar() const
     // analyze
     Gui::MenuItem* insertRobots = new Gui::MenuItem;
     insertRobots->setCommand("Insert Robot");
-    *insertRobots << "Robot_AddToolShape";
+    *insertRobots << "Robot_Create"
+                 << "Robot_AddToolShape";
+
+    // Assembly → Robotics bridge (serial trajectory vs drone joint inventory)
+    Gui::MenuItem* assemblyBridge = new Gui::MenuItem;
+    assemblyBridge->setCommand("Assembly Bridge");
+    *assemblyBridge << "Robot_FromAssembly"
+                    << "Robot_ExportJoints";
 
     // boolean
     Gui::MenuItem* exportM = new Gui::MenuItem;
@@ -158,7 +170,7 @@ Gui::MenuItem* Workbench::setupMenuBar() const
              << "Robot_ExportKukaFull";
 
     robot->setCommand("&Robot");
-    *robot << insertRobots << "Robot_CreateTrajectory"
+    *robot << insertRobots << assemblyBridge << "Robot_CreateTrajectory"
            << "Separator"
            << "Robot_CreateTrajectory"
            << "Robot_InsertWaypoint"

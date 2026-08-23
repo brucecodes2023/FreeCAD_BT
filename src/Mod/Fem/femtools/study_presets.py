@@ -29,9 +29,116 @@ __url__ = "https://www.freecad.org"
 #  \ingroup FEM
 #  \brief CalculiX static/thermal study presets and analysis readiness checks
 
+from dataclasses import dataclass
+
 import ObjectsFem
 
 from . import membertools
+
+
+@dataclass(frozen=True)
+class GuidedScenario:
+    """Named CalculiX (or similar) setup for common product cases.
+
+    These are *not* CFD. They wrap static structural or pure-heat thermal
+    presets for drone frames, robot arms, and electronics heat - cases FreeCAD
+    FEM can already run.
+    """
+
+    id: str
+    title: str
+    description: str
+    setup: str  # name of setup_* function in this module
+    tags: tuple[str, ...] = ()
+    next_steps: str = ""
+
+
+_GUIDED_SCENARIOS: tuple[GuidedScenario, ...] = (
+    GuidedScenario(
+        id="drone_frame_static",
+        title="Drone / robot frame (static structural)",
+        description=(
+            "CalculiX static analysis for airframe spars, landing gear, "
+            "or robot linkages under gravity / payload loads."
+        ),
+        setup="setup_calculix_static_study",
+        tags=("drone", "robot", "structural", "calculix"),
+        next_steps=(
+            "Mesh the part, set solid material (E, nu), add Fixed + Force/Pressure "
+            "(or SelfWeight), then Guided Study Wizard -> Run."
+        ),
+    ),
+    GuidedScenario(
+        id="robot_mount_static",
+        title="Mount / bracket (static structural)",
+        description=(
+            "CalculiX static analysis for motor mounts, servo brackets, "
+            "and fastener pads - same solver path as drone frame."
+        ),
+        setup="setup_calculix_static_study",
+        tags=("robot", "drone", "structural", "calculix"),
+        next_steps=(
+            "Mesh the bracket, assign material, restrain bolt holes (Fixed), "
+            "apply Force on the load face, then run the solver."
+        ),
+    ),
+    GuidedScenario(
+        id="electronics_thermal",
+        title="Electronics / motor thermal",
+        description=(
+            "CalculiX pure heat transfer for ESCs, battery packs, or motor "
+            "housings. Not coupled CFD cooling."
+        ),
+        setup="setup_calculix_thermal_study",
+        tags=("drone", "robot", "thermal", "calculix"),
+        next_steps=(
+            "Mesh the solid, set thermal material properties, add Temperature / "
+            "HeatFlux / Convective heat flux constraints, then run."
+        ),
+    ),
+)
+
+
+def list_guided_scenarios(tag: str | None = None) -> list[GuidedScenario]:
+    """Return built-in guided scenarios, optionally filtered by tag."""
+    scenarios = list(_GUIDED_SCENARIOS)
+    if tag:
+        scenarios = [s for s in scenarios if tag in s.tags]
+    return scenarios
+
+
+def get_guided_scenario(scenario_id: str) -> GuidedScenario | None:
+    for scenario in _GUIDED_SCENARIOS:
+        if scenario.id == scenario_id:
+            return scenario
+    return None
+
+
+def setup_guided_scenario(
+    doc,
+    scenario_id: str,
+    analysis=None,
+    add_material: bool = True,
+):
+    """Run the CalculiX preset behind *scenario_id*.
+
+    Returns ``(analysis, solver, material, scenario)``.
+    Raises ``KeyError`` for unknown ids.
+    """
+    scenario = get_guided_scenario(scenario_id)
+    if scenario is None:
+        raise KeyError(f"Unknown guided scenario: {scenario_id}")
+    setup_fn = globals()[scenario.setup]
+    analysis, solver, material = setup_fn(doc, analysis=analysis, add_material=add_material)
+    return analysis, solver, material, scenario
+
+
+def format_scenario_catalog(tag: str | None = None) -> str:
+    lines = []
+    for scenario in list_guided_scenarios(tag=tag):
+        tags = ",".join(scenario.tags)
+        lines.append(f"{scenario.id}: {scenario.title} - {scenario.description} [{tags}]")
+    return "\n".join(lines) if lines else "(no guided scenarios)"
 
 
 def _member_objects(items):

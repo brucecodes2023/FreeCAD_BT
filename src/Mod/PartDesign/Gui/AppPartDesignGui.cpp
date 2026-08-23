@@ -31,8 +31,10 @@
 #include <Base/PyObjectBase.h>
 #include <Gui/Application.h>
 #include <Gui/Language/Translator.h>
+#include <QTimer>
 
 #include "Workbench.h"
+#include "RollbackBar.h"
 #include "ViewProviderBase.h"
 #include "ViewProviderBody.h"
 #include "ViewProviderBoolean.h"
@@ -165,6 +167,8 @@ PyMOD_INIT_FUNC(PartDesignGui)
 
     // add resources and reloads the translators
     loadPartDesignResource();
+
+    QTimer::singleShot(0, []() { PartDesignGui::RollbackBar::install(); });
 
     PyMOD_Return(mod);
 }

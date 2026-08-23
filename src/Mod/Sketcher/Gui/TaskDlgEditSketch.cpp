@@ -25,6 +25,8 @@
 
 #include <Gui/Command.h>
 
+#include <QString>
+
 #include "TaskDlgEditSketch.h"
 #include "ViewProviderSketch.h"
 
@@ -44,6 +46,7 @@ TaskDlgEditSketch::TaskDlgEditSketch(ViewProviderSketch* sketchView)
 {
     assert(sketchView);
     roleOnEscape = QDialogButtonBox::ButtonRole::AcceptRole;
+    setObjectName(QStringLiteral("Sketch"));
 
     ToolSettings = new TaskSketcherTool(sketchView);
     Constraints = new TaskSketcherConstraints(sketchView);

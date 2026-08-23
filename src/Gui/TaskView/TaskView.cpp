@@ -31,6 +31,7 @@
 #include <QPushButton>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <algorithm>
 
 #include <FCConfig.h>
 
@@ -209,9 +210,9 @@ TaskPanel::TaskPanel(QWidget* parent)
     mainLayout->addLayout(dialogLayout, 1);
 
     actionPanel = new QSint::ActionPanel(scrollArea);
-    QSizePolicy sizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-    sizePolicy.setHorizontalStretch(0);
-    sizePolicy.setVerticalStretch(0);
+    QSizePolicy sizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    sizePolicy.setHorizontalStretch(1);
+    sizePolicy.setVerticalStretch(1);
     sizePolicy.setHeightForWidth(actionPanel->sizePolicy().hasHeightForWidth());
     actionPanel->setSizePolicy(sizePolicy);
     actionPanel->setScheme(QSint::ActionPanelScheme::defaultScheme());
@@ -239,6 +240,8 @@ TaskView::TaskView(QWidget* parent)
     : QStackedWidget(parent)
     , hGrp(Gui::WindowParameter::getDefaultParameter()->GetGroup("General"))
 {
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    setMinimumWidth(360);
     TaskWatcherPanel = new TaskPanel(this);
     addWidget(TaskWatcherPanel);
 
@@ -426,7 +429,9 @@ void TaskView::triggerMinimumSizeHint()
 void TaskView::adjustMinimumSizeHint()
 {
     QSize ms = minimumSizeHint();
-    setMinimumWidth(ms.width());
+    const int width = std::max(360, ms.width());
+    setMinimumWidth(width);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 }
 
 QSize TaskView::minimumSizeHint() const

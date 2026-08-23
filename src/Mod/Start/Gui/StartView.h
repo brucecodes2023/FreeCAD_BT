@@ -77,6 +77,7 @@ public:
     void continueLastFile();
     void recentFileAdded(const QString& filename);
     void newProject();
+    void pinFolder();
 
     bool onHasMsg(const char* pMsg) const override;
 
@@ -104,12 +105,14 @@ protected:
     void openFirstStartClicked();
     void firstStartWidgetDismissed();
     void openProjectAt(int row);
+    void openProjectPath(const QString& path);
     void refreshDashboardMetrics();
     void rebuildProjectCards();
     void dismissDashboardTips();
     QWidget* createMetricCard(QLabel*& title, QLabel*& value);
     QWidget* createTipsBanner();
     int countDocumentErrors() const;
+    int countSketchIssues(QString* detail = nullptr) const;
 
     QString fileCardStyle() const;
 

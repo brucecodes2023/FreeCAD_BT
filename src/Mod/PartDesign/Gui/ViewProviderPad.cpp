@@ -42,7 +42,7 @@ ViewProviderPad::~ViewProviderPad() = default;
 
 void ViewProviderPad::setupContextMenu(QMenu* menu, QObject* receiver, const char* member)
 {
-    addDefaultAction(menu, QObject::tr("Edit Pad"));
+    addDefaultAction(menu, QObject::tr("Edit Extrude"));
     PartDesignGui::ViewProviderSketchBased::setupContextMenu(menu, receiver, member);
 }
 

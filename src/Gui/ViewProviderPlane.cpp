@@ -77,7 +77,7 @@ void ViewProviderPlane::attach(App::DocumentObject* obj)
     // and faceSeparator...
     // ShapeAppearance.setTransparency(0.8);
     auto material = new SoMaterial();
-    material->transparency.setValue(0.85f);
+    material->transparency.setValue(0.72f);
 
     if (!role.empty()) {
         ShapeAppearance.setDiffuseColor(getColor(role));
@@ -126,7 +126,7 @@ void ViewProviderPlane::attach(App::DocumentObject* obj)
     pLabel->string.setValue(getLabelText(role).c_str());
     pLabel->justification = SoAsciiText::RIGHT;
     labelSwitch = new SoSwitch();
-    setLabelVisibility(false);
+    setLabelVisibility(!role.empty());
 
     auto font = new SoFontStyle();
     font->size = 10.0;
@@ -152,6 +152,10 @@ void ViewProviderPlane::attach(App::DocumentObject* obj)
     );
 
     updatePlaneSize();
+
+    if (!role.empty()) {
+        setVisible(true);
+    }
 }
 
 void ViewProviderPlane::setLabelVisibility(bool val)
@@ -200,24 +204,12 @@ void ViewProviderPlane::updatePlaneSize()
     const auto params = ViewParams::instance();
 
     const float size = params->getDatumPlaneSize() * Base::fromPercent(params->getDatumScale());
-    const float offset = 8.0F;
 
     SbVec3f verts[4];
-
-    bool isSelectedOrHovered = isSelected || isHovered;
-
-    if (!getRole().empty() && !isSelectedOrHovered) {
-        verts[0] = SbVec3f(size, size, 0);
-        verts[1] = SbVec3f(size, offset, 0);
-        verts[2] = SbVec3f(offset, offset, 0);
-        verts[3] = SbVec3f(offset, size, 0);
-    }
-    else {
-        verts[0] = SbVec3f(size, size, 0);
-        verts[1] = SbVec3f(size, -size, 0);
-        verts[2] = SbVec3f(-size, -size, 0);
-        verts[3] = SbVec3f(-size, size, 0);
-    }
+    verts[0] = SbVec3f(size, size, 0);
+    verts[1] = SbVec3f(size, -size, 0);
+    verts[2] = SbVec3f(-size, -size, 0);
+    verts[3] = SbVec3f(-size, size, 0);
 
     pTextTranslation->translation.setValue(verts[0] / 2 - SbVec3f(2, 6, 0));  // NOLINT
     pCoords->point.setNum(4);

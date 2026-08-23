@@ -92,6 +92,16 @@ void ViewProviderAssemblyPy::setDraggerVisibility(Py::Boolean arg)
     getViewProviderAssemblyPtr()->setDraggerVisibility(arg);
 }
 
+Py::Boolean ViewProviderAssemblyPy::getHoldIsolate() const
+{
+    return {getViewProviderAssemblyPtr()->getHoldIsolate()};
+}
+
+void ViewProviderAssemblyPy::setHoldIsolate(Py::Boolean arg)
+{
+    getViewProviderAssemblyPtr()->setHoldIsolate(arg);
+}
+
 PyObject* ViewProviderAssemblyPy::getDragger(PyObject* args)
 {
     if (!PyArg_ParseTuple(args, "")) {

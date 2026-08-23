@@ -105,6 +105,8 @@ public:
     App ::PropertyLinkListHidden Exports;
     Part ::PropertyGeometryList ExternalGeo;
     App ::PropertyBool FullyConstrained;
+    App ::PropertyInteger LastDoF;
+    App ::PropertyBool ClosedContour;
     App ::PropertyPrecision ArcFitTolerance;
     Part ::PropertyPartShape InternalShape;
     App ::PropertyPrecision InternalTolerance;
@@ -989,6 +991,7 @@ public:
     int renameConstraint(int GeoId, std::string name);
 
     // Validation routines
+    SketchAnalysis::ClosedContourStatus analyseClosedContour(double gapTolerance = 0.1) const;
     std::vector<Base::Vector3d> getOpenVertices() const;
 
     // Signaled when solver has done update

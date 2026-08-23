@@ -430,6 +430,8 @@ MainWindow::MainWindow(QWidget* parent, Qt::WindowFlags f)
     // Keep the native macOS title bar and merge the top toolbar into it.
     // Traffic lights stay top-left; this is the standard Qt Cocoa "unified toolbar".
     setUnifiedTitleAndToolBarOnMac(true);
+    // File / Edit / View live next to the Apple menu, not in the ribbon.
+    menuBar()->setNativeMenuBar(true);
 #endif
 
     // Create the layout containing the workspace and a tab bar

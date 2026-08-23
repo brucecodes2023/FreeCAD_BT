@@ -4193,7 +4193,9 @@ bool ViewProviderSketch::setEdit(int ModNum)
     auto gridnode = getGridNode();
     Base::Placement plm = getEditingPlacement();
     setGridOrientation(plm.getPosition(), plm.getRotation());
-    addNodeToRoot(gridnode);
+    if (pcRoot->findChild(gridnode) < 0) {
+        addNodeToRoot(gridnode);
+    }
 
     // create the container for the additional edit data
     assert(!isInEditMode());
@@ -4442,6 +4444,18 @@ void ViewProviderSketch::UpdateSolverInformation()
     bool hasPartiallyRedundant = getSketchObject()->getLastHasPartialRedundancies();
     bool hasMalformed = getSketchObject()->getLastHasMalformedConstraints();
 
+    auto closedContourSuffix = [this]() -> QString {
+        const auto contour = getSketchObject()->analyseClosedContour();
+        if (contour.hasClosedContour && contour.openEndpointCount == 0
+            && contour.missingCoincidenceCount == 0) {
+            return QLatin1String(" · ") + tr("Closed contour");
+        }
+        if (contour.openEndpointCount > 0 || contour.missingCoincidenceCount > 0) {
+            return QLatin1String(" · ") + tr("Open contour");
+        }
+        return {};
+    };
+
     if (getSketchObject()->Geometry.getSize() == 0 &&
         getSketchObject()->ExternalGeo.getSize() <= 2) { // X- and Y-Axis
         signalSetUp(QStringLiteral("empty"), tr("Empty sketch"), QString(), QString());
@@ -4484,11 +4498,15 @@ void ViewProviderSketch::UpdateSolverInformation()
         signalSetUp(QStringLiteral("under_constrained"),
                     tr("Under-constrained:") + QLatin1String(" "),
                     QStringLiteral("#dofs"),
-                    tr("%n Degrees of Freedom", "", dofs));
+                    tr("%n Degrees of Freedom", "", dofs) + closedContourSuffix());
     }
     else {
         signalSetUp(
-            QStringLiteral("fully_constrained"), tr("Fully constrained"), QString(), QString());
+            QStringLiteral("fully_constrained"),
+            tr("Fully constrained") + closedContourSuffix(),
+            QString(),
+            QString()
+        );
     }
 }
 
@@ -4502,9 +4520,13 @@ void ViewProviderSketch::unsetEdit(int ModNum)
         dragAutoConstraintHandler->clear();
     }
 
-    setGridEnabled(nullptr);
-    auto gridnode = getGridNode();
-    pcRoot->removeChild(gridnode);
+    if (auto* view = qobject_cast<Gui::View3DInventor*>(getActiveView())) {
+        setGridEnabled(view);
+        drawGrid(true);
+    }
+    else {
+        setGridEnabled(nullptr);
+    }
 
     if (listener) {
         Gui::getMainWindow()->removeEventFilter(listener.get());

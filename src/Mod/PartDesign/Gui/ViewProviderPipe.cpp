@@ -74,7 +74,7 @@ std::vector<App::DocumentObject*> ViewProviderPipe::claimChildren() const
 
 void ViewProviderPipe::setupContextMenu(QMenu* menu, QObject* receiver, const char* member)
 {
-    addDefaultAction(menu, QObject::tr("Edit Pipe"));
+    addDefaultAction(menu, QObject::tr("Edit Sweep"));
     PartDesignGui::ViewProvider::setupContextMenu(menu, receiver, member);
 }
 

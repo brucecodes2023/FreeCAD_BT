@@ -100,6 +100,7 @@
 #include <QKeyEvent>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QNativeGestureEvent>
 #include <QOpenGLFramebufferObject>
 #include <QOpenGLWidget>
 #include <QScopeGuard>
@@ -794,6 +795,17 @@ private:
         return true;
     }
 
+    View3DInventorViewer* viewerFromFilterObject(QObject* obj) const
+    {
+        if (auto* viewer3d = qobject_cast<View3DInventorViewer*>(obj)) {
+            return viewer3d;
+        }
+        if (obj) {
+            return qobject_cast<View3DInventorViewer*>(obj->parent());
+        }
+        return nullptr;
+    }
+
     QTimer* longPressTimer;
     QPoint pressPosition;
     View3DInventorViewer* currentViewer = nullptr;
@@ -801,11 +813,27 @@ private:
 public:
     bool eventFilter(QObject* obj, QEvent* event) override
     {
-        // Bug #0000607: Some mice also support horizontal scrolling which however might
-        // lead to some unwanted zooming when pressing the MMB for panning.
-        // Thus, we filter out horizontal scrolling.
-        if (event->type() == QEvent::Wheel) {
-            auto we = static_cast<QWheelEvent*>(event);  // NOLINT
+        if (event->type() == QEvent::NativeGesture) {
+            if (auto* viewer3d = viewerFromFilterObject(obj)) {
+                if (auto* nav = viewer3d->navigationStyle()) {
+                    if (nav->handleNativeGestureEvent(static_cast<QNativeGestureEvent*>(event))) {
+                        return true;
+                    }
+                }
+            }
+        }
+        else if (event->type() == QEvent::Wheel) {
+            auto* we = static_cast<QWheelEvent*>(event);  // NOLINT
+            if (auto* viewer3d = viewerFromFilterObject(obj)) {
+                if (auto* nav = viewer3d->navigationStyle()) {
+                    if (nav->handleTrackpadWheelEvent(we)) {
+                        return true;
+                    }
+                }
+            }
+            // Bug #0000607: Some mice also support horizontal scrolling which however might
+            // lead to some unwanted zooming when pressing the MMB for panning.
+            // Thus, we filter out horizontal scrolling from physical mouse tilt wheels.
             if (qAbs(we->angleDelta().x()) > qAbs(we->angleDelta().y())) {
                 return true;
             }
@@ -1282,6 +1310,9 @@ void View3DInventorViewer::init()
     // filter a few qt events
     viewerEventFilter = new ViewerEventFilter;
     installEventFilter(viewerEventFilter);
+    if (viewport()) {
+        viewport()->installEventFilter(viewerEventFilter);
+    }
 #if defined(USE_3DCONNEXION_NAVLIB)
     if (SpaceMouseParameter::instance()->getLegacySpaceMouseDevices()) {
         getEventFilter()->registerInputDevice(new SpaceNavigatorDevice);
@@ -1397,6 +1428,9 @@ View3DInventorViewer::~View3DInventorViewer()
 
     detachSelection();
 
+    if (viewport()) {
+        viewport()->removeEventFilter(viewerEventFilter);
+    }
     removeEventFilter(viewerEventFilter);
     delete viewerEventFilter;
 

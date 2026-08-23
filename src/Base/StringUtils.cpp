@@ -70,11 +70,16 @@ bool Base::StringUtils::parseBool(std::string_view value, bool& result)
 
 std::string Base::StringUtils::formatDouble(double value)
 {
+    // libc++ marks floating-point std::to_chars unavailable below macOS 13.3.
+    // The conda-macos preset still deploys to 11.0, so keep the stream fallback.
+#if !(defined(__APPLE__) && defined(__MAC_OS_X_VERSION_MIN_REQUIRED) \
+      && __MAC_OS_X_VERSION_MIN_REQUIRED < 130300)
     std::array<char, 64> buffer;
     const auto [end, error] = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value);
     if (error == std::errc {}) {
         return {buffer.data(), end};
     }
+#endif
 
     std::ostringstream stream;
     stream.imbue(std::locale::classic());

@@ -40,6 +40,7 @@
 #include <Gui/Selection/SoFCUnifiedSelection.h>
 #include <Gui/Inventor/So3DAnnotation.h>
 #include <Gui/MainWindow.h>
+#include <Gui/TreeItemMode.h>
 #include <Gui/Utilities.h>
 #include <Mod/PartDesign/App/Body.h>
 #include <Mod/PartDesign/App/FeatureAddSub.h>
@@ -325,9 +326,28 @@ void ViewProvider::setTipIcon(bool onoff)
     signalChangeIcon();
 }
 
+void ViewProvider::setAfterTip(bool onoff)
+{
+    if (isSetAfterTip == onoff) {
+        return;
+    }
+    isSetAfterTip = onoff;
+    // Visual-only: do not touch App::SuppressibleExtension (user suppress stays intact).
+    signalChangeHighlight(onoff, Gui::HighlightMode::Italic);
+    signalChangeIcon();
+}
+
 QIcon ViewProvider::mergeColorfulOverlayIcons(const QIcon& orig) const
 {
     QIcon mergedicon = orig;
+
+    if (isSetAfterTip) {
+        // Match tree greying for features past the Tip (SW rollback look).
+        const QPixmap disabled = orig.pixmap(64, QIcon::Disabled);
+        if (!disabled.isNull()) {
+            mergedicon = QIcon(disabled);
+        }
+    }
 
     if (isSetTipIcon) {
         static QPixmap px(Gui::BitmapFactory().pixmapFromSvg("PartDesign_Overlay_Tip", QSize(10, 10)));

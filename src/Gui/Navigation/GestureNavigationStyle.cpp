@@ -832,27 +832,20 @@ public:
                 );
             }
             else if (ev.inventor_event->isOfType(SoGesturePinchEvent::getClassTypeId())) {
+                // Pinch = zoom only (no pan / tilt from the pinch gesture).
                 const auto pinch = static_cast<const SoGesturePinchEvent*>(ev.inventor_event);
-                SbVec2f panDist = ns.normalizePixelPos(pinch->deltaCenter.getValue());
-                ns.panCamera(
-                    ns.viewer->getSoRenderManager()->getCamera(),
-                    ratio,
-                    ns.panningplane,
-                    panDist,
-                    SbVec2f(0, 0)
-                );
-                ns.doZoom(
-                    ns.viewer->getSoRenderManager()->getCamera(),
-                    -logf(float(pinch->deltaZoom)),
-                    ns.normalizePixelPos(pinch->curCenter)
-                );
-                if (pinch->deltaAngle != 0.0 && enableTilt) {
-                    ns.doRotate(
+                if (pinch->deltaZoom > 0.0) {
+                    float logfactor = -logf(float(pinch->deltaZoom));
+                    if (ns.invertZoom) {
+                        logfactor = -logfactor;
+                    }
+                    ns.doZoom(
                         ns.viewer->getSoRenderManager()->getCamera(),
-                        float(pinch->deltaAngle),
+                        logfactor,
                         ns.normalizePixelPos(pinch->curCenter)
                     );
                 }
+                (void)enableTilt;
             }
             else {
                 // unknown gesture
@@ -1063,10 +1056,9 @@ SbBool GestureNavigationStyle::processSoEvent(const SoEvent* const ev)
         | (this->altdown ? NS::Event::ALTDOWN : 0);
 
 #ifdef FC_OS_MACOSX
-    // On Mac, Qt gesture events seem to be broken. At least that's what event
-    // logs from @chrisb tell me. So, for until a developer on a mac gets here to
-    // make gestures work, I disable them. --DeepSOIC
-
+    // Two-finger scroll, pinch, and Option-tilt are handled in NavigationStyle
+    // from QWheelEvent / QNativeGestureEvent. Skip the Qt QGesture state machine
+    // here; it historically mis-fires on macOS.
     if (smev.isGestureEvent()) {
         return superclass::processSoEvent(ev);
     }

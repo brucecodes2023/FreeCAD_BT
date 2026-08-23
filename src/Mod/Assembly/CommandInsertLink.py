@@ -471,16 +471,35 @@ class TaskAssemblyInsertLink(QtCore.QObject):
         fixPartPref = pref.GetInt("GroundFirstPart", 0)
         if fixPartPref == 0:  # unset
             msgBox = QtWidgets.QMessageBox()
-            msgBox.setWindowTitle("Ground Part?")
+            msgBox.setWindowTitle(
+                QtWidgets.QApplication.translate("Assembly", "Ground first part?")
+            )
             msgBox.setText(
-                "Do you want to ground the first inserted part automatically?\nYou need at least one grounded part in your assembly."
+                QtWidgets.QApplication.translate(
+                    "Assembly",
+                    "Assemblies need one grounded (fixed) part — like SolidWorks Fix / "
+                    "Fusion Ground. Ground the first inserted part now?\n\n"
+                    "Without a grounded part, mates cannot lock the assembly.",
+                )
             )
             msgBox.setIcon(QtWidgets.QMessageBox.Question)
 
-            yesButton = msgBox.addButton("Yes", QtWidgets.QMessageBox.YesRole)
-            noButton = msgBox.addButton("No", QtWidgets.QMessageBox.RejectRole)
-            yesAlwaysButton = msgBox.addButton("Always", QtWidgets.QMessageBox.YesRole)
-            noAlwaysButton = msgBox.addButton("Never", QtWidgets.QMessageBox.NoRole)
+            yesButton = msgBox.addButton(
+                QtWidgets.QApplication.translate("Assembly", "Yes"),
+                QtWidgets.QMessageBox.YesRole,
+            )
+            noButton = msgBox.addButton(
+                QtWidgets.QApplication.translate("Assembly", "No"),
+                QtWidgets.QMessageBox.RejectRole,
+            )
+            yesAlwaysButton = msgBox.addButton(
+                QtWidgets.QApplication.translate("Assembly", "Always"),
+                QtWidgets.QMessageBox.YesRole,
+            )
+            noAlwaysButton = msgBox.addButton(
+                QtWidgets.QApplication.translate("Assembly", "Never"),
+                QtWidgets.QMessageBox.NoRole,
+            )
 
             msgBox.exec_()
 

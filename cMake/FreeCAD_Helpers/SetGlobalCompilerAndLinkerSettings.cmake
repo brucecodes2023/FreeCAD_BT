@@ -116,7 +116,7 @@ macro(SetGlobalCompilerAndLinkerSettings)
 
     if(APPLE)
         if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
-            set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
+            set(CMAKE_OSX_DEPLOYMENT_TARGET "13.3" CACHE STRING "Minimum macOS version")
         endif()
         if(NOT CMAKE_OSX_ARCHITECTURES AND CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
             set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "macOS build architecture")

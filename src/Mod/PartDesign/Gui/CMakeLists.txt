@@ -215,6 +215,8 @@ SET(PartDesignGuiModule_SRCS
     StyleParameters.h
     Utils.cpp
     Utils.h
+    RollbackBar.cpp
+    RollbackBar.h
     Workbench.cpp
     Workbench.h
     WorkflowManager.cpp

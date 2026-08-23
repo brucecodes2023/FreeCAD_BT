@@ -49,6 +49,7 @@
 #include "encodeFilename.h"
 #include "ShapeMapHasher.h"
 #include "PartFeature.h"
+#include "OCAF/ImportExportSettings.h"
 
 FC_LOG_LEVEL_INIT("Part")
 
@@ -186,6 +187,7 @@ int Part::ImportStepParts(App::Document* pcDoc, const char* Name)
         }
     }
 
+    Part::OCAF::ImportExportSettings::wrapImportedSolidsAsBodies(pcDoc);
     return 0;
 }
 

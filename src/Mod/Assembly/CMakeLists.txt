@@ -23,6 +23,7 @@ set(Assembly_Scripts
     CommandCreateBom.py
     CommandInsertLink.py
     CommandInsertNewPart.py
+    CommandEditPart.py
     CommandSolveAssembly.py
     CommandCreateJoint.py
     CommandCreateView.py
@@ -58,6 +59,7 @@ SET(AssemblyTests_SRCS
     AssemblyTests/TestCore.py
     AssemblyTests/TestCommandCreateView.py
     AssemblyTests/TestCommandInsertLink.py
+    AssemblyTests/TestCommandEditPart.py
     AssemblyTests/TestSimulationExport.py
     AssemblyTests/mocks/__init__.py
     AssemblyTests/mocks/MockGui.py

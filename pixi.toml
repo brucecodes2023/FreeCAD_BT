@@ -99,5 +99,5 @@ install-debug = { cmd = ["cmake", "--install", "build/debug"]}
 install-release = { cmd = ["cmake", "--install", "build/release"]}
 test-debug = { cmd = ["ctest", "--test-dir", "build/debug"]}
 test-release = { cmd = ["ctest", "--test-dir", "build/release"]}
-freecad-debug = "build/debug/bin/FreeCAD"
-freecad-release = "build/release/bin/FreeCAD"
+freecad-debug = { cmd = ["Documents/macos-run-release.sh"] }
+freecad-release = { cmd = ["Documents/macos-run-release.sh"] }

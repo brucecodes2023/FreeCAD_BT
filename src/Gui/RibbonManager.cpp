@@ -13,6 +13,8 @@
 #include "Document.h"
 #include "MainWindow.h"
 #include "MDIView.h"
+#include "OverlayManager.h"
+#include "OverlayParams.h"
 #include "ToolBarManager.h"
 #include "Utilities.h"
 #include "ViewProviderDocumentObject.h"
@@ -22,6 +24,7 @@
 #include <App/Application.h>
 #include <App/DocumentObject.h>
 #include <Base/Type.h>
+#include <string>
 
 using namespace Gui;
 
@@ -78,6 +81,7 @@ void RibbonManager::ensureInstalled()
     mw->setCentralWidget(host);
 
     _installed = true;
+    applyFloatingModelBrowser();
 }
 
 void RibbonManager::setup(ToolBarItem* root)
@@ -138,4 +142,56 @@ void RibbonManager::applyPreference()
         wb->activate();
     }
     syncVisibility();
+}
+
+void RibbonManager::applyFloatingModelBrowser()
+{
+    if (Gui::isInternalGuiTestRun()) {
+        return;
+    }
+
+    auto hLeft = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/MainWindow/DockWindows/OverlayLeft"
+    );
+    if (hLeft->GetInt("ModernCADOverlayVersion", 0) >= 5) {
+        return;
+    }
+
+    hLeft->SetASCII("Widgets", "Model,");
+    hLeft->SetBool("Transparent", false);
+    hLeft->SetBool("AutoHide", false);
+    hLeft->SetBool("EditHide", false);
+    hLeft->SetBool("EditShow", false);
+    hLeft->SetBool("TaskShow", false);
+    hLeft->SetInt("Width", 300);
+    hLeft->SetBool("ModernCADFloatingBrowser", true);
+    hLeft->SetInt("ModernCADOverlayVersion", 5);
+
+    auto hRight = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/MainWindow/DockWindows/OverlayRight"
+    );
+    hRight->SetASCII("Widgets", "Tasks,");
+    hRight->SetBool("Transparent", false);
+    hRight->SetBool("AutoHide", false);
+    hRight->SetBool("EditShow", false);
+    hRight->SetBool("EditHide", false);
+    hRight->SetBool("TaskShow", true);
+    hRight->SetInt("Width", 400);
+    hRight->SetInt("Offset1", 0);
+    hRight->SetInt("Offset2", 0);
+    hRight->SetInt("Offset3", 0);
+
+    OverlayParams::setDockOverlayHintTabBar(true);
+
+    auto hTop = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/MainWindow/DockWindows/OverlayTop"
+    );
+    const std::string topWidgets = hTop->GetASCII("Widgets", "");
+    if (topWidgets.find("Tasks") != std::string::npos) {
+        hTop->SetASCII("Widgets", "");
+    }
+
+    if (OverlayManager* overlay = OverlayManager::instance()) {
+        overlay->reload();
+    }
 }

@@ -119,6 +119,7 @@
         </property>
        </widget>
       </item>
+
       <item>
        <widget class="Gui::PrefCheckBox" name="checkBoxUseBaseName">
         <property name="toolTip">

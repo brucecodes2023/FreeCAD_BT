@@ -82,6 +82,21 @@ void ProjectsModel::addProject(const QString& path)
     loadProjects();
 }
 
+void ProjectsModel::removeProject(const QString& path)
+{
+    const QString canonical = QFileInfo(path).absoluteFilePath();
+    if (canonical.isEmpty()) {
+        return;
+    }
+    if (!_paths.contains(canonical) && !_paths.contains(path)) {
+        return;
+    }
+    _paths.removeAll(canonical);
+    _paths.removeAll(path);
+    saveProjects();
+    loadProjects();
+}
+
 QString ProjectsModel::pathAt(int row) const
 {
     if (row < 0 || row >= _paths.size()) {
@@ -97,9 +112,13 @@ int ProjectsModel::projectCount() const
 
 void ProjectsModel::saveProjects()
 {
+    const int oldCount = static_cast<int>(_parameterGroup->GetInt("Count", 0));
     _parameterGroup->SetInt("Count", _paths.size());
     for (int i = 0; i < _paths.size(); ++i) {
         _parameterGroup->SetASCII(fmt::format("MRU{}", i).c_str(), _paths.at(i).toStdString());
+    }
+    for (int i = _paths.size(); i < oldCount; ++i) {
+        _parameterGroup->RemoveASCII(fmt::format("MRU{}", i).c_str());
     }
 }
 

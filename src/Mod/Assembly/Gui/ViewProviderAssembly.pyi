@@ -63,5 +63,8 @@ class ViewProviderAssembly(ViewProvider):
     DraggerVisibility: bool
     """Show or hide the assembly dragger."""
 
+    HoldIsolate: bool
+    """Keep isolation across selection changes and transactions (edit-part session)."""
+
     DraggerPlacement: Any
     """Placement of the assembly dragger object."""

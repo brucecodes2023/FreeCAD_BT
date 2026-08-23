@@ -42,7 +42,7 @@ ViewProviderGroove::~ViewProviderGroove() = default;
 
 void ViewProviderGroove::setupContextMenu(QMenu* menu, QObject* receiver, const char* member)
 {
-    addDefaultAction(menu, QObject::tr("Edit Groove"));
+    addDefaultAction(menu, QObject::tr("Edit Revolve Cut"));
     PartDesignGui::ViewProviderSketchBased::setupContextMenu(menu, receiver, member);
 }
 

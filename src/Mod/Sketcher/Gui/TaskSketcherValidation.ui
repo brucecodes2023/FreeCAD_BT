@@ -17,7 +17,7 @@
    <item row="0" column="0">
     <widget class="QGroupBox" name="groupBox_0">
      <property name="title">
-      <string>Open and Non-Manifold Vertices</string>
+      <string>Closed Contour (Pad / Extrude)</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_7">
       <property name="leftMargin">
@@ -35,10 +35,10 @@
       <item row="0" column="0">
        <widget class="QPushButton" name="highlightButton">
         <property name="toolTip">
-         <string>Highlights open and non-manifold vertices that could lead to errors if the sketch is used to generate solids. This is purely based on the topological shape of the sketch and not on its geometry/constraint set.</string>
+         <string>Checks whether the sketch is a closed contour that Pad can extrude. Highlights open endpoints and points that sit near each other but are not coincident-constrained.</string>
         </property>
         <property name="text">
-         <string>Highlight Troublesome Vertices</string>
+         <string>Check Closed Contour</string>
         </property>
        </widget>
       </item>

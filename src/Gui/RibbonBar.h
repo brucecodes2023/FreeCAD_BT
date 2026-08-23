@@ -3,6 +3,7 @@
 #pragma once
 
 #include <QWidget>
+#include <QStringList>
 
 class QHBoxLayout;
 class QStackedWidget;
@@ -13,7 +14,7 @@ namespace Gui
 
 class ToolBarItem;
 
-/** Fusion-style ribbon: QAT, tabs per workbench toolbar, grouped command buttons. */
+/** FreeCAD ribbon look: workbench tabs, large/small command groups, native macOS menus. */
 class RibbonBar: public QWidget
 {
     Q_OBJECT
@@ -24,7 +25,6 @@ public:
     void setup(ToolBarItem* root);
     void retranslate();
     void clearRibbon();
-    /** Hide Unavailable (edit-mode) tabs unless a sketch is in edit. */
     void applyContext(bool sketchInEdit);
 
     QSize sizeHint() const override;
@@ -33,21 +33,22 @@ public:
 private:
     enum class ButtonStyle
     {
-        Ribbon,
-        QuickAccess
+        Large,
+        Small
     };
 
     QWidget* makeCommandWidget(const char* name, QWidget* parent, ButtonStyle style);
     QWidget* makeGroup(const QString& title, QWidget* parent);
-    void addCommandsToGroup(ToolBarItem* item, QHBoxLayout* groupLayout, QWidget* parent);
-    void placeWorkbenchSelector(QWidget* widget);
-    void populateQuickAccess();
+    void populateWorkbenchTabs();
+    void appendToolbarPanel(QWidget* page, ToolBarItem* toolbar);
+    void appendNamedPanel(QWidget* page, const QString& title, const QStringList& names);
+    void addPanelToPage(QWidget* pageWidget, QWidget* group);
+    void onWorkbenchTabChanged(int index);
 
-    QWidget* _qat = nullptr;
     QTabBar* _tabs = nullptr;
     QStackedWidget* _pages = nullptr;
-    QWidget* _workbenchHost = nullptr;
     QStringList _tabKeys;
+    bool _updatingTabs = false;
 };
 
 }  // namespace Gui

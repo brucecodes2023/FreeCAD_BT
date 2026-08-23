@@ -37,6 +37,7 @@
 
 #include <QEvent>
 #include <QAction>
+#include <QPointF>
 #include <Base/BaseClass.h>
 #include <Base/SmartPtrPy.h>
 #include <Gui/Namespace.h>
@@ -52,6 +53,8 @@ class SoQtViewer;
 class SoCamera;
 class SoSensor;
 class SbSphereSheetProjector;
+class QWheelEvent;
+class QNativeGestureEvent;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid*, readability-avoid-const-params-in-decls)
 namespace Gui
@@ -244,6 +247,11 @@ public:
     virtual SbBool processKeyboardEvent(const SoKeyboardEvent* const event);
     virtual SbBool processClickEvent(const SoMouseButtonEvent* const event);
     virtual SbBool processWheelEvent(const SoMouseWheelEvent* const event);
+    /// Trackpad/mouse scroll: pan; Shift-zoom; Cmd/Option-orbit.
+    /// Classic zoom-on-scroll is opt-in via Preferences View → TrackpadScrollZooms.
+    bool handleTrackpadWheelEvent(QWheelEvent* event);
+    /// Mac pinch zoom/rotate (and two-finger double-tap to fit).
+    bool handleNativeGestureEvent(QNativeGestureEvent* event);
 
     void setPopupMenuEnabled(const SbBool on);
     SbBool isPopupMenuEnabled() const;
@@ -326,6 +334,11 @@ protected:
     bool offerEventToViewer(const SoEvent* const ev);
     void syncWithEvent(const SoEvent* const ev);
     virtual void openPopupMenu(const SbVec2s& position);
+    SbBool processGestureEvent(const SoEvent* const ev);
+    SbVec2f qtPositionToNormalized(const QPointF& globalPos);
+    void trackpadPanByPixels(const SbVec2f& posn, float dxPixels, float dyPixels);
+    void trackpadOrbitByPixels(const SbVec2f& posn, float dxPixels, float dyPixels);
+    bool isTouchTiltEnabled() const;
 
 private:
     struct OrbitDragState
@@ -407,6 +420,8 @@ protected:
     SbBool hasDragged;
     SbBool hasPanned;
     SbBool hasZoomed;
+    bool nativeGestureActive {false};
+    SbTime lastNativePinchTime;
 
     /** @name Mouse model */
     //@{

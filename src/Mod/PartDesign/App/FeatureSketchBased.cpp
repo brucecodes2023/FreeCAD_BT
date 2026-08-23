@@ -56,6 +56,7 @@
 #include <App/Datums.h>
 #include <Base/Reader.h>
 #include <Mod/Part/App/FaceMakerCheese.h>
+#include <Mod/Part/App/PropertyTopoShape.h>
 
 #include "FeatureSketchBased.h"
 #include "DatumLine.h"
@@ -66,6 +67,64 @@
 FC_LOG_LEVEL_INIT("PartDesign", true, true);
 
 using namespace PartDesign;
+
+namespace
+{
+bool isFaceSubName(const std::string& sub)
+{
+    return sub.rfind("Face", 0) == 0 || sub.rfind("InternalFace", 0) == 0;
+}
+
+TopoShape placedSketchFaces(const App::DocumentObject* obj)
+{
+    auto* prop = dynamic_cast<Part::PropertyPartShape*>(obj->getPropertyByName("InternalShape"));
+    if (!prop) {
+        return {};
+    }
+    TopoShape internal = prop->getShape();
+    if (!internal.hasSubShape(TopAbs_FACE)) {
+        return {};
+    }
+    std::vector<TopoShape> faces = internal.getSubTopoShapes(TopAbs_FACE);
+    TopoShape shape(internal.Tag, internal.Hasher);
+    if (faces.size() == 1) {
+        shape = faces.front();
+    }
+    else {
+        shape.makeElementCompound(
+            faces,
+            nullptr,
+            TopoShape::SingleShapeCompoundCreationPolicy::returnShape
+        );
+    }
+    if (auto* feat = dynamic_cast<const Part::Feature*>(obj)) {
+        shape.setPlacement(feat->Placement.getValue());
+    }
+    return shape;
+}
+
+TopoShape tryMakeFace(const TopoShape& source)
+{
+    static const char* makers[] = {
+        "Part::FaceMakerBuildFace",
+        "Part::FaceMakerBullseye",
+        "Part::FaceMakerCheese"
+    };
+    for (const char* maker : makers) {
+        try {
+            TopoShape candidate = source.makeElementFace(nullptr, maker);
+            if (candidate.hasSubShape(TopAbs_FACE)) {
+                return candidate;
+            }
+        }
+        catch (const Base::Exception&) {
+        }
+        catch (const Standard_Failure&) {
+        }
+    }
+    return {};
+}
+}  // namespace
 
 PROPERTY_SOURCE(PartDesign::ProfileBased, PartDesign::FeatureAddSub)
 
@@ -216,6 +275,24 @@ TopoShape ProfileBased::getTopoShapeVerifiedFace(
     }
     const auto& subs = profile ? _subs : Profile.getSubValues();
     try {
+        const bool isSketch = obj->isDerivedFrom<Part::Part2DObject>();
+        bool explicitFace = false;
+        for (const auto& sub : subs) {
+            if (isFaceSubName(sub)) {
+                explicitFace = true;
+                break;
+            }
+        }
+
+        // SolidWorks-style: Pad a sketch by its closed region, not its outline
+        // edges. Edge picks on a sketch are treated as "the whole contour".
+        if (isSketch && !allowOpen && !explicitFace) {
+            TopoShape internalFaces = placedSketchFaces(obj);
+            if (internalFaces.hasSubShape(TopAbs_FACE)) {
+                return internalFaces;
+            }
+        }
+
         TopoShape shape;
         if (AllowMultiFace.getValue()) {
             if (subs.empty()) {
@@ -306,12 +383,40 @@ TopoShape ProfileBased::getTopoShapeVerifiedFace(
                             }
                         }
                     }
-                    if (!shape.isNull()) {
-                        if (AllowMultiFace.getValue()) {
-                            shape = shape.makeElementFace();  // default to use FaceMakerBullseye
+                    else {
+                        // Pad/Boss-style: use closed contours only. Leftover open edges
+                        // must not block a valid loop (SolidWorks contour selection).
+                        std::vector<TopoShape> closedWires;
+                        for (auto& wire : shape.getSubTopoShapes(TopAbs_WIRE)) {
+                            if (wire.isClosed()) {
+                                closedWires.push_back(wire);
+                            }
+                        }
+                        if (closedWires.empty()) {
+                            if (silent) {
+                                return {};
+                            }
+                            throw Base::CADKernelError(
+                                "Sketch is not a closed contour. Open endpoints must be "
+                                "coincident-constrained. Use Sketch → Validate Sketch → "
+                                "Check Closed Contour, then Pad."
+                            );
+                        }
+                        if (closedWires.size() == 1) {
+                            shape = closedWires.front();
                         }
                         else {
-                            shape = shape.makeElementFace(nullptr, "Part::FaceMakerCheese");
+                            shape.makeElementCompound(
+                                closedWires,
+                                nullptr,
+                                TopoShape::SingleShapeCompoundCreationPolicy::returnShape
+                            );
+                        }
+                    }
+                    if (!shape.isNull()) {
+                        TopoShape face = tryMakeFace(shape);
+                        if (!face.isNull()) {
+                            shape = face;
                         }
                     }
                 }
@@ -334,7 +439,9 @@ TopoShape ProfileBased::getTopoShapeVerifiedFace(
             if (silent) {
                 return TopoShape();
             }
-            throw Base::CADKernelError("Cannot make face from profile");
+            throw Base::CADKernelError(
+                "Cannot make face from profile. The sketch is not a closed contour."
+            );
         }
 
         if (!openshape.isNull()) {
@@ -417,7 +524,37 @@ TopoDS_Shape ProfileBased::getVerifiedFace(bool silent) const
         if (result->isDerivedFrom<Part::Part2DObject>()) {
 
             auto wires = getProfileWires();
-            return Part::FaceMakerCheese::makeFace(wires);
+            std::vector<TopoDS_Wire> closed;
+            closed.reserve(wires.size());
+            for (const auto& wire : wires) {
+                if (wire.Closed() || BRep_Tool::IsClosed(wire)) {
+                    closed.push_back(wire);
+                }
+            }
+            if (closed.empty()) {
+                err = "Sketch is not a closed contour. Coincident-constrain the open endpoints "
+                      "(Sketch → Validate Sketch → Check Closed Contour).";
+            }
+            else {
+                std::vector<TopoShape> wireShapes;
+                wireShapes.reserve(closed.size());
+                for (const auto& wire : closed) {
+                    wireShapes.emplace_back(wire);
+                }
+                TopoShape source;
+                source.makeElementCompound(
+                    wireShapes,
+                    nullptr,
+                    TopoShape::SingleShapeCompoundCreationPolicy::returnShape
+                );
+                TopoShape face = tryMakeFace(source);
+                if (face.isNull()) {
+                    err = "Cannot make face from profile. The sketch is not a closed contour.";
+                }
+                else {
+                    return face.getShape();
+                }
+            }
         }
         else if (result->isDerivedFrom<Part::Feature>()) {
             if (Profile.getSubValues().empty()) {

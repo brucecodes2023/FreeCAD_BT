@@ -23,11 +23,20 @@
  ***************************************************************************/
 
 #include <Interface_Static.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopAbs_ShapeEnum.hxx>
 
+#include <App/Document.h>
+#include <App/DocumentObject.h>
+#include <App/Application.h>
+#include <App/PropertyLinks.h>
+#include <Base/Type.h>
 
 #include "ImportExportSettings.h"
 #include <Mod/Part/App/IGES/ImportExportSettings.h>
 #include <Mod/Part/App/STEP/ImportExportSettings.h>
+#include <Mod/Part/App/PartFeature.h>
+#include <Mod/Part/App/BodyBase.h>
 #include <App/Application.h>
 
 
@@ -280,6 +289,65 @@ void ImportExportSettings::setShowProgress(bool on)
 bool ImportExportSettings::getShowProgress() const
 {
     return pGroup->GetBool("ShowProgress", true);
+}
+
+void ImportExportSettings::setImportAsBody(bool on)
+{
+    pGroup->SetBool("ImportAsBody", on);
+}
+
+bool ImportExportSettings::getImportAsBody() const
+{
+    // Modern CAD default: solids open as PartDesign Bodies for immediate Pad/Sketch work.
+    return pGroup->GetBool("ImportAsBody", true);
+}
+
+void ImportExportSettings::wrapImportedSolidsAsBodies(App::Document* doc)
+{
+    if (!doc) {
+        return;
+    }
+    ImportExportSettings settings;
+    if (!settings.getImportAsBody()) {
+        return;
+    }
+    if (Base::Type::fromName("PartDesign::Body").isBad()) {
+        return;
+    }
+
+    std::vector<App::DocumentObject*> solids;
+    for (App::DocumentObject* obj : doc->getObjects()) {
+        auto* feat = dynamic_cast<Part::Feature*>(obj);
+        if (!feat) {
+            continue;
+        }
+        if (obj->isDerivedFrom(Part::BodyBase::getClassTypeId())) {
+            continue;
+        }
+        if (Part::BodyBase::findBodyOf(obj)) {
+            continue;
+        }
+        const TopoDS_Shape& shape = feat->Shape.getValue();
+        if (shape.IsNull()) {
+            continue;
+        }
+        TopExp_Explorer xp(shape, TopAbs_SOLID);
+        if (!xp.More()) {
+            continue;
+        }
+        solids.push_back(obj);
+    }
+
+    for (App::DocumentObject* obj : solids) {
+        const std::string bodyName = doc->getUniqueObjectName("Body");
+        App::DocumentObject* body = doc->addObject("PartDesign::Body", bodyName.c_str());
+        if (!body) {
+            continue;
+        }
+        if (auto* prop = dynamic_cast<App::PropertyLink*>(body->getPropertyByName("BaseFeature"))) {
+            prop->setValue(obj);
+        }
+    }
 }
 
 void ImportExportSettings::setImportMode(ImportExportSettings::ImportMode mode)

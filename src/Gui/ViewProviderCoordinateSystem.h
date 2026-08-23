@@ -89,6 +89,9 @@ public:
 
     void setPlaneLabelVisibility(bool val);
 
+    /// Keep Origin planes/axes/point visible as a spatial reference (not a one-shot overlay).
+    void showPersistentOrigin();
+
     bool canDragObjects() const override
     {
         return false;

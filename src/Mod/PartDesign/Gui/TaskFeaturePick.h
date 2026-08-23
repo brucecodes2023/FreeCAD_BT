@@ -56,7 +56,8 @@ public:
         otherPart,
         notInBody,
         basePlane,
-        afterTip
+        afterTip,
+        openContour
     };
 
     TaskFeaturePick(

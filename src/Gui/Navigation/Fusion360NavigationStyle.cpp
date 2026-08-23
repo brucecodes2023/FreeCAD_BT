@@ -48,11 +48,11 @@ const char* Fusion360NavigationStyle::mouseButtons(ViewerMode mode)
         case NavigationStyle::SELECTION:
             return QT_TR_NOOP("Press left mouse button");
         case NavigationStyle::PANNING:
-            return QT_TR_NOOP("Press middle mouse button");
+            return QT_TR_NOOP("Middle mouse, two-finger swipe, or scroll wheel");
         case NavigationStyle::DRAGGING:
-            return QT_TR_NOOP("Press Shift and middle mouse button");
+            return QT_TR_NOOP("Shift+middle mouse, or Command/Option + two-finger swipe");
         case NavigationStyle::ZOOMING:
-            return QT_TR_NOOP("Scroll mouse wheel");
+            return QT_TR_NOOP("Shift + two-finger swipe, Shift + scroll wheel, or pinch");
         default:
             return "No description";
     }

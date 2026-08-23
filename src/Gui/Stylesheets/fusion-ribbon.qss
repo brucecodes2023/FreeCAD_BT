@@ -1,26 +1,42 @@
 /* Fusion-style ribbon chrome. Tokens come from the active theme YAML. */
 QWidget#RibbonBar {
-  background-color: @PrimaryColorLighten2;
-  border-bottom: 1px solid @GeneralBorderColor;
-  min-height: 120px;
+  background-color: @PrimaryColorDarken1;
+  border-bottom: 2px solid @GeneralBorderColor;
+  min-height: 140px;
 }
 
-QWidget#RibbonQuickAccessBar {
+QWidget#RibbonTabRow {
   background-color: @TabbarBackgroundColor;
   border-bottom: 1px solid @GeneralBorderColor;
-  min-height: 28px;
 }
 
-QToolButton#RibbonQatButton {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  padding: 2px 4px;
+QTabBar#RibbonTabBar::tab {
+  background: @InActiveTabBackgroundColor;
+  color: @TextForegroundColor;
+  border: none;
+  padding: 6px 10px;
+  margin-right: 1px;
 }
 
-QToolButton#RibbonQatButton:hover {
-  background: @AccentHoverColor;
-  border-color: @GeneralBorderHoverColor;
+QTabBar#RibbonTabBar::tab:selected {
+  background: @PrimaryColorDarken1;
+  color: @AccentColor;
+  border-bottom: 2px solid @AccentColor;
+  font-weight: bold;
+}
+
+QTabBar#RibbonTabBar::tab:hover:!selected {
+  background: @GeneralBackgroundHoverColor;
+}
+
+QWidget#RibbonPage,
+QStackedWidget#RibbonPages {
+  background-color: @PrimaryColorDarken1;
+  min-height: 96px;
+}
+
+QWidget#RibbonCentralHost {
+  background-color: @PrimaryColorDarken1;
 }
 
 QToolButton#RibbonOverflowButton {
@@ -37,39 +53,6 @@ QToolButton#RibbonOverflowButton:hover {
   background: @AccentHoverColor;
 }
 
-QWidget#RibbonTabRow {
-  background-color: @TabbarBackgroundColor;
-}
-
-QTabBar#RibbonTabBar::tab {
-  background: @InActiveTabBackgroundColor;
-  color: @TextForegroundColor;
-  border: none;
-  padding: 8px 16px;
-  margin-right: 1px;
-  min-width: 64px;
-}
-
-QTabBar#RibbonTabBar::tab:selected {
-  background: @PrimaryColorLighten2;
-  color: @AccentColor;
-  border-bottom: 2px solid @AccentColor;
-  font-weight: bold;
-}
-
-QTabBar#RibbonTabBar::tab:hover:!selected {
-  background: @GeneralBackgroundHoverColor;
-}
-
-QWidget#RibbonPage {
-  background-color: @PrimaryColorLighten2;
-}
-
-QScrollArea#RibbonPageScroll {
-  background: transparent;
-  border: none;
-}
-
 QFrame#RibbonGroup {
   background: transparent;
   border: none;
@@ -78,46 +61,89 @@ QFrame#RibbonGroup {
 QLabel#RibbonGroupTitle {
   color: @TextDisabledColor;
   font-size: 10px;
+  padding: 2px 4px 4px 4px;
+  min-height: 16px;
 }
 
 QFrame#RibbonGroupDivider {
-  color: @GeneralBorderColor;
+  background-color: @GeneralBorderColor;
+  border: none;
   max-width: 1px;
+  min-width: 1px;
+  margin: 8px 4px;
 }
 
-QToolButton#RibbonCommandButton {
+QToolButton#RibbonLargeButton {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 3px;
-  padding: 4px 4px 2px 4px;
+  padding: 2px 4px 14px 4px;
   min-width: 56px;
-  max-width: 80px;
-  min-height: 64px;
+  max-width: 100px;
+  min-height: 72px;
   font-size: 11px;
 }
 
-QToolButton#RibbonCommandButton:hover {
+QToolButton#RibbonSmallButton {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 2px 2px 10px 2px;
+  min-width: 28px;
+  max-width: 40px;
+  min-height: 28px;
+}
+
+QToolButton#RibbonLargeButton::menu-button {
+  subcontrol-origin: border;
+  subcontrol-position: bottom center;
+  width: 100%;
+  height: 14px;
+  border: none;
+  background: transparent;
+}
+
+QToolButton#RibbonLargeButton::menu-indicator,
+QToolButton#RibbonSmallButton::menu-indicator {
+  subcontrol-origin: padding;
+  subcontrol-position: bottom center;
+  bottom: 1px;
+  width: 8px;
+  height: 8px;
+  padding: 0px;
+  left: 0px;
+}
+
+QToolButton#RibbonSmallButton::menu-button {
+  width: 0px;
+  border: none;
+  background: transparent;
+}
+
+QToolButton#RibbonLargeButton:hover,
+QToolButton#RibbonSmallButton:hover {
   background: @AccentHoverColor;
   border-color: @GeneralBorderHoverColor;
 }
 
-QToolButton#RibbonCommandButton:pressed,
-QToolButton#RibbonCommandButton:checked {
+QToolButton#RibbonLargeButton:pressed,
+QToolButton#RibbonLargeButton:checked,
+QToolButton#RibbonSmallButton:pressed,
+QToolButton#RibbonSmallButton:checked {
   background: @AccentBackgroundColor;
   border-color: @AccentColor;
 }
 
-QComboBox#RibbonWorkbenchBox {
-  min-height: 28px;
-  padding: 2px 8px;
+QWidget#DashboardMetricsRow {
+  padding-top: 8px;
 }
 
 QFrame#DashboardMetricCard {
   background-color: @PrimaryColorLighten3;
   border: 1px solid @GeneralBorderColor;
   border-radius: 6px;
-  padding: 12px 16px;
-  min-width: 180px;
+  padding: 8px 12px;
+  min-width: 140px;
 }
 
 QLabel#DashboardMetricValue {
@@ -139,7 +165,102 @@ QFrame#DashboardTips {
 }
 
 QLineEdit#DashboardCommandSearch {
-  min-height: 28px;
-  padding: 4px 10px;
-  max-width: 420px;
+  min-height: 32px;
+  padding: 6px 12px;
+}
+
+/* Sidebar vs 3D view: draw the edge on the dock only.
+   Do not put a border on QMdiArea — that changes viewport size and
+   Qt's MDI layout loops (spinning beachball on macOS). */
+QMainWindow::separator {
+  width: 6px;
+  height: 6px;
+  background: @GeneralBorderColor;
+}
+QMainWindow::separator:hover {
+  background: @AccentColor;
+}
+
+QDockWidget {
+  border-right: 1px solid @GeneralBorderColor;
+}
+
+QWidget#Model,
+QWidget#ComboView {
+  border-right: 1px solid @GeneralBorderColor;
+  background-color: @PrimaryColor;
+}
+
+Gui--OverlayTabWidget#OverlayLeft {
+  background-color: @PrimaryColor;
+  border-right: 2px solid @GeneralBorderColor;
+}
+
+Gui--OverlayTabWidget#OverlayRight {
+  background-color: @PrimaryColor;
+  border-left: 2px solid @GeneralBorderColor;
+}
+
+Gui--OverlayTabWidget#OverlayRight::pane {
+  border: none;
+  background: transparent;
+  top: 0px;
+  left: 0px;
+}
+
+Gui--OverlayTabWidget#OverlayRight QTabBar::tab:left {
+  min-width: 24px;
+  max-width: 32px;
+  padding: 12px 4px;
+  margin: 0px;
+  background-color: @PrimaryColor;
+  border: 1px solid @GeneralBorderColor;
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
+}
+
+Gui--OverlayTabWidget#OverlayRight QTabBar::tab:left:selected {
+  background-color: @ActiveTabBackgroundColor;
+}
+
+QWidget#OverlayEdgeGrip {
+  background-color: @GeneralBorderColor;
+}
+
+QWidget#OverlayEdgeGrip:hover {
+  background-color: @AccentColor;
+}
+
+QWidget#RollbackBar {
+  background-color: @PrimaryColorLighten2;
+  border-top: 1px solid @GeneralBorderColor;
+}
+
+QLabel#RollbackBarCaption,
+QLabel#RollbackBarLabel {
+  color: @TextForegroundColor;
+  font-size: 11px;
+}
+
+QSlider#RollbackBarSlider::groove:horizontal {
+  height: 4px;
+  background: @GeneralBorderColor;
+  border-radius: 2px;
+}
+
+QSlider#RollbackBarSlider::handle:horizontal {
+  width: 12px;
+  height: 12px;
+  margin: -4px 0;
+  background: @AccentColor;
+  border-radius: 6px;
+}
+
+QTreeWidget {
+  font-size: 12px;
+}
+
+QTreeWidget::item {
+  padding: 1px 2px;
+  min-height: 20px;
 }

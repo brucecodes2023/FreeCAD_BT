@@ -33,6 +33,11 @@
 
 #include <Mod/Part/PartGlobal.h>
 
+namespace App
+{
+class Document;
+}
+
 namespace Part
 {
 
@@ -102,6 +107,13 @@ public:
 
     void setShowProgress(bool);
     bool getShowProgress() const;
+
+    /** When true (default), wrap each imported solid Part::Feature in a PartDesign::Body. */
+    void setImportAsBody(bool);
+    bool getImportAsBody() const;
+
+    /** Apply ImportAsBody: wrap top-level solid Part::Features that are not already in a Body. */
+    static void wrapImportedSolidsAsBodies(App::Document* doc);
 
     void setImportMode(ImportMode);
     ImportMode getImportMode() const;

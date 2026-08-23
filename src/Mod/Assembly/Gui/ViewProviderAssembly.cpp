@@ -56,6 +56,7 @@
 #include <Gui/ActionFunction.h>
 #include <Gui/Application.h>
 #include <Gui/BitmapFactory.h>
+#include <Gui/Command.h>
 #include <Gui/CommandT.h>
 #include <Gui/Control.h>
 #include <Gui/Inventor/Draggers/SoTransformDragger.h>
@@ -316,6 +317,10 @@ bool ViewProviderAssembly::setEdit(int mode)
             )
         );
 
+        connectInEdit = getDocument()->signalInEdit.connect(
+            std::bind(&ViewProviderAssembly::slotInEdit, this, std::placeholders::_1)
+        );
+
         workbenchConnection = QObject::connect(
             Gui::getMainWindow(),
             &Gui::MainWindow::workbenchActivated,
@@ -342,7 +347,23 @@ void ViewProviderAssembly::unsetEdit(int mode)
         // Check if the view is still active before trying to deactivate the assembly.
         auto activeView = getDocument()->getActiveView();
         if (!activeView) {
+            connectInEdit.disconnect();
             return;
+        }
+
+        // Tree double-click on a Link starts Transform right after we leave edit.
+        // Briefly redirect that to Assembly_EditPart.
+        if (!handlingComponentEditRedirect) {
+            pendingComponentEditRedirect = true;
+            QTimer::singleShot(250, [this]() {
+                pendingComponentEditRedirect = false;
+                if (!isInEditMode()) {
+                    connectInEdit.disconnect();
+                }
+            });
+        }
+        else {
+            connectInEdit.disconnect();
         }
 
         // Set the part as not 'Activated' ie not bold in the tree.
@@ -377,6 +398,63 @@ void ViewProviderAssembly::slotActivatedVP(const Gui::ViewProviderDocumentObject
             getDocument()->resetEdit();
         }
     }
+}
+
+void ViewProviderAssembly::slotInEdit(const Gui::ViewProviderDocumentObject& vp)
+{
+    if (handlingComponentEditRedirect || !pendingComponentEditRedirect) {
+        return;
+    }
+    if (&vp == static_cast<const Gui::ViewProviderDocumentObject*>(this)) {
+        return;
+    }
+
+    App::DocumentObject* obj = vp.getObject();
+    auto* assembly = getObject<AssemblyObject>();
+    if (!obj || !assembly || !assembly->hasObject(obj, true)) {
+        return;
+    }
+
+    // Tree double-click on App::Link enters Transform — redirect to Edit Part.
+    // Do not redirect sketches / bodies / joints (feature edit or mate edit).
+    const bool isLink = obj->isDerivedFrom(App::Link::getClassTypeId())
+        || obj->isDerivedFrom(Assembly::AssemblyLink::getClassTypeId());
+    if (!isLink) {
+        return;
+    }
+
+    pendingComponentEditRedirect = false;
+    handlingComponentEditRedirect = true;
+
+    getDocument()->setEditRestore(false);
+    getDocument()->resetEdit();
+
+    // Capture names: obj may be invalidated only if document closes; keep pointers for same-doc.
+    const std::string docName = obj->getDocument()->getName();
+    const std::string objName = obj->getNameInDocument();
+
+    QTimer::singleShot(0, [this, docName, objName]() {
+        Gui::Selection().clearSelection();
+        Gui::Selection().addSelection(docName.c_str(), objName.c_str());
+
+        if (!isInEditMode()) {
+            getDocument()->setEdit(this);
+        }
+
+        try {
+            Gui::Command::runCommand(Gui::Command::Gui, "Gui.runCommand('Assembly_EditPart')");
+        }
+        catch (const Base::Exception& e) {
+            Base::Console().warning("Edit Part redirect failed: %s\n", e.what());
+        }
+
+        handlingComponentEditRedirect = false;
+        if (isInEditMode() && !connectInEdit.connected()) {
+            connectInEdit = getDocument()->signalInEdit.connect(
+                std::bind(&ViewProviderAssembly::slotInEdit, this, std::placeholders::_1)
+            );
+        }
+    });
 }
 
 void ViewProviderAssembly::setDragger()
@@ -648,15 +726,17 @@ bool ViewProviderAssembly::mouseButtonPressed(
                 = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
             if (nowMillis - lastClickTime < 500) {
                 auto* joint = getSelectedJoint();
-                if (joint) {
+                auto* component = getSelectedEditableComponent();
+                if (joint || component) {
                     // Double-click detected
-                    // We start by clearing selection such that the second click selects the joint
-                    // and not the assembly.
-                    Gui::Selection().clearSelection();
-                    // singleShot timer to make sure this happens after the release of the click.
-                    // Else the release will trigger a removeSelection of what
-                    // doubleClickedIn3dView adds to the selection.
+                    if (joint) {
+                        // Clear so the release does not deselect what the delayed handler needs.
+                        Gui::Selection().clearSelection();
+                    }
+                    // singleShot: run after click release so selection is stable.
                     QTimer::singleShot(50, [this]() { doubleClickedIn3dView(); });
+                    lastClickTime = 0;
+                    canStartDragging = false;
                     return true;
                 }
             }
@@ -695,6 +775,17 @@ void ViewProviderAssembly::doubleClickedIn3dView()
               "Gui.Control.showDialog(JointObject.TaskAssemblyCreateJoint(0, obj))";
 
         Gui::Command::runCommand(Gui::Command::App, cmd.c_str());
+        return;
+    }
+
+    // Double-click a component → Edit Part (F4 partial in-context).
+    if (getSelectedEditableComponent()) {
+        try {
+            Gui::Command::runCommand(Gui::Command::Gui, "Gui.runCommand('Assembly_EditPart')");
+        }
+        catch (const Base::Exception& e) {
+            Base::Console().warning("Edit Part failed: %s\n", e.what());
+        }
     }
 }
 
@@ -758,6 +849,47 @@ App::DocumentObject* ViewProviderAssembly::getSelectedJoint()
             }
         }
     }
+    return nullptr;
+}
+
+App::DocumentObject* ViewProviderAssembly::getSelectedEditableComponent()
+{
+    auto* assemblyPart = getObject<AssemblyObject>();
+    if (!assemblyPart) {
+        return nullptr;
+    }
+
+    for (auto& selObj : Gui::Selection().getSelectionEx(
+             "",
+             App::DocumentObject::getClassTypeId(),
+             Gui::ResolveMode::NoResolve
+         )) {
+        App::DocumentObject* selRoot = selObj.getObject();
+        const std::vector<std::string>& objsSubNames = selObj.getSubNames();
+
+        if (objsSubNames.empty()) {
+            if (assemblyPart->hasObject(selRoot, true)
+                && (selRoot->isDerivedFrom(App::Link::getClassTypeId())
+                    || selRoot->isDerivedFrom(Assembly::AssemblyLink::getClassTypeId())
+                    || canDragObjectIn3d(selRoot))) {
+                return selRoot;
+            }
+            continue;
+        }
+
+        for (auto& subNamesStr : objsSubNames) {
+            App::DocumentObject* part = getMovingPartFromSel(assemblyPart, selRoot, subNamesStr);
+            if (part && canDragObjectIn3d(part)) {
+                return part;
+            }
+            if (part
+                && (part->isDerivedFrom(App::Link::getClassTypeId())
+                    || part->isDerivedFrom(Assembly::AssemblyLink::getClassTypeId()))) {
+                return part;
+            }
+        }
+    }
+
     return nullptr;
 }
 
@@ -1233,20 +1365,23 @@ void ViewProviderAssembly::onSelectionChanged(const Gui::SelectionChanges& msg)
             App::DocumentObject* obj = selection[0].pObject;
             if (obj
                 && (obj->getPropertyByName("JointType") || obj->getPropertyByName("ObjectToGround"))) {
-                isolateJointReferences(obj);
+                if (!holdIsolate) {
+                    isolateJointReferences(obj);
+                }
                 return;
             }
-            else if (explodeTemporarily(obj)) {
+            else if (!holdIsolate && explodeTemporarily(obj)) {
                 return;
             }
         }
-        else {
+        else if (!holdIsolate) {
             clearIsolate();
             clearTemporaryExplosion();
         }
     }
-    if (msg.Type == Gui::SelectionChanges::ClrSelection
-        || msg.Type == Gui::SelectionChanges::RmvSelection) {
+    if (!holdIsolate
+        && (msg.Type == Gui::SelectionChanges::ClrSelection
+            || msg.Type == Gui::SelectionChanges::RmvSelection)) {
         clearIsolate();
         clearTemporaryExplosion();
     }
@@ -1504,9 +1639,12 @@ void ViewProviderAssembly::applyIsolationRecursively(
 
 void ViewProviderAssembly::isolateComponents(std::set<App::DocumentObject*>& isolateSet, IsolateMode mode)
 {
+    // clearIsolate() resets holdIsolate; preserve it across a re-isolate.
+    bool keepHold = holdIsolate;
     if (!stateBackup.empty()) {
         clearIsolate();
     }
+    holdIsolate = keepHold;
 
     auto* assembly = getObject<AssemblyObject>();
     if (!assembly) {
@@ -1561,6 +1699,8 @@ void ViewProviderAssembly::isolateJointReferences(App::DocumentObject* joint, Is
 
 void ViewProviderAssembly::clearIsolate()
 {
+    holdIsolate = false;
+
     if (isolatedJoint) {
         if (!isolatedJointVisibilityBackup) {
             isolatedJoint->Visibility.setValue(false);
@@ -1650,7 +1790,9 @@ void ViewProviderAssembly::clearJointElementHighlight()
 void ViewProviderAssembly::slotAboutToOpenTransaction(const std::string& cmdName)
 {
     Q_UNUSED(cmdName);
-    this->clearIsolate();
+    if (!holdIsolate) {
+        this->clearIsolate();
+    }
     this->clearTemporaryExplosion();
 }
 

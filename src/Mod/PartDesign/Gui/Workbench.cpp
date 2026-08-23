@@ -35,6 +35,7 @@
 #include "Utils.h"
 #include "Workbench.h"
 #include "WorkflowManager.h"
+#include "RollbackBar.h"
 
 using namespace PartDesignGui;
 namespace sp = std::placeholders;
@@ -146,6 +147,7 @@ void Workbench::activated()
 {
     Gui::Workbench::activated();
 
+    RollbackBar::install();
     WorkflowManager::init();
 
     std::vector<Gui::TaskView::TaskWatcher*> Watcher;

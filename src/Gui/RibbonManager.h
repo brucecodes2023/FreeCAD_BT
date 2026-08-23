@@ -37,6 +37,8 @@ private:
     RibbonManager() = default;
     ~RibbonManager() = default;
 
+    void applyFloatingModelBrowser();
+
     static RibbonManager* _instance;
     RibbonBar* _bar = nullptr;
     bool _installed = false;

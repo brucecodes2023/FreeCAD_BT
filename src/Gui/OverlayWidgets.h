@@ -395,6 +395,18 @@ protected:
     void onAnimationStateChanged();
     void setupLayout();
     void onSizeGripMove(const QPoint&);
+    bool keepTabVisible() const;
+    int tabBarThickness() const;
+    void layoutModernCadTaskOverlay();
+    void snapKeepTabVisibleRect(QRect& rect) const;
+    void setUserPinned(bool pinned)
+    {
+        userPinned = pinned;
+    }
+    bool isUserPinned() const
+    {
+        return userPinned;
+    }
 
 private:
     friend class OverlayProxyWidget;
@@ -410,6 +422,7 @@ private:
     OverlayProxyWidget* proxyWidget;
     QSplitter* splitter = nullptr;
     QWidget* titleBar = nullptr;
+    OverlaySizeGrip* edgeGrip = nullptr;
     QAction actNoAutoMode;
     QAction actAutoHide;
     QAction actEditHide;
@@ -445,6 +458,8 @@ private:
     QPropertyAnimation* _animator = nullptr;
 
     State _state = State::Normal;
+    bool userPinned = false;
+    bool openedForTask = false;
 
     std::map<QDockWidget*, int> _sizemap;
     bool _saving = false;

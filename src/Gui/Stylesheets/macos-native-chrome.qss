@@ -13,3 +13,27 @@ QDockWidget::float-button {
   border: none;
   background: transparent;
 }
+
+QDockWidget {
+  border-right: 1px solid @GeneralBorderColor;
+}
+
+QMainWindow::separator {
+  width: 6px;
+  height: 6px;
+  background: @GeneralBorderColor;
+}
+
+QWidget#Model,
+QWidget#ComboView {
+  border-right: 2px solid @GeneralBorderColor;
+}
+
+QWidget#OverlayEdgeGrip {
+  background-color: @GeneralBorderColor;
+}
+
+QWidget#RollbackBar {
+  background: none;
+  border-top: 1px solid @GeneralBorderColor;
+}

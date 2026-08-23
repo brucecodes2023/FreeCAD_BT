@@ -30,6 +30,7 @@ public:
 
     void loadProjects();
     void addProject(const QString& path);
+    void removeProject(const QString& path);
     QString pathAt(int row) const;
     int projectCount() const;
 

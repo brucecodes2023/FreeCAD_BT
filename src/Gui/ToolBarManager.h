@@ -178,7 +178,7 @@ public:
     void setupToolBarIconSize();
 
     /** Hide workbench toolbars and their toggle actions (Fusion ribbon mode). */
-    void hideAllForRibbon();
+    void hideAllForRibbon() const;
 
     ToolBarArea toolBarArea(QWidget* toolBar) const;
     ToolBarAreaWidget* toolBarAreaWidget(QWidget* toolBar) const;

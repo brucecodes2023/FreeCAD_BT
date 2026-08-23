@@ -187,6 +187,8 @@ public:
     bool canDragObjectIn3d(App::DocumentObject* obj) const;
     bool getSelectedObjectsWithinAssembly(bool addPreselection = true, bool onlySolids = false);
     App::DocumentObject* getSelectedJoint();
+    /// Selected assembly component suitable for Edit Part (Link / solid), or nullptr.
+    App::DocumentObject* getSelectedEditableComponent();
 
     /// Get the python wrapper for that ViewProvider
     PyObject* getPyObject() override;
@@ -217,6 +219,16 @@ public:
     void isolateComponents(std::set<App::DocumentObject*>& parts, IsolateMode mode);
     void isolateJointReferences(App::DocumentObject* joint, IsolateMode mode = IsolateMode::Transparent);
     void clearIsolate();
+    /// When true, isolation is not cleared by selection changes or new transactions.
+    /// Used for edit-part-in-context sessions; cleared by clearIsolate().
+    void setHoldIsolate(bool hold)
+    {
+        holdIsolate = hold;
+    }
+    bool getHoldIsolate() const
+    {
+        return holdIsolate;
+    }
     bool explodeTemporarily(App::DocumentObject* explodedView);
     void clearTemporaryExplosion();
 
@@ -267,6 +279,7 @@ private:
 
     void slotAboutToOpenTransaction(const std::string& cmdName);
     void slotActivatedVP(const Gui::ViewProviderDocumentObject* vp, const char* name);
+    void slotInEdit(const Gui::ViewProviderDocumentObject& vp);
 
     void onWorkbenchActivated(const QString& name);
     void updateTaskPanel(bool show);
@@ -284,6 +297,10 @@ private:
     App::DocumentObject* temporaryExplosion {nullptr};
     App::DocumentObject* isolatedJoint {nullptr};
     bool isolatedJointVisibilityBackup {false};
+    bool holdIsolate {false};
+    /// After leaving assembly edit, briefly redirect Link Transform (tree double-click) to Edit Part.
+    bool pendingComponentEditRedirect {false};
+    bool handlingComponentEditRedirect {false};
 
     void highlightJointElements(App::DocumentObject* joint);
     void clearJointElementHighlight();
@@ -300,6 +317,7 @@ private:
     QMetaObject::Connection workbenchConnection;
     fastsignals::connection connectActivatedVP;
     fastsignals::connection connectSolverUpdate;
+    fastsignals::connection connectInEdit;
     fastsignals::scoped_connection m_preTransactionConn;
 };
 

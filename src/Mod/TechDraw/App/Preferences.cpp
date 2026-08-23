@@ -195,16 +195,29 @@ int Preferences::balloonShape()
 QString Preferences::defaultTemplate()
 {
     std::string defaultDir = App::Application::getResourceDir() + "Mod/TechDraw/Templates/";
-    std::string defaultFileName = defaultDir + "Default_Template_A4_Landscape.svg";
+    // Mechanical default: ISO A3 landscape with title block (fits drone/robot part drawings).
+    // Preference packs may store a path relative to this Templates/ directory.
+    std::string defaultFileName = defaultDir + "ISO/A3_Landscape_ISO5457_minimal.svg";
+    std::string legacyDefault = defaultDir + "Default_Template_A4_Landscape.svg";
     std::string prefFileName = getPreferenceGroup("Files")->GetASCII("TemplateFile", defaultFileName.c_str());
     if (prefFileName.empty()) {
         prefFileName = defaultFileName;
+    }
+    // Resolve pack-friendly relative paths (e.g. "ISO/A3_Landscape_ISO5457_minimal.svg").
+    if (!Base::FileInfo::stringToPath(prefFileName).is_absolute()) {
+        prefFileName = defaultDir + prefFileName;
     }
     QString templateFileName = QString::fromStdString(prefFileName);
     Base::FileInfo fi(prefFileName);
     if (!fi.isReadable()) {
         Base::Console().warning("Template File: %s is not readable\n", prefFileName.c_str());
-        templateFileName = QString::fromStdString(defaultFileName);
+        Base::FileInfo primary(defaultFileName);
+        if (primary.isReadable()) {
+            templateFileName = QString::fromStdString(defaultFileName);
+        }
+        else {
+            templateFileName = QString::fromStdString(legacyDefault);
+        }
     }
     return templateFileName;
 }

@@ -152,6 +152,54 @@ class _ClippingPlaneAdd(CommandManager):
         FreeCADGui.ActiveDocument.ActiveView.getSceneGraph().insertChild(clip_plane, 1)
 
 
+def _pick_first_principles_modules(parent=None):
+    """Show checkboxes for registered physics modules; return selected names or None."""
+    from PySide import QtGui
+    from femtools import physics_modules
+
+    physics_modules.ensure_builtin_elmer_modules()
+    modules = physics_modules.list_modules()
+    if not modules:
+        return physics_modules.default_module_names()
+
+    dialog = QtGui.QDialog(parent)
+    dialog.setWindowTitle(
+        Qt.translate("FEM_FirstPrinciplesStudy", "First Principles Study — equations")
+    )
+    layout = QtGui.QVBoxLayout(dialog)
+    layout.addWidget(
+        QtGui.QLabel(
+            Qt.translate(
+                "FEM_FirstPrinciplesStudy",
+                "Select continuum equations to attach to a new Elmer solver.\n"
+                "Addons can register more via femtools.physics_modules.register.",
+            )
+        )
+    )
+    scroll = QtGui.QScrollArea()
+    scroll.setWidgetResizable(True)
+    host = QtGui.QWidget()
+    host_layout = QtGui.QVBoxLayout(host)
+    checks = []
+    for mod in modules:
+        box = QtGui.QCheckBox(f"{mod.name} — {mod.description}")
+        box.setChecked(mod.default)
+        box.setToolTip(", ".join(mod.tags) if mod.tags else mod.name)
+        host_layout.addWidget(box)
+        checks.append((mod.name, box))
+    host_layout.addStretch()
+    scroll.setWidget(host)
+    layout.addWidget(scroll)
+    buttons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel)
+    buttons.accepted.connect(dialog.accept)
+    buttons.rejected.connect(dialog.reject)
+    layout.addWidget(buttons)
+    if dialog.exec_() != QtGui.QDialog.Accepted:
+        return None
+    selected = [name for name, box in checks if box.isChecked()]
+    return selected or physics_modules.default_module_names()
+
+
 class _FirstPrinciplesStudy(CommandManager):
     """WIP Elmer-backed study that starts from continuum equations instead of a canned structural wizard."""
 
@@ -163,22 +211,43 @@ class _FirstPrinciplesStudy(CommandManager):
         )
         self.tooltip = Qt.QT_TRANSLATE_NOOP(
             "FEM_FirstPrinciplesStudy",
-            "Work in progress: creates an Elmer analysis from elasticity and heat PDEs "
-            "(first-principles continuum equations) instead of a CalculiX structural preset",
+            "Work in progress: creates an Elmer analysis from registered continuum PDEs "
+            "(default: elasticity + heat) instead of a CalculiX structural preset",
         )
         self.is_active = "with_document"
 
     def Activated(self):
         from PySide import QtGui
         import FemGui
+        from femtools import physics_modules
 
         doc = FreeCAD.ActiveDocument
         if doc is None:
             return
 
+        module_names = _pick_first_principles_modules(FreeCADGui.getMainWindow())
+        if module_names is None:
+            return
+
+        physics_modules.ensure_builtin_elmer_modules()
+        for name in module_names:
+            if physics_modules.get(name) is None:
+                QtGui.QMessageBox.warning(
+                    FreeCADGui.getMainWindow(),
+                    Qt.translate("FEM_FirstPrinciplesStudy", "Unknown physics module"),
+                    Qt.translate(
+                        "FEM_FirstPrinciplesStudy",
+                        "Module '{}' is not registered.",
+                    ).format(name),
+                )
+                return
+
+        names_repr = repr(list(module_names))
+
         doc.openTransaction("First Principles Study")
         FreeCADGui.addModule("FemGui")
         FreeCADGui.addModule("ObjectsFem")
+        FreeCADGui.addModule("femtools.physics_modules")
 
         analysis = FemGui.getActiveAnalysis()
         if analysis is None or analysis.Document != doc:
@@ -191,8 +260,10 @@ class _FirstPrinciplesStudy(CommandManager):
             "solver = ObjectsFem.makeSolverElmer(FreeCAD.ActiveDocument, 'SolverElmer')"
         )
         FreeCADGui.doCommand("FemGui.getActiveAnalysis().addObject(solver)")
-        FreeCADGui.doCommand("ObjectsFem.makeEquationElasticity(FreeCAD.ActiveDocument, solver)")
-        FreeCADGui.doCommand("ObjectsFem.makeEquationHeat(FreeCAD.ActiveDocument, solver)")
+        FreeCADGui.doCommand(
+            "femtools.physics_modules.create_first_principles_equations("
+            f"FreeCAD.ActiveDocument, solver, {names_repr})"
+        )
         FreeCADGui.doCommand(
             "FreeCADGui.ActiveDocument.toggleTreeItem(FemGui.getActiveAnalysis(), 2)"
         )
@@ -201,20 +272,26 @@ class _FirstPrinciplesStudy(CommandManager):
 
         prefs = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Fem")
         if not prefs.GetBool("FirstPrinciplesWipHintShown", False):
+            catalog = physics_modules.format_catalog()
+            hint = Qt.translate(
+                "FEM_FirstPrinciplesStudy",
+                "This is a work-in-progress path toward SolidWorks-like simulation "
+                "from FreeCAD's FEM foundation.\n\n"
+                "It uses Elmer to solve continuum PDEs rather than wrapping CalculiX "
+                "as a structural black box. You still need a mesh, materials, and "
+                "boundary conditions.\n\n"
+                "Custom physics: register factories with femtools.physics_modules "
+                "(COMSOL-like extensibility for workbenches/addons).\n\n"
+                "Use FEM → Guided Study Wizard to check readiness before solving. "
+                "For drone/robot frames and electronics heat, prefer CalculiX "
+                "Static / Thermal Study or the wizard quick-starts (not CFD). "
+                "Assembly-wide contact is not implemented yet.\n\n"
+                "Registered modules:",
+            )
             QtGui.QMessageBox.information(
                 FreeCADGui.getMainWindow(),
                 Qt.translate("FEM_FirstPrinciplesStudy", "First Principles Study (WIP)"),
-                Qt.translate(
-                    "FEM_FirstPrinciplesStudy",
-                    "This is a work-in-progress path toward SolidWorks-like simulation "
-                    "from FreeCAD's FEM foundation.\n\n"
-                    "It uses Elmer to solve continuum PDEs (linear elasticity and heat) "
-                    "rather than wrapping CalculiX as a structural black box. "
-                    "You still need a mesh, materials, and boundary conditions.\n\n"
-                    "Use FEM → Guided Study Wizard to check those before solving. "
-                    "CalculiX Static Study and CalculiX Thermal Study presets are on the "
-                    "Model toolbar. Assembly-wide contact is not implemented yet.",
-                ),
+                f"{hint}\n{catalog}",
             )
             prefs.SetBool("FirstPrinciplesWipHintShown", True)
 
