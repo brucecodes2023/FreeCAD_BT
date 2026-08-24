@@ -242,7 +242,12 @@ Why: this repo's GUI can't be trusted to merely "look right" — the macOS dev b
 **Verification paths — use the cheapest one that actually exercises the feature's real surface:**
 
 1. **Headless script** — *preferred for App/kernel logic.* For document objects, algorithms, properties, persistence — anything not inherently GUI — drive the feature from `FreeCADCmd -c "…"` (or the `Mod/Test` framework, see §8) with a script that **asserts** the result. Cheapest and most reliable; no GUI, no rebuild-to-click. Keep the script with the feature (the module's `*test*.py`).
-2. **AI-driven MCP** — *preferred for GUI features, but does not exist yet and must be built.* This would be an MCP server letting the AI drive the running FreeCAD GUI (commands, view providers, dialogs, 3D view) and observe results. Until it exists, GUI features fall to path 3; once built it becomes the default for GUI-level verification.
+2. **AI-driven MCP** — *preferred for GUI features.* An MCP server that lets the AI drive the running FreeCAD GUI and observe results. **Available now** (Phase-1): `src/Mod/FcBridge/` runs a loopback server inside the GUI; `tools/freecad-mcp/` is the stdio MCP bridge; the repo-root `.mcp.json` wires them to Claude Code. Recipe:
+   1. Once per checkout: `tools/freecad-mcp/setup.sh` (creates its venv).
+   2. `./run-freecad-mcp.sh` — launches the GUI with the FcBridge server on `127.0.0.1:9876`.
+   3. After a Claude Code reload of `.mcp.json`, call the `freecad` MCP tools — `execute_script` (run any Python in the live GUI), `get_screenshot` (returns a real image you can see), `get_document_graph`/`inspect_object` (assert state), `tracked_recompute` (before/after diff). Drive the feature, screenshot it, assert state.
+
+   *Still Phase-2/3:* real click/keystroke simulation (menus/dialogs not reachable from Python) and in-bridge launch/shutdown. For those, fall back to path 3.
 3. **Human physical test** — *fallback for GUI features today.* The AI prints **explicit numbered steps** in the conversation window — exact menu/click paths, inputs, and the **expected result / pass-fail criteria** — and the user runs them in the GUI (`./run-freecad.sh`) and reports back. The AI records that outcome as the verification.
 
 **Rules of thumb:**
