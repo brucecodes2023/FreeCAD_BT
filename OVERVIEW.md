@@ -252,7 +252,30 @@ Why: this repo's GUI can't be trusted to merely "look right" — the macOS dev b
 
 ---
 
-## 10. Maintenance playbook (the point of all this)
+## 10. Parallel work — worktrees & multi-agent
+
+Multiple agents (Claude, Grok, Cursor, …) work in parallel via **git worktrees** so changes never overwrite each other. A Cursor dashboard tracks progress across them.
+
+**Rule: one task = one branch = one worktree, branched off `main`.**
+
+```bash
+git worktree add ../fcbt-worktrees/<agent>-<slug> -b <agent>/<slug> main
+```
+
+- **Branch naming: `<agent>/<slug>`** — `<agent>` ∈ {`claude`, `grok`, `cursor`, …}; `<slug>` is a kebab-case task name (e.g. `claude/fcbridge-bridge`, `grok/measure-tool`). The dashboard groups by the agent prefix.
+- **Worktree location:** sibling dir `../fcbt-worktrees/<agent>-<slug>` (outside the main tree, so worktrees never nest or clutter `main`).
+- **Merge back to `main` via PR, only after the feature passes its §9 verification.** Then `git worktree remove …` and delete the branch.
+
+**Avoiding collisions (the whole point):**
+
+- Keep work **Tier-4 / Python-first** (§4, §6): new files under your own `src/Mod/<Name>/` never collide — and pure-Python features need no rebuild, which is what makes worktrees cheap.
+- **Shared files are the hot-spots:** `OVERVIEW.md` (this file), root `CMakeLists.txt`, `src/Mod/CMakeLists.txt`, `pixi.toml`/`pixi.lock`. Touch them in **small, quick PRs**, never in long-lived branches, and never reformat around your change.
+- **`.pixi/` and `build/` are per-directory and heavy.** A fresh worktree has neither, and a full C++ build is long. Prefer the main checkout's build for Python-only work; only build inside a worktree when C++ actually changes there.
+- **This doc is the guiding file** — it states *what* changes we make and *how* we work. When the workflow changes, update it (small PR) so every worktree inherits the same rules.
+
+---
+
+## 11. Maintenance playbook (the point of all this)
 
 When proposing any change, answer in order:
 
@@ -269,7 +292,7 @@ When proposing any change, answer in order:
 
 ---
 
-## 11. Glossary (for navigating the code)
+## 12. Glossary (for navigating the code)
 
 | Term | Meaning in this codebase |
 |---|---|
