@@ -256,15 +256,20 @@ Why: this repo's GUI can't be trusted to merely "look right" — the macOS dev b
 
 Multiple agents (Claude, Grok, Cursor, …) work in parallel via **git worktrees** so changes never overwrite each other. A Cursor dashboard tracks progress across them.
 
-**Rule: one task = one branch = one worktree, branched off `main`.**
+**Rule: one persistent worktree per agent, one branch per task.** Each agent works its tasks *sequentially* in its own reused directory, so the heavy `build/` / `.pixi` are built once and kept. Every task still gets its own branch (cut from `main`) so PRs stay reviewable and the dashboard can track them.
 
 ```bash
-git worktree add ../fcbt-worktrees/<agent>-<slug> -b <agent>/<slug> main
+# once per agent — create the persistent worktree
+git worktree add ../fcbt-worktrees/<agent> -b <agent>/<first-slug> main
+
+# per task, from inside that worktree: main is checked out in the primary
+# dir, so base new task branches on origin/main (don't check out main)
+git fetch origin && git checkout -b <agent>/<slug> origin/main
 ```
 
-- **Branch naming: `<agent>/<slug>`** — `<agent>` ∈ {`claude`, `grok`, `cursor`, …}; `<slug>` is a kebab-case task name (e.g. `claude/fcbridge-bridge`, `grok/measure-tool`). The dashboard groups by the agent prefix.
-- **Worktree location:** sibling dir `../fcbt-worktrees/<agent>-<slug>` (outside the main tree, so worktrees never nest or clutter `main`).
-- **Merge back to `main` via PR, only after the feature passes its §9 verification.** Then `git worktree remove …` and delete the branch.
+- **Worktree location (persistent, per agent):** `../fcbt-worktrees/<agent>` — outside the main tree so it never nests or clutters `main`. Reused for all of that agent's tasks.
+- **Branch naming (per task): `<agent>/<slug>`** — `<agent>` ∈ {`claude`, `grok`, `cursor`, …}; `<slug>` kebab-case (e.g. `claude/fcbridge-bridge`, `grok/measure-tool`). The dashboard groups by the agent prefix.
+- **Merge each task branch to `main` via PR, only after §9 verification.** Delete the merged branch, but **keep the agent's worktree** for the next task.
 
 **Avoiding collisions (the whole point):**
 
