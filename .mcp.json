@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "freecad": {
+      "command": "tools/freecad-mcp/run-bridge.sh",
+      "env": {
+        "FREECAD_MCP_HOST": "127.0.0.1",
+        "FREECAD_MCP_PORT": "9876"
+      }
+    }
+  }
+}
