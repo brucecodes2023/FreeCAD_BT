@@ -2,10 +2,10 @@
 
 **Purpose of this doc:** a map to consult *before* making any change in this repo, so that changes stay cheap to maintain long-term. The single most important fact about this repo:
 
-> **`main` is an exact, unmodified mirror of upstream `FreeCAD/FreeCAD`.**
-> `git rev-list --left-right --count upstream/main...main` → `172 0` (upstream is ahead by ~172 commits as of 2026-08-23; `main` has **zero** unique commits).
+> **`main` is the fork trunk: upstream `FreeCAD/FreeCAD` plus a small set of *additive, fork-only* files, with zero edits to upstream files.**
+> As of 2026-08-23 `main` carries a couple of unique commits that only **add new files** not present upstream (this doc, `run-freecad.sh`, …); upstream is ~172 commits ahead. Because those additions are new files (Tier 4, §4), `git merge upstream/main` never conflicts on them — so `main` is no longer byte-identical to upstream, but stays cheap to sync.
 
-Everything you build from here is fork work. The maintenance strategy for this repo should be: **keep fork work additive and quarantined**, so that pulling upstream never becomes painful. Every section below serves that goal.
+Everything you build from here is fork work. The maintenance strategy: **keep fork work additive** — new files, and where an upstream file must change, minimal marker-bracketed diffs — so that pulling upstream never becomes painful. Every section below serves that goal.
 
 ---
 
@@ -21,7 +21,7 @@ Everything you build from here is fork work. The maintenance strategy for this r
 
 ### Git layout
 
-- `main` — pristine upstream snapshot; the fresh-start base we work from.
+- `main` — the fork trunk: upstream snapshot + additive fork-only files (no edits to upstream files).
 - `upstream/main` — the real project; moves constantly (~daily merges).
 - Old `cursor/*` branches on origin — prior fork experiments (ribbon, Fusion nav style, macOS packaging, FEM/Robotics add-ons). **Out of scope** per current direction, but they demonstrate which files upstream churns vs. which are stable.
 
@@ -233,7 +233,26 @@ Also: default full parallelism (`-j 18`) gets compiler processes killed silently
 
 ---
 
-## 9. Maintenance playbook (the point of all this)
+## 9. Feature verification policy (every feature must be proven)
+
+**The gate (hard):** a feature is **not "done" and does not merge off its feature branch until it has been *verified* to actually work** by one of the three paths below. Code without verification stays on its branch. Every feature PR/commit must state **which path verified it and the outcome** (what was run/done, and what was observed). "It compiles" / "it launched" is **not** verification — the feature's own behavior must be exercised and observed end-to-end.
+
+Why: this repo's GUI can't be trusted to merely "look right" — the macOS dev build has a launch gotcha and a rare runtime crash (§7), and upstream churns constantly. Proving each feature is how fork work stays trustworthy and cheap to sync.
+
+**Verification paths — use the cheapest one that actually exercises the feature's real surface:**
+
+1. **Headless script** — *preferred for App/kernel logic.* For document objects, algorithms, properties, persistence — anything not inherently GUI — drive the feature from `FreeCADCmd -c "…"` (or the `Mod/Test` framework, see §8) with a script that **asserts** the result. Cheapest and most reliable; no GUI, no rebuild-to-click. Keep the script with the feature (the module's `*test*.py`).
+2. **AI-driven MCP** — *preferred for GUI features, but does not exist yet and must be built.* This would be an MCP server letting the AI drive the running FreeCAD GUI (commands, view providers, dialogs, 3D view) and observe results. Until it exists, GUI features fall to path 3; once built it becomes the default for GUI-level verification.
+3. **Human physical test** — *fallback for GUI features today.* The AI prints **explicit numbered steps** in the conversation window — exact menu/click paths, inputs, and the **expected result / pass-fail criteria** — and the user runs them in the GUI (`./run-freecad.sh`) and reports back. The AI records that outcome as the verification.
+
+**Rules of thumb:**
+- Match path to surface: `App`/`Base`/kernel → path 1; a command/toolbar/view-provider/dialog/3D-view behavior → path 2 (when available) else path 3.
+- A feature spanning both layers (App logic **and** GUI) needs **both** a headless assertion for the logic and a GUI check for the interaction.
+- Record the verification in the PR/commit body (path used + what was run + observed result) so reviews and future upstream syncs can trust it.
+
+---
+
+## 10. Maintenance playbook (the point of all this)
 
 When proposing any change, answer in order:
 
@@ -250,7 +269,7 @@ When proposing any change, answer in order:
 
 ---
 
-## 10. Glossary (for navigating the code)
+## 11. Glossary (for navigating the code)
 
 | Term | Meaning in this codebase |
 |---|---|
