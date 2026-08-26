@@ -511,7 +511,9 @@ void TaskMeasure::initViewObject(Measure::MeasureBase* measure)
 void TaskMeasure::closeDialog()
 {
     Gui::Control().closeDialog();
-    Gui::getMainWindow()->hideHints();
+    if (auto mw = Gui::getMainWindow()) {
+        mw->hideHints();
+    }
 }
 
 

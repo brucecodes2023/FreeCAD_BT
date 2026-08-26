@@ -636,15 +636,21 @@ MainWindow::MainWindow(QWidget* parent, Qt::WindowFlags f)
 
 MainWindow::~MainWindow()
 {
+    // Task dialogs (e.g. TaskDlgAttacher) can still run after this body
+    // returns, when QWidget deletes dock children. Null the singleton first
+    // so getMainWindow() is already nullptr in those destructors.
+    instance = nullptr;
     // QWidget teardown may still emit subWindowActivated while child MDI
     // windows are being destroyed. Disconnect first so shutdown cannot re-enter
     // MainWindow slots after derived destruction has started.
-    if (d->mdiArea) {
+    if (d && d->mdiArea) {
         disconnect(d->mdiArea, &QMdiArea::subWindowActivated, this, &MainWindow::onWindowActivated);
     }
-    delete d->status;
-    delete d;
-    instance = nullptr;
+    if (d) {
+        delete d->status;
+        delete d;
+        d = nullptr;
+    }
 }
 
 MainWindow* MainWindow::getInstance()
@@ -2944,11 +2950,17 @@ void MainWindow::showStatus(int type, const QString& message)
 
 void MainWindow::showHints(const std::list<InputHint>& hints)
 {
+    if (!d || !d->hintLabel) {
+        return;
+    }
     d->hintLabel->showHints(hints);
 }
 
 void MainWindow::hideHints()
 {
+    if (!d || !d->hintLabel) {
+        return;
+    }
     d->hintLabel->clearHints();
 }
 
