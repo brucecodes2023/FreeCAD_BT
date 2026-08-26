@@ -27,6 +27,10 @@ def apply_defaults(force_order: bool = False) -> None:
     _set_bool_if_missing(snap, "SnapToGrid", True)
     _set_bool_if_missing(snap, "SnapToObjects", True)
 
+    sketch = App.ParamGet("User parameter:BaseApp/Preferences/Mod/Sketcher/General")
+    _set_bool_if_missing(sketch, "ShowGrid", True)
+    _set_bool_if_missing(sketch, "GridAuto", True)
+
     auto = App.ParamGet("User parameter:BaseApp/Preferences/Mod/Sketcher")
     _set_bool_if_missing(auto, "AutoConstraints", True)
 

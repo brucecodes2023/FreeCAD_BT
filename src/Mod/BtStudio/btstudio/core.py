@@ -177,6 +177,96 @@ def skip_mac_pad_toolbar(name: str, parent_name: str = "") -> bool:
     return any(token in n for token in MAC_CHROME_SKIP_TOOLBARS)
 
 
+TASK_DOCK_NAMES = ("tasks", "task panel", "task view", "std_taskview")
+MODEL_DOCK_NAMES = ("model", "tree view", "combo view", "treeview", "std_treeview")
+TASK_SIDEBAR_FONT_PT = 10
+TASK_SIDEBAR_WIDTH_DEFAULT = 360
+TASK_SIDEBAR_WIDTH_MIN = 360
+TASK_SIDEBAR_WIDTH_MAX = 640
+TASK_SIDEBAR_CHROME_PX = 36
+SHADED_SKETCH_DISPLAY_MODE = "Flat Lines"
+SHADED_SOLID_DISPLAY_MODES = ("Flat Lines", "Shaded")
+SKETCH_FACE_RGB = (0.35, 0.62, 0.85)
+SKETCH_FACE_TRANSPARENCY = 30
+STOCK_NEW_SKETCH_COMMANDS = ("PartDesign_NewSketch", "Sketcher_NewSketch")
+
+
+def match_dock(title: str, object_name: str, names: tuple[str, ...]) -> bool:
+    """True if a dock's title or objectName matches any of the given tokens."""
+    hay = f"{title or ''} {object_name or ''}".lower()
+    return any(token in hay for token in names)
+
+
+def clamp_int(value: int, lo: int, hi: int) -> int:
+    return max(lo, min(int(value), hi))
+
+
+def task_sidebar_needed_width(
+    content_width: int,
+    *,
+    chrome: int = TASK_SIDEBAR_CHROME_PX,
+    minimum: int = TASK_SIDEBAR_WIDTH_MIN,
+    maximum: int = TASK_SIDEBAR_WIDTH_MAX,
+) -> int:
+    """Dock width that shows a task form (TaskAttacher.ui is 271px) plus title-bar chrome."""
+    return clamp_int(int(content_width) + chrome, minimum, maximum)
+
+
+def clamp_task_sidebar_width(
+    width: int,
+    *,
+    needed: int = 0,
+    default: int = TASK_SIDEBAR_WIDTH_DEFAULT,
+    minimum: int = TASK_SIDEBAR_WIDTH_MIN,
+    maximum: int = TASK_SIDEBAR_WIDTH_MAX,
+) -> int:
+    """Never narrower than the task form; keep a wider width if the user dragged it out."""
+    floor = max(minimum, default, int(needed) if needed else 0)
+    if width < floor:
+        return floor
+    return clamp_int(width, floor, maximum)
+
+
+def task_sidebar_stylesheet(point_size: int = TASK_SIDEBAR_FONT_PT) -> str:
+    """Compact Qt stylesheet so Attachment/Sketcher task forms fit a narrow dock."""
+    pt = clamp_int(point_size, 8, 14)
+    return (
+        f"* {{ font-size: {pt}pt; }}\n"
+        "QGroupBox { font-weight: 600; margin-top: 8px; padding: 10px 6px 6px 6px; }\n"
+        "QGroupBox::title { subcontrol-origin: margin; left: 6px; padding: 0 3px; }\n"
+        "QPushButton { padding: 2px 6px; min-height: 0px; }\n"
+        "QAbstractSpinBox, QLineEdit, QComboBox { padding: 1px 3px; min-height: 0px; }\n"
+        f"QListView, QTreeView, QListWidget, QTreeWidget {{ font-size: {pt}pt; }}\n"
+        "QHeaderView::section { padding: 2px 4px; }\n"
+        "QCheckBox, QRadioButton { spacing: 4px; }\n"
+    )
+
+
+def is_sketch_support_pick(type_id: str, sub: str = "", object_name: str = "") -> bool:
+    """True if a selection is a face or origin/datum plane to sketch on."""
+    sub = sub or ""
+    if sub.startswith("Face") or sub.startswith("Plane"):
+        return True
+    blob = f"{type_id} {object_name}".lower()
+    if "sketch" in blob or "body" in blob:
+        return False
+    if "origin" in blob and "plane" not in blob:
+        return False
+    return "plane" in blob
+
+
+def pick_display_mode(
+    available: list[str],
+    preferred: tuple[str, ...] = SHADED_SOLID_DISPLAY_MODES,
+) -> str | None:
+    """First preferred display mode that the view provider actually has."""
+    have = set(available or [])
+    for name in preferred:
+        if name in have:
+            return name
+    return None
+
+
 def merge_workbench_order(known: list[str], preferred: list[str] | None = None) -> list[str]:
     """Preferred first, then any remaining known workbenches in their original order."""
     pref = list(preferred or DESIGN_WORKBENCH_ORDER)

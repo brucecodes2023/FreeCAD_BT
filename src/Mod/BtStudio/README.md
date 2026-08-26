@@ -7,11 +7,13 @@ edit `src/Gui` or `src/Mod/Fem`. See `OVERVIEW.md` conflict tiers.
 
 - Reorders the workbench selector once: Sketch → Part → Part Design → Assembly → FEM
 - Enables Sketcher snaps / auto-constraints and PartDesign transparent preview
-- Splits Combo View so Tasks can sit as a **right tabbed sidebar** (or float)
-- macOS: red/yellow/green traffic lights in the **top-left**, replacing Fusion's min/max/close on the right (no unified toolbar — that popped Menu)
+- Splits Combo View so Tasks sit as a **right tabbed sidebar** (Model tree stays on the left)
+- New sketches: origin planes show a **grid in the 3D view**; click a plane in the view or Origin in the Model tree (no Choose Orientation dialog)
+- Closed sketches switch to **Flat Lines** (filled face) when you leave the editor or click Extrude/Pad
+- macOS: native red/yellow/green traffic lights in the **top-left** (Ribbon's right-side min/max/close stripped)
 - Trackpad overlay: two-finger pan, Shift+scroll zoom, Cmd/Ctrl+scroll rotate, pinch zoom
 - Commands (also inserted next to stock New Sketch / FEM Analysis):
-  - **New Sketch (iso planes)** — isometric + origin planes, no attachment dropdown
+  - **New Sketch** — isometric origin planes; click in the 3D view or Model tree
   - **Analysis walkthrough** — right-sidebar **guided** wizard (not a checkbox list):
     pick **Structures (FEM)** or **Fluids (simpleFoam)**; only the next required
     step’s Run is enabled; later steps stay locked until prerequisites pass.
@@ -46,9 +48,9 @@ cd src/Mod/BtStudio && python3 -m btstudio.tests
 
 1. `./run-freecad.sh` from the repo root.
 2. Workbench tabs should start Start / Sketcher / Part / PartDesign / …
-3. Part Design → **New Sketch (iso planes)** → iso view, click XY or a face; no combo box.
-4. Extrude a pad: transparent preview checkbox on, shaded preview visible.
-5. **BtStudio** toolbar → **Analysis walkthrough**. Physics = Fluids.
+3. Part Design → **New Sketch** → iso view with a grid on the origin planes; click XY in the 3D view or Origin in the tree; no Choose Orientation dialog.
+4. Close a loop, leave the sketch, Extrude/Pad: the profile should show as a shaded face, pad preview shaded.
+5. **BtStudio** toolbar or **Analysis** menu → **Analysis walkthrough**. Physics = Fluids.
    Later steps (Create FoamCase, Write, Mesh, Solve) are Locked/Coming.
    Click **Create sample cube** — a `Part::Box` appears and geometry goes Done.
    **Create FoamCase** unlocks; Run it. Solver/BC row enables. **Write case tree**
@@ -58,4 +60,5 @@ cd src/Mod/BtStudio && python3 -m btstudio.tests
    material / constraints / mesh). Geometry stays Done if the cube is still
    selected; analysis Run is the only enabled button.
 7. Select a feature → **Component data table** shows properties.
-8. On a Mac, red/yellow/green lights are top-left; there should be no min/max/close on the top-right.
+8. Model tree stays on the **left**; Tasks pops out on the **right** wide enough for the Attachment box.
+9. On a Mac, red/yellow/green lights are top-left; there should be no min/max/close on the top-right.

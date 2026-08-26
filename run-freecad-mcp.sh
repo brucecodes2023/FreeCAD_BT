@@ -1,19 +1,19 @@
 #!/bin/bash
-# Launch this worktree's BtStudio + FcBridge on the primary checkout's binary.
+# Launch FreeCAD with this tree's BtStudio + FcBridge on the local or primary binary.
 # Direct exec: pixi run re-hides Qt cocoa plugins (see run-freecad.sh).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MAIN="/Users/brucetokar/Documents/GitHub/FreeCAD_BT"
-BIN="$MAIN/build/release/bin/FreeCAD"
-PIXI_ROOT="$MAIN"
+PRIMARY="$(cd "$ROOT/.." && pwd)/FreeCAD_BT"
 
-if [ ! -x "$BIN" ]; then
+if [ -x "$ROOT/build/release/bin/FreeCAD" ]; then
   BIN="$ROOT/build/release/bin/FreeCAD"
   PIXI_ROOT="$ROOT"
-fi
-if [ ! -x "$BIN" ]; then
-  echo "No FreeCAD binary at $MAIN/build/release/bin/FreeCAD" >&2
+elif [ -x "$PRIMARY/build/release/bin/FreeCAD" ]; then
+  BIN="$PRIMARY/build/release/bin/FreeCAD"
+  PIXI_ROOT="$PRIMARY"
+else
+  echo "No FreeCAD binary — build first (see run-freecad.sh)." >&2
   exit 1
 fi
 

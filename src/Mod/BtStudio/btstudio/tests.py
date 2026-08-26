@@ -81,6 +81,64 @@ class TestCore(unittest.TestCase):
         # Stay on the left half of a typical title bar.
         self.assertLess(zoom[0] + zoom[2], 400)
 
+    def test_dock_matcher_finds_tasks_and_skips_report(self):
+        from btstudio.core import MODEL_DOCK_NAMES, TASK_DOCK_NAMES, match_dock
+
+        self.assertTrue(match_dock("Tasks", "Tasks", TASK_DOCK_NAMES))
+        self.assertTrue(match_dock("Task panel", "Std_TaskView", TASK_DOCK_NAMES))
+        self.assertFalse(match_dock("Report view", "Report view", TASK_DOCK_NAMES))
+        self.assertTrue(match_dock("Model", "Model", MODEL_DOCK_NAMES))
+        self.assertFalse(match_dock("Tasks", "Tasks", MODEL_DOCK_NAMES))
+
+    def test_task_sidebar_width_clamps_and_has_a_compact_default(self):
+        from btstudio.core import (
+            TASK_SIDEBAR_WIDTH_DEFAULT,
+            TASK_SIDEBAR_WIDTH_MAX,
+            clamp_task_sidebar_width,
+            task_sidebar_needed_width,
+        )
+
+        self.assertEqual(clamp_task_sidebar_width(80), TASK_SIDEBAR_WIDTH_DEFAULT)
+        self.assertEqual(clamp_task_sidebar_width(400), 400)
+        self.assertEqual(clamp_task_sidebar_width(900), TASK_SIDEBAR_WIDTH_MAX)
+        self.assertGreaterEqual(task_sidebar_needed_width(271), TASK_SIDEBAR_WIDTH_DEFAULT)
+        self.assertEqual(clamp_task_sidebar_width(280, needed=380), 380)
+
+    def test_task_sidebar_stylesheet_uses_small_type(self):
+        from btstudio.core import task_sidebar_stylesheet
+
+        css = task_sidebar_stylesheet(10)
+        self.assertIn("10pt", css)
+        self.assertIn("min-height: 0px", css)
+
+    def test_plane_grid_vertices_cover_the_square(self):
+        from btstudio.sketch_planes import grid_line_vertices
+
+        points, counts = grid_line_vertices(10.0, 2)
+        self.assertEqual(len(counts), 6)
+        self.assertTrue(all(c == 2 for c in counts))
+        xs = {p[0] for p in points}
+        ys = {p[1] for p in points}
+        self.assertIn(-10.0, xs)
+        self.assertIn(10.0, xs)
+        self.assertIn(-10.0, ys)
+        self.assertIn(10.0, ys)
+        with self.assertRaises(ValueError):
+            grid_line_vertices(0, 10)
+
+    def test_plane_pick_accepts_origin_and_faces(self):
+        from btstudio.core import is_sketch_support_pick, pick_display_mode
+
+        self.assertTrue(is_sketch_support_pick("App::Plane", "", "XY_Plane"))
+        self.assertTrue(is_sketch_support_pick("PartDesign::Pad", "Face1", "Pad"))
+        self.assertFalse(is_sketch_support_pick("Sketcher::SketchObject", "", "Sketch"))
+        self.assertFalse(is_sketch_support_pick("PartDesign::Body", "", "Body"))
+        self.assertEqual(
+            pick_display_mode(["Wireframe", "Flat Lines", "Shaded"]),
+            "Flat Lines",
+        )
+        self.assertIsNone(pick_display_mode(["Points"]))
+
     def test_wizard_has_mesh_and_solve(self):
         ids = [s["id"] for s in FEM_WIZARD_STEPS]
         self.assertEqual(ids[0], "geometry")

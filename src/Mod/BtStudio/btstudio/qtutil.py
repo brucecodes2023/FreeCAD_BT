@@ -13,6 +13,12 @@ def qt():
     return QtCore, QtGui, QtWidgets
 
 
+def qaction_type():
+    """QAction lives in QtGui on PySide6 and QtWidgets on PySide2."""
+    QtCore, QtGui, QtWidgets = qt()
+    return getattr(QtGui, "QAction", None) or getattr(QtWidgets, "QAction", None)
+
+
 def app_gui():
     import FreeCAD as App
     import FreeCADGui as Gui

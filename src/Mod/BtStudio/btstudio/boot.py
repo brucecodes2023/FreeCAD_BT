@@ -43,8 +43,9 @@ def startup() -> None:
     from .manipulator import StudioManipulator
     from .navigation import install_navigation
     from .prefs import apply_defaults
-    from .task_sidebar import apply_task_sidebar
     from .layout import apply_studio_layout
+    from .sketch_planes import install_sketch_hooks
+    from .task_sidebar import install_quit_guard, schedule_task_sidebar
 
     from .studio_toolbar import install_studio_chrome
 
@@ -54,9 +55,11 @@ def startup() -> None:
         apply_mac_chrome()
     except Exception as exc:
         App.Console.PrintWarning(f"BtStudio: mac chrome skipped ({exc})\n")
-    apply_task_sidebar("right")
+    schedule_task_sidebar("right")
+    install_quit_guard()
     apply_studio_layout()
     install_navigation()
+    install_sketch_hooks()
     _patch_viewfit()
 
     global _MANIP

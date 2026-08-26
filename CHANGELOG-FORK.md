@@ -6,10 +6,11 @@ on every fork addition so `git merge upstream/main` has a conflict checklist.
 | Path | Why |
 |---|---|
 | `OVERVIEW.md` | Fork maintenance map |
-| `run-freecad.sh` | Dev launcher (cocoa plugin flag, pixi, `-M BtStudio`) |
+| `run-freecad.sh` | Dev launcher (cocoa plugin flag, `-M BtStudio`) |
 | `run-freecad-mcp.sh` | GUI + FcBridge MCP + BtStudio |
 | `src/Mod/FcBridge/` | Loopback JSON-RPC for AI verification (OVERVIEW §9) |
-| `src/Mod/BtStudio/` | Notes overlay: UI, FEM wizard, theory, OpenFOAM architecture |
+| `src/Mod/BtStudio/` | Overlay: UI, FEM/OpenFOAM wizards, sketch planes, theory |
+| `Guide/` | LaTeX modeling + FEM book (source only) |
 | `CHANGELOG-FORK.md` | This file |
 
 ## Patches to upstream files (quit SIGSEGV)
