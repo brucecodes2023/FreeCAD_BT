@@ -50,7 +50,10 @@ def startup() -> None:
 
     register()
     apply_defaults()
-    apply_mac_chrome()
+    try:
+        apply_mac_chrome()
+    except Exception as exc:
+        App.Console.PrintWarning(f"BtStudio: mac chrome skipped ({exc})\n")
     apply_task_sidebar("right")
     apply_studio_layout()
     install_navigation()

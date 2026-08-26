@@ -34,9 +34,17 @@ def _start_chrome():
 
 
 def _start():
-    from btstudio.boot import startup
+    try:
+        from btstudio.boot import startup
 
-    startup()
+        startup()
+    except Exception as exc:
+        try:
+            import FreeCAD
+
+            FreeCAD.Console.PrintWarning(f"BtStudio: startup failed ({exc})\n")
+        except Exception:
+            pass
 
 
 if QTimer is not None:

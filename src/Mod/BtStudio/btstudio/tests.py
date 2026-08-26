@@ -328,6 +328,22 @@ class TestWizardGating(unittest.TestCase):
         self.assertTrue(callable(create_sample_cube))
 
 
+    def test_safe_named_attr_skips_pyqtribbon_getattr(self):
+        from btstudio.core import safe_named_attr
+
+        class Boom:
+            def __getattr__(self, name):
+                assert False, "Invalid method name"
+
+            def rightToolBar(self):
+                return "ok"
+
+        boom = Boom()
+        with self.assertRaises(AssertionError):
+            hasattr(boom, "notARealMethod")
+        self.assertTrue(callable(safe_named_attr(boom, "rightToolBar")))
+        self.assertIsNone(safe_named_attr(boom, "notARealMethod"))
+
 
 class TestSolvers(unittest.TestCase):
     def test_openfoam_is_planned(self):

@@ -156,6 +156,18 @@ def traffic_light_layout(
     return out
 
 
+def safe_named_attr(obj, name: str, default=None):
+    """Read an attribute without triggering custom __getattr__.
+
+    pyqtribbon widgets assert inside __getattr__ ('Invalid method name'),
+    so hasattr()/getattr() crash FreeCAD on launch.
+    """
+    try:
+        return object.__getattribute__(obj, name)
+    except Exception:
+        return default
+
+
 def skip_mac_pad_toolbar(name: str, parent_name: str = "") -> bool:
     """True if injecting a spacer here would sit on File/Menu and pop the Menu overflow."""
     n = (name or "").lower()

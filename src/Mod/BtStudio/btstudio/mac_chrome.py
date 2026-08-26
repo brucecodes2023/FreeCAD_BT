@@ -16,6 +16,7 @@ import ctypes
 import sys
 from ctypes import CFUNCTYPE, c_bool, c_char_p, c_ulong, c_void_p
 
+from .core import safe_named_attr
 from .qtutil import app_gui, qt
 
 # NSWindowStyleMask
@@ -62,7 +63,10 @@ def apply_mac_chrome() -> None:
     _remove_fake_chrome(mw, QtWidgets)
     _restore_qt_titlebar(mw, QtCore)
     _restore_cocoa_lights(mw)
-    _strip_old_style_chrome(mw, QtWidgets)
+    try:
+        _strip_old_style_chrome(mw, QtWidgets)
+    except Exception:
+        pass
     _bind_filter(mw)
     _start_poll()
     _log_once()
@@ -180,23 +184,36 @@ def _strip_old_style_chrome(mw, QtWidgets) -> None:
     Native traffic lights already live in the macOS title bar; the old-style
     buttons on the right of the ribbon are redundant.
     """
-    for restore in mw.findChildren(QtWidgets.QToolButton, "RestoreButton"):
-        _hide_window_button_triple(restore, QtWidgets)
+    try:
+        for restore in mw.findChildren(QtWidgets.QToolButton, "RestoreButton"):
+            _hide_window_button_triple(restore, QtWidgets)
+    except Exception:
+        pass
 
-    for widget in mw.findChildren(QtWidgets.QWidget):
-        if not hasattr(widget, "rightToolBar"):
+    try:
+        widgets = list(mw.findChildren(QtWidgets.QWidget))
+    except Exception:
+        return
+    for widget in widgets:
+        right = safe_named_attr(widget, "rightToolBar")
+        if not callable(right):
             continue
         try:
-            tb = widget.rightToolBar()
+            tb = right()
         except Exception:
             continue
-        restore = tb.findChild(QtWidgets.QToolButton, "RestoreButton")
+        if tb is None:
+            continue
+        try:
+            restore = tb.findChild(QtWidgets.QToolButton, "RestoreButton")
+        except Exception:
+            restore = None
         if restore is not None:
             _hide_window_button_triple(restore, QtWidgets)
-        title_widget = getattr(widget, "_titleWidget", None)
+        title_widget = safe_named_attr(widget, "_titleWidget")
         if title_widget is None:
             continue
-        label = getattr(title_widget, "_titleLabel", None)
+        label = safe_named_attr(title_widget, "_titleLabel")
         if label is not None:
             try:
                 label.hide()
