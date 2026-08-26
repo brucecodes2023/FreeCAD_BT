@@ -1,0 +1,26 @@
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.synctex.gz
+*.run.xml
+*.bcf
+*.nav
+*.snm
+*.vrb
+*.idx
+*.ilg
+*.ind
+chapters/*.aux
+frontmatter/*.aux
+appendix/*.aux
+
+# Keep the built PDF out of git by default; comment out to track it.
+main.pdf

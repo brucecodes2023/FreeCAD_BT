@@ -1,0 +1,127 @@
+\chapter{Meshing, Error and Convergence}
+\label{ch:meshing-convergence}
+
+A finite element result is only as good as its mesh. This chapter states
+what convergence theory guarantees, what element quality demands, and how
+to obtain trustworthy stresses --- the quantities engineers actually care
+about, and the ones that converge slowest.
+
+\section{A priori error estimates}
+
+For an elliptic problem solved on a quasi-uniform mesh of size $h$ with
+elements of complete polynomial degree $p$, and a sufficiently smooth
+exact solution $\disp\in H^{p+1}$, the finite element error satisfies
+\begin{align}
+  \lVert \disp-\disp^h\rVert_{H^1} &\le C\,h^{p}\,|\disp|_{H^{p+1}}
+    &&\text{(energy / }H^1\text{ norm)}, \label{eq:h1err}\\
+  \lVert \disp-\disp^h\rVert_{L^2} &\le C\,h^{p+1}\,|\disp|_{H^{p+1}}
+    &&\text{(}L^2\text{ norm, via Aubin--Nitsche duality)} . \label{eq:l2err}
+\end{align}
+Two consequences dominate practice. First, \textbf{stresses converge one
+order slower than displacements}: stresses are first derivatives of
+$\disp$, so they live in the $H^1$ (energy) norm with rate $p$, while
+displacements themselves converge at rate $p+1$ in $L^2$. A displacement
+that looks converged can still carry an under-resolved stress field.
+Second, the rates in~\eqref{eq:h1err}--\eqref{eq:l2err} assume smoothness;
+re-entrant corners, point loads and material interfaces introduce
+singularities ($\disp\in H^{1+\alpha}$, $\alpha<1$) that \emph{reduce} the
+achievable rate and produce mesh-dependent stress hot-spots.
+
+\begin{fcwarn}[The corner-singularity trap]
+At a sharp re-entrant corner the elastic stress is theoretically
+\emph{infinite}; refining the mesh there makes the peak stress grow
+without bound rather than converge. Do not chase such a number. Either
+model the real fillet radius, or evaluate stress at a physically
+meaningful distance from the singularity (structural-stress / hot-spot
+methods).
+\end{fcwarn}
+
+\section{Consistency, stability and the patch test}
+
+Convergence requires two ingredients: \textbf{consistency} (the element
+can reproduce constant-strain and rigid-body states --- completeness) and
+\textbf{stability}. The practical check on consistency is the
+\textbf{patch test} (Irons): subject a patch of (possibly distorted)
+elements to boundary displacements corresponding to a constant strain
+field; a passing element reproduces that constant stress exactly, to
+machine precision. Passing the patch test certifies that the element will
+converge under refinement, and it is the standard validation for
+nonconforming and reduced-integration elements.
+
+\section{$h$-, $p$- and $hp$-refinement}
+
+\begin{description}
+  \item[$h$-refinement] shrinks $h$ at fixed $p$: algebraic convergence
+        $\mathcal O(h^p)$. The bread-and-butter of automatic meshers.
+  \item[$p$-refinement] raises the polynomial degree at fixed mesh:
+        \emph{exponential} convergence for smooth solutions, algebraic
+        near singularities.
+  \item[$hp$-refinement] combines them --- small, low-order elements at
+        singularities, large high-order elements in smooth regions ---
+        recovering exponential rates even with singularities.
+\end{description}
+In FreeCAD/CalculiX practice you have a pragmatic version of this choice:
+select second-order elements (Tet10, effectively $p=2$) and then refine
+$h$ locally where gradients are steep.
+
+\section{Element quality}
+
+Distortion degrades both accuracy and conditioning. The mesh metrics to
+watch:
+\begin{itemize}
+  \item \textbf{Aspect ratio} --- ratio of longest to shortest element
+        dimension; keep modest (rules of thumb: $<5$--$10$ in stressed
+        regions).
+  \item \textbf{Skew / interior angles} --- angles far from the ideal
+        (60\textdegree{} for triangles, 90\textdegree{} for quads)
+        increase error; avoid angles near 0\textdegree{} or 180\textdegree.
+  \item \textbf{Taper and warping} --- for quad/hex faces.
+  \item \textbf{Jacobian} --- $\det\Jmat$ must stay positive at every
+        integration point; a negative Jacobian is an inverted element and
+        a hard error.
+\end{itemize}
+A locally refined mesh of well-shaped elements beats a uniformly fine mesh
+of distorted ones, for both cost and accuracy.
+
+\section{Stress recovery and error estimation}
+
+Stresses computed from $\svec=\Dmat\Bmat\dof$ are \emph{not} equally
+accurate everywhere in an element. They are most accurate at special
+interior points --- the \textbf{Barlow / reduced-Gauss points} --- where
+they exhibit \textbf{superconvergence} (one order better than at nodes).
+Practical post-processors exploit this:
+
+\begin{description}
+  \item[Superconvergent Patch Recovery (SPR).] The Zienkiewicz--Zhu
+        procedure~\citep{zienkiewicz1992spr} least-squares-fits a smooth
+        polynomial stress field to the superconvergent sampling points
+        over a patch of elements, then evaluates it at nodes --- yielding
+        markedly improved, continuous stresses.
+  \item[The $Z^2$ (ZZ) error estimator.] The difference between the raw
+        (discontinuous) element stresses and the recovered (smooth) field
+        estimates the local discretisation error a posteriori, and drives
+        \textbf{adaptive remeshing}: refine where the estimated error is
+        large, coarsen where it is small.
+\end{description}
+
+\begin{fctip}[A convergence workflow you can trust]
+\begin{enumerate}
+  \item Solve on a coarse mesh; note the quantity of interest (peak von
+        Mises stress, a key displacement).
+  \item Refine (globally, or locally where SPR/ZZ or raw stress
+        discontinuities flag error) and re-solve.
+  \item Repeat until the quantity of interest changes by less than your
+        tolerance (say, a few percent) between refinements --- that is
+        \emph{mesh convergence}.
+  \item Watch for non-convergence at singularities
+        (\S\ref{sec:corner}); a monotonically growing peak stress is a
+        red flag, not a result.
+\end{enumerate}
+Never report a single-mesh stress without having demonstrated its mesh
+insensitivity.
+\end{fctip}
+\label{sec:corner}
+
+This closes the theory. Part~III now maps every construct above ---
+elements, materials, constraints, solvers, stress recovery --- onto the
+concrete objects and dialogs of FreeCAD's FEM Workbench.

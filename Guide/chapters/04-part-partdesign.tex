@@ -1,0 +1,83 @@
+\chapter{Solid Modeling: Part and PartDesign}
+\label{ch:part-partdesign}
+
+FreeCAD offers two complementary solid-modeling paradigms. Knowing which
+to reach for --- and how they differ --- saves a great deal of grief,
+especially when the solid is destined for meshing and analysis.
+
+\section{Part: direct/CSG modeling}
+
+The \textsf{Part} workbench exposes OCCT directly. You create
+\textbf{primitives} (box, cylinder, sphere, cone, torus) and combine them
+with \textbf{Boolean operations} --- union (\emph{fuse}), difference
+(\emph{cut}), intersection (\emph{common}). This is
+\textbf{constructive solid geometry (CSG)}: the model is a tree of
+Booleans over primitives.
+
+Part modeling is fast, robust and scriptable, and it happily produces
+multiple independent solids. It is ideal for simple analysis geometry
+(a plate with holes, a bracket approximated by boxes and cylinders) and
+for programmatic model generation.
+
+\section{PartDesign: feature-based body modeling}
+
+The \textsf{PartDesign} workbench enforces a stricter, more powerful
+discipline aimed at manufacturable single parts. Its central object is
+the \textbf{Body}, a container that holds an ordered stack of
+\textbf{features} producing exactly \emph{one} contiguous solid. Features
+are either \emph{additive} (Pad, Revolution, Loft, Sweep) or
+\emph{subtractive} (Pocket, Hole, Groove) and are typically driven by
+sketches.
+
+Key PartDesign concepts:
+
+\begin{description}
+  \item[The tip.] The Body has a \emph{tip} feature marking the current
+        end of the feature stack; the tip's solid is the Body's result.
+  \item[Sketch-on-face.] Later sketches can be placed on faces created by
+        earlier features, chaining design intent.
+  \item[Dress-up features.] Fillet, chamfer and draft operate on edges
+        of the running solid.
+  \item[Datum features.] Datum planes, lines and points provide
+        references for sketches and features independent of existing
+        geometry.
+\end{description}
+
+The single-solid rule is what distinguishes PartDesign from Part: a
+PartDesign Body must remain one connected lump at every step, which
+guarantees a clean, manufacturable, and \emph{meshable} result.
+
+\section{Choosing a paradigm for analysis geometry}
+
+\begin{center}
+\begin{tabularx}{\linewidth}{lXX}
+  \toprule
+   & \textsf{Part} (CSG) & \textsf{PartDesign} (features) \\
+  \midrule
+  Best for      & primitives, Booleans, scripted or multi-solid models
+                & manufacturable single parts, design-intent editing \\
+  Result        & any number of solids & exactly one solid per Body \\
+  Editability   & edit primitive params / Boolean tree
+                & edit any feature or its sketch, reorder the stack \\
+  Analysis note & simplest robust geometry for a quick FEA
+                & realistic parts; watch for tiny fillets/faces \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{fcwarn}[Geometry that meshes well]
+The mesher (\cref{ch:meshing-convergence}) discretises the B-rep faces of
+the solid. Slivers, tiny fillets, and near-degenerate faces force
+locally tiny elements or produce poor-quality ones. \emph{Defeature}
+before meshing: suppress cosmetic fillets and holes that do not affect
+the load path, and avoid unnecessary Boolean fragmentation. A clean
+solid is a prerequisite for a trustworthy analysis, not an afterthought.
+\end{fcwarn}
+
+\section{From geometry to analysis}
+
+Whichever paradigm you use, the deliverable for Part~III is a single,
+clean solid (or a well-defined set of solids with contact interfaces)
+whose faces and edges you can select to apply loads and restraints. With
+that in hand, we turn to the theory that a finite-element solver brings
+to bear on it.

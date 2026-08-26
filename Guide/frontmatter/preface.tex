@@ -1,0 +1,52 @@
+\chapter*{Preface}
+\addcontentsline{toc}{chapter}{Preface}
+\markboth{Preface}{Preface}
+
+This book is a guide to \emph{FreeCAD}, the open-source parametric 3D
+modeler, with a deliberate emphasis on its finite-element analysis (FEA)
+capabilities and the mathematical theory that underpins them. It is
+written for engineers and engineering students who already possess a
+working knowledge of mechanics and calculus and who want both to
+\emph{use} FreeCAD's FEM Workbench competently and to \emph{understand}
+what the solver is actually computing.
+
+\section*{How this book is organised}
+
+The book is divided into three parts:
+
+\begin{description}
+  \item[Part~I --- FreeCAD Foundations.] A brisk, no-nonsense tour of
+    the concepts a new user must internalise: the document object model,
+    the workbench paradigm, the constraint-based Sketcher, and the two
+    principal solid-modeling paradigms (\textsf{Part} and
+    \textsf{PartDesign}). Readers already fluent in FreeCAD may skim
+    this part and proceed to Part~II.
+  \item[Part~II --- The Finite Element Method: Theory.] A self-contained,
+    rigorous development of the FEM for linear elastostatics and its
+    common extensions (modal, thermal, nonlinear, contact). We derive the
+    strong and weak forms, the Galerkin discretisation, isoparametric
+    elements, numerical quadrature, assembly, and the treatment of
+    boundary conditions --- with equations, not hand-waving. This part
+    stands on its own as a compact FEM primer.
+  \item[Part~III --- The FEM Workbench in Practice.] The bridge between
+    theory and software: how FreeCAD's FEM Workbench maps onto the
+    machinery of Part~II, how the CalculiX and Elmer solvers are driven,
+    a fully worked linear-static example, and how to post-process and
+    \emph{verify} results.
+\end{description}
+
+\section*{On sources}
+
+This guide is grounded in the official FreeCAD documentation, the
+CalculiX and Elmer solver manuals, and the standard FEM literature
+(Zienkiewicz \& Taylor, Hughes, Bathe, Cook \emph{et al.}). Software
+behaviour is described for the FreeCAD~1.x generation; because FreeCAD is
+under active development, always cross-check UI details against the live
+documentation.
+
+\vspace{1em}
+\noindent\textit{Notation.} A consolidated notation reference is given in
+Appendix~\ref{app:notation}. Vectors and matrices are set in bold; the
+Voigt convention used throughout orders the stress components as
+$[\sigma_{xx},\sigma_{yy},\sigma_{zz},\tau_{yz},\tau_{xz},\tau_{xy}]^{\mathsf T}$
+and uses \emph{engineering} shear strains.

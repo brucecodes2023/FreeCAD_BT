@@ -1,0 +1,122 @@
+\chapter{Beyond Linear Statics}
+\label{ch:extensions}
+
+The linear-static machinery of \crefrange{ch:continuum}{ch:elements-assembly}
+extends naturally to the other analyses an engineer routinely needs. This
+chapter sketches --- correctly, if compactly --- modal/eigenvalue
+analysis, steady-state heat conduction, geometric and material
+nonlinearity, and contact. All four are available in FreeCAD through
+CalculiX or Elmer (\cref{ch:solvers}).
+
+\section{Dynamics and modal analysis}
+
+Reinstating the inertia term dropped from~\eqref{eq:equilibrium} and
+discretising as before gives the semi-discrete equation of motion
+\begin{equation}
+  \Mmat\ddot{\dof} + \mat C\dot{\dof} + \Kmat\dof = \force(t),
+\end{equation}
+with the \textbf{mass matrix} assembled from element contributions
+\begin{equation}
+  \me = \int_{\domain^e}\rho\,\Nmat\transpose\Nmat\dd V \quad\text{(consistent)} .
+\end{equation}
+The \emph{consistent} mass matrix uses the displacement shape functions
+and is non-diagonal; a \emph{lumped} (diagonal) mass matrix --- obtained
+by row-summing or HRZ scaling --- is cheaper and makes $\Mmat^{-1}$
+trivial, which is essential for explicit dynamics. Consistent mass tends
+to over-predict, lumped to under-predict, natural frequencies.
+
+For undamped free vibration ($\mat C=\mat 0,\ \force=\vec 0$), substituting
+$\dof=\vec\phi\,e^{i\omega t}$ yields the \textbf{generalised
+eigenproblem}
+\begin{equation}
+  \Kmat\vec\phi = \omega^2\,\Mmat\vec\phi ,
+  \label{eq:modal}
+\end{equation}
+whose eigenpairs are the natural angular frequencies $\omega_i$ and
+mode shapes $\vec\phi_i$ (mass-orthonormalised,
+$\vec\phi_i\transpose\Mmat\vec\phi_j=\delta_{ij}$). Large models solve
+\eqref{eq:modal} by subspace iteration or Lanczos methods rather than
+forming all eigenpairs. The closely related \textbf{linear buckling}
+problem is $(\Kmat+\lambda\,\Kmat_\sigma)\vec\phi=\vec 0$, where
+$\Kmat_\sigma$ is the geometric (stress) stiffness from a reference load
+and $\lambda$ the critical load factor.
+
+\section{Steady-state heat conduction}
+
+Thermal analysis is mathematically the scalar analogue of elasticity.
+Fourier's law and energy balance give the strong form
+$-\divergence(k\grad T)=Q$ with Dirichlet ($T=\bar T$) and Neumann/Robin
+(prescribed flux $\bar q$, or convection $h(T-T_\infty)$) conditions.
+Galerkin discretisation with $T^h=\Nmat\,\vec T_e$ and $\Bmat=\grad\Nmat$
+yields
+\begin{equation}
+  \Kmat_T\,\vec T = \force_Q, \qquad
+  \Kmat_T=\int\Bmat\transpose\kappa\,\Bmat\dd V + \int_{\Gamma}h\,\Nmat\transpose\Nmat\dd A,
+\end{equation}
+with the ``conductivity matrix'' $\Kmat_T$ playing the role of stiffness.
+Transient conduction adds a capacitance matrix
+$\mat C=\int\rho c\,\Nmat\transpose\Nmat\dd V$ and is time-integrated
+(backward Euler, Crank--Nicolson). The computed temperature field feeds
+the thermal strain~\eqref{eq:thermal-strain}, closing the
+\textbf{thermomechanical} loop.
+
+\section{Geometric and material nonlinearity}
+
+When displacements/rotations are large, or the material response is
+nonlinear (plasticity, hyperelasticity), the discrete equations become
+nonlinear in $\dof$. Writing the \textbf{residual} (out-of-balance
+force)
+\begin{equation}
+  \vec r(\dof) = \force_{\mathrm{int}}(\dof) - \force_{\mathrm{ext}} = \vec 0,
+\end{equation}
+the standard solver is \textbf{Newton--Raphson}, which linearises about
+the current iterate using the \textbf{tangent stiffness}
+$\Kmat_T=\partial\force_{\mathrm{int}}/\partial\dof$:
+\begin{equation}
+  \Kmat_T(\dof_k)\,\Delta\dof = -\vec r(\dof_k), \qquad
+  \dof_{k+1}=\dof_k+\Delta\dof,
+  \label{eq:newton}
+\end{equation}
+iterated to convergence within each load increment.
+
+\begin{itemize}
+  \item \textbf{Geometric nonlinearity} (large displacement) uses a
+        finite strain measure --- the Green--Lagrange strain $\mat E$ ---
+        with its work-conjugate second Piola--Kirchhoff stress $\mat S$,
+        in a Total- or Updated-Lagrangian formulation. The tangent
+        splits as $\Kmat_T=\Kmat_{\mathrm{mat}}+\Kmat_{\mathrm{geo}}(\stress)$,
+        the second term being the stress-dependent geometric stiffness.
+  \item \textbf{Material nonlinearity} (e.g.\ $J_2$ plasticity) obtains
+        the tangent modulus from a constitutive integration
+        (return-mapping) at each Gauss point.
+  \item \textbf{Path-dependence and limit points} (snap-through/back)
+        require \textbf{arc-length (Riks)} continuation instead of pure
+        load control; line search improves robustness.
+\end{itemize}
+
+\section{Contact}
+
+Contact enforces non-penetration between surfaces. In terms of the normal
+gap $g_N$ and contact pressure $p_N$, the Signorini (Kuhn--Tucker)
+conditions are
+\begin{equation}
+  g_N \ge 0, \qquad p_N \le 0, \qquad p_N\,g_N = 0,
+\end{equation}
+supplemented by Coulomb friction in the tangential direction. These
+unilateral constraints are imposed exactly as the Dirichlet constraints
+of \cref{ch:elements-assembly} --- by \textbf{penalty}, \textbf{Lagrange
+multipliers}, or \textbf{augmented Lagrangian} --- and discretised with
+node-to-segment or (more robustly) \textbf{mortar} segment-to-segment
+schemes. Because the active contact set is unknown a priori, contact is
+strongly nonlinear and is solved inside the Newton loop~\eqref{eq:newton}
+with an active-set strategy. CalculiX supports both node-to-face and
+face-to-face contact with penalty or Lagrange enforcement.
+
+\begin{remark}[Cost and caution]
+Each step up this ladder --- adding modes, nonlinearity, or contact ---
+multiplies both computational cost and the number of ways an analysis can
+go wrong (non-convergence, chattering contact, mesh-dependent plastic
+localisation). Verify a linear-static baseline first; introduce
+nonlinearity only where the physics demands it, and always confirm that
+the Newton iterations actually converged before trusting the results.
+\end{remark}

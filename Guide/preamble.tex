@@ -1,0 +1,146 @@
+% ======================================================================
+%  preamble.tex --- shared packages, styling and math macros
+%  Part of: A Rigorous Guide to FreeCAD (Modeling & the FEM)
+% ======================================================================
+
+% ---- Encoding & fonts (works with pdflatex) --------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% ---- Page geometry ---------------------------------------------------
+\usepackage[a4paper,margin=1in,headheight=14pt]{geometry}
+
+% ---- Math ------------------------------------------------------------
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{bm}          % bold math for vectors/tensors
+\usepackage{siunitx}     % SI units: \SI{200}{\giga\pascal}
+\sisetup{per-mode=symbol}
+
+% ---- Graphics, colour, tables ---------------------------------------
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{multirow}
+
+% ---- Floats & captions ----------------------------------------------
+\usepackage{float}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{subcaption}
+
+% ---- Code / UI listings ---------------------------------------------
+\usepackage{listings}
+\definecolor{codebg}{HTML}{F5F5F5}
+\definecolor{codekw}{HTML}{0B5FA5}
+\definecolor{codecomment}{HTML}{507050}
+\definecolor{codestr}{HTML}{A31515}
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  keywordstyle=\color{codekw}\bfseries,
+  commentstyle=\color{codecomment}\itshape,
+  stringstyle=\color{codestr},
+  numberstyle=\tiny\color{gray},
+  breaklines=true,
+  showstringspaces=false,
+  frame=single,
+  rulecolor=\color{gray!40},
+  numbers=left,
+  tabsize=2,
+  columns=fullflexible,
+}
+\lstdefinelanguage{FreeCADPython}[]{Python}{
+  morekeywords={App,Gui,FreeCAD,FreeCADGui,Part,Fem,ObjectsFem,doc,makeDocument},
+}
+
+% ---- Cross-refs & links (load hyperref late) ------------------------
+\usepackage[hidelinks,breaklinks=true]{hyperref}
+\usepackage[capitalise,noabbrev]{cleveref}
+
+% ---- Bibliography ----------------------------------------------------
+\usepackage[numbers,sort&compress]{natbib}
+
+% ---- Headers ---------------------------------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{\thepage}
+\fancyhead[RE]{\itshape\nouppercase{\leftmark}}
+\fancyhead[LO]{\itshape\nouppercase{\rightmark}}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ======================================================================
+%  Theorem-like environments
+% ======================================================================
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[chapter]
+\newtheorem{example}{Example}[chapter]
+\newtheorem{remark}{Remark}[chapter]
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[chapter]
+\newtheorem{proposition}{Proposition}[chapter]
+\newtheorem{lemma}{Lemma}[chapter]
+
+% Callout box for practical FreeCAD tips
+\usepackage[most]{tcolorbox}
+\newtcolorbox{fctip}[1][FreeCAD]{
+  colback=blue!4, colframe=blue!45!black, fonttitle=\bfseries,
+  title=#1, breakable, boxrule=0.6pt, arc=2pt, left=4pt, right=4pt}
+\newtcolorbox{fcwarn}[1][Caution]{
+  colback=red!4, colframe=red!55!black, fonttitle=\bfseries,
+  title=#1, breakable, boxrule=0.6pt, arc=2pt, left=4pt, right=4pt}
+
+% ======================================================================
+%  Math macros --- consistent FEM / continuum-mechanics notation
+% ======================================================================
+% Vectors & matrices
+\renewcommand{\vec}[1]{\bm{#1}}               % vector (bold)
+\newcommand{\mat}[1]{\mathbf{#1}}             % matrix (upright bold)
+\newcommand{\tensor}[1]{\bm{#1}}             % 2nd-order tensor
+
+% Common differential / vector-calculus operators
+\newcommand{\grad}{\nabla}
+\newcommand{\divergence}{\nabla\!\cdot\!}
+\newcommand{\dd}{\,\mathrm{d}}
+\newcommand{\pd}[2]{\frac{\partial #1}{\partial #2}}
+
+% Domains & boundaries
+\newcommand{\domain}{\Omega}
+\newcommand{\boundary}{\partial\domain}
+\newcommand{\GammaD}{\Gamma_{\!D}}            % Dirichlet boundary
+\newcommand{\GammaN}{\Gamma_{\!N}}            % Neumann boundary
+
+% Continuum-mechanics quantities
+\newcommand{\stress}{\tensor{\sigma}}         % Cauchy stress tensor
+\newcommand{\strain}{\tensor{\varepsilon}}    % strain tensor
+\newcommand{\disp}{\vec{u}}                    % displacement field
+\newcommand{\traction}{\vec{t}}               % surface traction
+\newcommand{\bodyforce}{\vec{b}}              % body force
+
+% Voigt-notation column vectors & elasticity matrix
+\newcommand{\svec}{\{\sigma\}}                % stress in Voigt form
+\newcommand{\evec}{\{\varepsilon\}}          % strain in Voigt form
+\newcommand{\Dmat}{\mat{D}}                    % constitutive matrix
+\newcommand{\Bmat}{\mat{B}}                    % strain-displacement matrix
+\newcommand{\Nmat}{\mat{N}}                    % shape-function matrix
+\newcommand{\Jmat}{\mat{J}}                    % Jacobian
+\newcommand{\Kmat}{\mat{K}}                    % global stiffness
+\newcommand{\Mmat}{\mat{M}}                    % global mass
+\newcommand{\ke}{\mat{k}^{e}}                 % element stiffness
+\newcommand{\me}{\mat{m}^{e}}                 % element mass
+
+% Discrete DOF / load vectors
+\newcommand{\dof}{\vec{d}}                     % nodal DOF vector (global)
+\newcommand{\dofe}{\vec{d}^{e}}               % element DOF vector
+\newcommand{\force}{\vec{f}}                   % global force vector
+
+% Misc
+\newcommand{\transpose}{^{\mathsf{T}}}
+\newcommand{\half}{\tfrac{1}{2}}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\sym}{sym}

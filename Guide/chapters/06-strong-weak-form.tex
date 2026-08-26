@@ -1,0 +1,149 @@
+\chapter{Strong Form, Weak Form and Variational Principles}
+\label{ch:strong-weak}
+
+The finite element method does not attack the governing partial
+differential equation directly. It works from an equivalent
+\emph{integral} (weak, or variational) statement. This chapter derives
+that statement and shows its three faces --- virtual work, weighted
+residuals, and energy minimisation --- which coincide for
+elastostatics. The presentation follows Hughes' canonical
+(S)/(W)/(G) development~\citep{hughes2000}, with Zienkiewicz \&
+Taylor~\citep{zienkiewicz2013} and Bathe~\citep{bathe2014}.
+
+\section{The strong form (S)}
+
+Let $\domain\subset\mathbb R^d$ have boundary
+$\boundary=\GammaD\cup\GammaN$ with $\GammaD\cap\GammaN=\emptyset$. The
+\textbf{strong form} of linear elastostatics is: find
+$\disp:\domain\to\mathbb R^d$ such that
+\begin{subequations}\label{eq:strong}
+\begin{align}
+  \divergence\stress + \bodyforce &= \vec 0 && \text{in }\domain
+    &&\text{(equilibrium)},\\
+  \stress &= \Dmat:\strain(\disp) && \text{in }\domain
+    &&\text{(constitution)},\\
+  \strain &= \sym\grad\disp && \text{in }\domain
+    &&\text{(kinematics)},\\
+  \disp &= \bar{\disp} && \text{on }\GammaD
+    &&\text{(Dirichlet / essential)},\\
+  \stress\,\vec n &= \bar{\traction} && \text{on }\GammaN
+    &&\text{(Neumann / natural)}.
+\end{align}
+\end{subequations}
+``Strong'' because it demands the PDE hold pointwise, which requires
+$\disp$ to be twice differentiable. Real solutions --- near corners,
+point loads, material interfaces --- often are not that smooth, and the
+strong form is awkward to discretise. The weak form removes one order of
+differentiability.
+
+\section{Deriving the weak form (W)}
+
+Introduce a \textbf{test function} (weighting function, or virtual
+displacement) $\vec w$ that is arbitrary except that it vanishes where
+the solution is already prescribed: $\vec w=\vec 0$ on $\GammaD$.
+Multiply the equilibrium equation by $\vec w$ and integrate over the
+body:
+\begin{equation}
+  \int_\domain \vec w\cdot(\divergence\stress+\bodyforce)\dd V = 0 .
+\end{equation}
+Integrate the stress-divergence term by parts (the divergence theorem):
+\begin{equation}
+  \int_\domain \vec w\cdot(\divergence\stress)\dd V
+   = \int_{\boundary}\vec w\cdot(\stress\vec n)\dd A
+   - \int_\domain \grad\vec w : \stress \dd V .
+\end{equation}
+Because $\stress$ is symmetric, $\grad\vec w:\stress
+=\sym\grad\vec w:\stress=\strain(\vec w):\stress$. On the boundary,
+$\vec w=\vec 0$ on $\GammaD$ kills that portion, and
+$\stress\vec n=\bar{\traction}$ on $\GammaN$. Rearranging gives the
+\textbf{weak form}:
+
+\begin{tcolorbox}[colback=gray!5,colframe=gray!55!black,arc=2pt]
+Find $\disp\in\mathcal S$ such that, for all $\vec w\in\mathcal V$,
+\begin{equation}
+  \underbrace{\int_\domain \strain(\vec w):\Dmat:\strain(\disp)\dd V}_{\text{internal virtual work}}
+  \;=\;
+  \underbrace{\int_\domain \vec w\cdot\bodyforce\dd V
+   + \int_{\GammaN}\vec w\cdot\bar{\traction}\dd A}_{\text{external virtual work}} .
+  \label{eq:weak}
+\end{equation}
+\end{tcolorbox}
+
+\noindent In Voigt/matrix form the bilinear term reads
+$\int_\domain (\grad_{\!s}\vec w)\transpose\,\Dmat\,(\grad_{\!s}\disp)\dd V$.
+Equation~\eqref{eq:weak} is the \textbf{principle of virtual work}:
+internal virtual work equals external virtual work for every admissible
+virtual displacement.
+
+\subsection{Function spaces}
+
+The integrals in~\eqref{eq:weak} require only \emph{first} derivatives to
+be square-integrable, i.e.\ finite strain energy. The natural setting is
+the Sobolev space $H^1(\domain)$. Trial solutions and test functions
+live in
+\begin{align}
+  \mathcal S &= \{\disp\in[H^1(\domain)]^d : \disp=\bar{\disp}\text{ on }\GammaD\}
+    &&\text{(trial space)},\\
+  \mathcal V &= \{\vec w\in[H^1(\domain)]^d : \vec w=\vec 0\text{ on }\GammaD\}
+    &&\text{(test space)}.
+\end{align}
+The Dirichlet condition is built into $\mathcal S$ --- hence
+``essential'' --- while the Neumann condition emerged from the boundary
+integral --- hence ``natural.'' This weaker regularity requirement is
+exactly what lets us use simple piecewise-polynomial (finite element)
+approximations, which are continuous but only piecewise differentiable.
+
+\section{Equivalence of strong and weak forms}
+
+The two formulations are equivalent for smooth data: any strong solution
+satisfies the weak form (by construction); conversely, if a weak solution
+is smooth enough, reversing the integration by parts and invoking the
+arbitrariness of $\vec w$ recovers both the equilibrium PDE (in
+$\domain$) and the natural boundary condition (on $\GammaN$). The weak
+form is thus not an approximation --- it is a mathematically equivalent
+restatement that happens to be far friendlier to discretisation.
+
+\section{The minimum-potential-energy principle}
+
+For elastostatics the weak form has a third face. Define the
+\textbf{total potential energy} functional
+\begin{equation}
+  \Pi(\disp) = \underbrace{\tfrac12\int_\domain \strain(\disp):\Dmat:\strain(\disp)\dd V}_{\text{strain energy }U}
+   - \int_\domain \disp\cdot\bodyforce\dd V - \int_{\GammaN}\disp\cdot\bar{\traction}\dd A .
+  \label{eq:potential}
+\end{equation}
+Its first variation in an admissible direction $\vec w\in\mathcal V$ is
+\begin{equation}
+  \delta\Pi = \int_\domain \strain(\vec w):\Dmat:\strain(\disp)\dd V
+   - \int_\domain \vec w\cdot\bodyforce\dd V - \int_{\GammaN}\vec w\cdot\bar{\traction}\dd A,
+\end{equation}
+which is \emph{exactly} the weak form~\eqref{eq:weak}. Setting
+$\delta\Pi=0$ therefore yields the equilibrium solution. Because
+$\Dmat$ is symmetric positive-definite, $\Pi$ is strictly convex and the
+stationary point is a unique global \textbf{minimum}. Hence:
+\begin{equation}
+  \text{equilibrium} \iff \delta\Pi=0 \iff \disp \text{ minimises } \Pi .
+\end{equation}
+
+\begin{remark}[When the energy view fails]
+The equivalence ``Galerkin $\equiv$ energy minimisation'' holds only for
+\emph{self-adjoint} problems with a symmetric bilinear form --- linear
+elastostatics and steady heat conduction qualify. Non-self-adjoint
+problems (e.g.\ convection--diffusion) have no such energy functional; one
+must then use the weighted-residual (Galerkin) route directly, which is
+why we lead with the weak form rather than the energy principle.
+\end{remark}
+
+\section{Weighted residuals and Galerkin's method}
+
+The most general route defines the \textbf{residual}
+$\vec R(\disp)=\divergence\stress(\disp)+\bodyforce$ and demands it be
+orthogonal to a space of weighting functions:
+$\int_\domain \vec w\transpose\vec R\dd V=0$ for all $\vec w$. Choosing
+the weighting functions from the \emph{same} space as the trial
+functions is the \textbf{(Bubnov--)Galerkin method}; choosing a
+different space gives \emph{Petrov--Galerkin}. Integrating by parts as
+above turns the weighted-residual statement into the weak
+form~\eqref{eq:weak}. For elastostatics all three viewpoints --- virtual
+work, energy minimisation, Galerkin --- deliver identical discrete
+equations, which we build in \cref{ch:discretization}.

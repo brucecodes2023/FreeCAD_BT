@@ -1,0 +1,72 @@
+\chapter{Notation and Conventions}
+\label{app:notation}
+
+This appendix consolidates the symbols and conventions used throughout
+Parts~II and~III.
+
+\section{Typographic conventions}
+
+\begin{tabularx}{\linewidth}{lX}
+  \toprule
+  Style & Meaning \\
+  \midrule
+  $a,\ \alpha$        & scalars (italic) \\
+  $\vec{u},\ \vec{b}$ & vectors / column matrices (bold italic) \\
+  $\mat{K},\ \mat{B}$ & matrices (upright bold) \\
+  $\stress,\ \strain$ & second-order tensors (bold) \\
+  $(\cdot)\transpose$ & matrix / vector transpose \\
+  $\{\sigma\}$        & a tensor written as a Voigt column vector \\
+  \bottomrule
+\end{tabularx}
+
+\section{Voigt convention}
+
+Symmetric second-order tensors are collapsed to six-component column
+vectors. Stresses and strains are ordered
+\begin{align}
+  \svec &= [\sigma_{xx},\,\sigma_{yy},\,\sigma_{zz},\,\tau_{yz},\,\tau_{xz},\,\tau_{xy}]\transpose, \\
+  \evec &= [\varepsilon_{xx},\,\varepsilon_{yy},\,\varepsilon_{zz},\,\gamma_{yz},\,\gamma_{xz},\,\gamma_{xy}]\transpose,
+\end{align}
+where the shear entries use the \emph{engineering} shear strains
+$\gamma_{ij}=2\varepsilon_{ij}$. This choice makes $\svec\transpose\evec$
+equal to twice the strain-energy density, i.e. the correct scalar work
+conjugacy. (Do not mix this with Mandel notation, which places
+$\sqrt{2}$ factors on the off-diagonal terms of \emph{both} stress and
+strain.)
+
+\section{Principal symbols}
+
+\begin{tabularx}{\linewidth}{lX}
+  \toprule
+  Symbol & Meaning \\
+  \midrule
+  $\domain,\ \boundary$ & domain (body) and its boundary \\
+  $\GammaD,\ \GammaN$    & Dirichlet (essential) and Neumann (natural) boundary \\
+  $\disp$               & displacement field $\vec{u}(\vec{x})$ \\
+  $\stress,\ \strain$   & Cauchy stress and infinitesimal strain \\
+  $\traction,\ \bodyforce$ & surface traction and body force \\
+  $\Dmat$               & constitutive (elasticity) matrix \\
+  $\Nmat$               & shape-function matrix \\
+  $\Bmat$               & strain--displacement matrix, $\Bmat=\grad_{\!s}\Nmat$ \\
+  $\Jmat$               & Jacobian of the isoparametric map \\
+  $\ke,\ \me$           & element stiffness and mass matrices \\
+  $\Kmat,\ \Mmat$       & global stiffness and mass matrices \\
+  $\dof,\ \force$       & global nodal DOF vector and load vector \\
+  $E,\ \nu$             & Young's modulus and Poisson's ratio \\
+  $\lambda,\ \mu$       & Lam\'e parameters ($\mu=G$, the shear modulus) \\
+  $\rho$                & mass density \\
+  $\omega_i,\ \vec{\phi}_i$ & natural angular frequency and mode shape \\
+  \bottomrule
+\end{tabularx}
+
+\section{Material constants}
+
+The isotropic elastic constants are interrelated by
+\begin{equation}
+  \mu = G = \frac{E}{2(1+\nu)}, \qquad
+  \lambda = \frac{E\nu}{(1+\nu)(1-2\nu)}, \qquad
+  K = \frac{E}{3(1-2\nu)},
+\end{equation}
+where $K$ is the bulk modulus. The near-incompressible limit
+$\nu\to\tfrac12$ sends $\lambda,K\to\infty$ and is the source of
+volumetric locking (\cref{ch:meshing-convergence}).
