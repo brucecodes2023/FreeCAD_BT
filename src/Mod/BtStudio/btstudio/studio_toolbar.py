@@ -9,7 +9,7 @@ from .qtutil import app_gui, qt
 _TOOLBAR = None
 
 _BUTTONS = (
-    ("BtStudio_FoamWizard", "OpenFOAM walkthrough"),
+    ("BtStudio_FoamWizard", "Analysis walkthrough"),
     ("BtStudio_FoamNewCase", "New FoamCase"),
     ("BtStudio_FoamWriteCase", "Write OpenFOAM case"),
     ("BtStudio_FemWizard", "FEM walkthrough"),

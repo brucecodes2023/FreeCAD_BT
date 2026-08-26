@@ -81,6 +81,6 @@ def startup() -> None:
         pass
 
     App.Console.PrintMessage(
-        "BtStudio overlay loaded. OpenFOAM walkthrough: BtStudio toolbar "
-        "(or Tools → OpenFOAM walkthrough).\n"
+        "BtStudio overlay loaded. Analysis walkthrough: BtStudio toolbar "
+        "(Structures FEM or Fluids simpleFoam).\n"
     )
