@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-"""OpenFOAM case layout — no subprocess calls yet."""
+"""OpenFOAM case layout — writer exists; no solver subprocess yet."""
 
 from __future__ import annotations
 
@@ -10,7 +10,8 @@ STANDARD_FILES = {
     "system/controlDict": "time control, application, writeInterval, functions",
     "system/fvSchemes": "div/grad/laplacian schemes",
     "system/fvSolution": "linear solvers, SIMPLE/PIMPLE",
-    "system/snappyHexMeshDict": "CAD → hex mesh",
+    "system/blockMeshDict": "hex mesh from CAD bounding box (metres)",
+    "system/snappyHexMeshDict": "CAD → hex mesh (not written in this slice)",
     "constant/transportProperties": "nu / Newtonian",
     "constant/turbulenceProperties": "laminar | RAS | LES",
     "0/U": "velocity BCs",
@@ -25,11 +26,15 @@ FIRST_SOLVERS = (
     "potentialFoam",
 )
 
+# First writer slice: incompressible only (no thermophysical / 0/T yet).
+INCOMPRESSIBLE_SOLVERS = ("simpleFoam", "pimpleFoam", "potentialFoam")
+
 
 def case_tree() -> dict:
-    """Directory protocol a future FoamCase object must write."""
+    """Directory protocol the FoamCase writer emits."""
     return {
         "dirs": list(CASE_DIRS),
         "files": dict(STANDARD_FILES),
         "solvers": list(FIRST_SOLVERS),
+        "incompressible": list(INCOMPRESSIBLE_SOLVERS),
     }

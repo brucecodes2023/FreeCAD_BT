@@ -28,7 +28,7 @@ def _show_origin_and_iso() -> None:
     App, Gui = app_gui()
     try:
         Gui.ActiveDocument.ActiveView.viewAxonometric()
-        Gui.SendMsgToActiveView("ViewFit")
+        Gui.ActiveDocument.ActiveView.fitAll()
     except Exception:
         pass
     body = _active_body()

@@ -33,13 +33,17 @@ def apply_defaults(force_order: bool = False) -> None:
     preview = App.ParamGet("User parameter:BaseApp/Preferences/Mod/PartDesign/Preview")
     _set_bool_if_missing(preview, "ShowTransparentPreview", True)
 
+    # DAG view rebuilds on every new object and can freeze the GUI (Cube, etc.).
     dag = App.ParamGet("User parameter:BaseApp/Preferences/DockWindows/DAGView")
-    _set_bool_if_missing(dag, "Enabled", True)
+    dag.SetBool("Enabled", False)
 
+    # Combo View is the Model tree. Disabling it hides the tree and hangs
+    # Part commands that fit the view after adding a solid.
     combo = App.ParamGet("User parameter:BaseApp/Preferences/DockWindows/ComboView")
-    # Split Model / Tasks so Tasks can live as its own tabbed sidebar.
-    if studio.GetBool("SplitComboView", True):
-        combo.SetBool("Enabled", False)
+    combo.SetBool("Enabled", True)
+    studio.SetBool("SplitComboView", False)
+    tree = App.ParamGet("User parameter:BaseApp/Preferences/DockWindows/TreeView")
+    _set_bool_if_missing(tree, "Enabled", True)
 
     nav = App.ParamGet("User parameter:BaseApp/Preferences/View")
     # Gesture style already implements pinch-zoom; we layer modifiers in navigation.py.

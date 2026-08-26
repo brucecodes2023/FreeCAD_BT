@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-"""macOS traffic lights in the top-left (red / yellow / green).
+"""Keep macOS traffic lights (red / yellow / green) in the top-left.
 
-FreeCAD's Fusion style paints Windows min / max / close on the *right*.
-This overlay goes frameless and draws stoplights on the left so those
-right-side buttons are gone. Unified title+toolbar is left off — that
-popped the in-window Menu on launch.
+Ribbon UI starts FreeCAD with CustomizeWindowHint ("loaded without titlebar"),
+which strips the native NSWindow buttons. An earlier overlay then went
+frameless and hid the Cocoa lights — that is the flash-then-gone race.
+
+This module only restores a normal titled window and unhides the system
+buttons. It never uses Qt.FramelessWindowHint and never hides Cocoa lights.
 """
 
 from __future__ import annotations
@@ -14,7 +16,6 @@ import ctypes
 import sys
 from ctypes import CFUNCTYPE, c_bool, c_char_p, c_ulong, c_void_p
 
-from .core import TRAFFIC_LIGHT_BAR_HEIGHT, traffic_light_layout
 from .qtutil import app_gui, qt
 
 # NSWindowStyleMask
@@ -29,12 +30,13 @@ _NS_CLOSE = 0
 _NS_MINIATURIZE = 1
 _NS_ZOOM = 2
 
-_TITLE_BAR = None
-_TITLE_TOOLBAR = None
 _FILTER = None
 _OBJC = None
-_TrafficTitleBar = None
 _MacChromeFilter = None
+_RESTORED_FLAGS = False
+_LOGGED = False
+_POLL = None
+_POLL_TICKS = 0
 
 
 def apply_mac_chrome() -> None:
@@ -44,6 +46,7 @@ def apply_mac_chrome() -> None:
     QtCore, QtGui, QtWidgets = qt()
     mw = Gui.getMainWindow()
 
+    _disarm_ribbon_hide_titlebar()
     try:
         mb = mw.menuBar()
         if mb is not None:
@@ -51,21 +54,18 @@ def apply_mac_chrome() -> None:
             mb.setVisible(True)
     except Exception:
         pass
-
-    # Real title bar, not fused into the first toolbar (that popped Menu).
     try:
         mw.setUnifiedTitleAndToolBarOnMac(False)
     except Exception:
         pass
 
-    _remove_legacy_pads(mw, QtWidgets)
-    _bind_qt_types()
-    _install_filter(mw)
-    # Fusion paints min/max/close on the right. Replace that chrome now —
-    # waiting for native NSWindow lights left those Windows buttons in place.
-    _install_custom_title_bar(mw)
-    QtCore.QTimer.singleShot(0, lambda: _install_custom_title_bar(mw))
-    QtCore.QTimer.singleShot(400, lambda: _install_custom_title_bar(mw))
+    _remove_fake_chrome(mw, QtWidgets)
+    _restore_qt_titlebar(mw, QtCore)
+    _restore_cocoa_lights(mw)
+    _strip_old_style_chrome(mw, QtWidgets)
+    _bind_filter(mw)
+    _start_poll()
+    _log_once()
 
 
 def dismiss_open_menus() -> None:
@@ -93,168 +93,206 @@ def dismiss_open_menus() -> None:
         pass
 
 
-def _ensure_traffic_lights(allow_custom: bool = True) -> None:
-    if sys.platform != "darwin":
+def _log_once() -> None:
+    global _LOGGED
+    if _LOGGED:
         return
-    _, Gui = app_gui()
-    mw = Gui.getMainWindow()
-    _install_custom_title_bar(mw)
-
-
-def _remove_legacy_pads(mw, QtWidgets) -> None:
-    for pad in mw.findChildren(QtWidgets.QWidget, "BtStudioMacPad"):
-        pad.setParent(None)
-        pad.deleteLater()
-
-
-def _bind_qt_types() -> None:
-    global _TrafficTitleBar, _MacChromeFilter
-    if _TrafficTitleBar is not None:
-        return
-    QtCore, QtGui, QtWidgets = qt()
-
-    class MacChromeFilter(QtCore.QObject):
-        def eventFilter(self, obj, event):
-            if event.type() in (
-                QtCore.QEvent.Show,
-                QtCore.QEvent.WinIdChange,
-            ):
-                QtCore.QTimer.singleShot(0, _reapply_custom_title_bar)
-            return False
-
-    class TrafficTitleBar(QtWidgets.QWidget):
-        _COLORS = {
-            "close": (QtGui.QColor(255, 95, 87), QtGui.QColor(224, 68, 62)),
-            "min": (QtGui.QColor(255, 189, 46), QtGui.QColor(222, 161, 35)),
-            "zoom": (QtGui.QColor(40, 200, 64), QtGui.QColor(26, 171, 41)),
-        }
-        _INACTIVE = (QtGui.QColor(210, 210, 214), QtGui.QColor(180, 180, 185))
-
-        def __init__(self, host):
-            super().__init__(host)
-            self._host = host
-            self.setObjectName("BtStudioTrafficTitleBar")
-            self.setFixedHeight(TRAFFIC_LIGHT_BAR_HEIGHT)
-            self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
-            self._hover = None
-            self.setMouseTracking(True)
-
-        def _rects(self):
-            r = self.rect()
-            return traffic_light_layout(r.width(), r.height())
-
-        def _hit(self, pos):
-            pt = pos.toPoint() if hasattr(pos, "toPoint") else pos
-            for name, (x, y, w, h) in self._rects().items():
-                if QtCore.QRect(x, y, w, h).contains(pt):
-                    return name
-            return None
-
-        def paintEvent(self, event):
-            p = QtGui.QPainter(self)
-            p.setRenderHint(QtGui.QPainter.Antialiasing, True)
-            pal = self.palette()
-            p.fillRect(self.rect(), pal.color(QtGui.QPalette.Window))
-
-            active = bool(self._host.isActiveWindow())
-            rects = self._rects()
-            for name, (x, y, w, h) in rects.items():
-                fill, stroke = self._COLORS[name] if active else self._INACTIVE
-                p.setBrush(fill)
-                p.setPen(QtGui.QPen(stroke, 0.8))
-                p.drawEllipse(x, y, w, h)
-                if self._hover == name and active:
-                    p.setPen(QtGui.QPen(QtGui.QColor(0, 0, 0, 140), 1.2))
-                    cx, cy, rr = x + w / 2.0, y + h / 2.0, w * 0.22
-                    if name == "close":
-                        p.drawLine(cx - rr, cy - rr, cx + rr, cy + rr)
-                        p.drawLine(cx + rr, cy - rr, cx - rr, cy + rr)
-                    elif name == "min":
-                        p.drawLine(cx - rr, cy, cx + rr, cy)
-                    else:
-                        p.drawLine(cx, cy - rr, cx, cy + rr)
-                        p.drawLine(cx - rr, cy, cx + rr, cy)
-
-            p.setPen(pal.color(QtGui.QPalette.WindowText))
-            title = self._host.windowTitle() or "FreeCAD"
-            zx, zy, zw, zh = rects["zoom"]
-            left = zx + zw + 12
-            text_rect = QtCore.QRect(
-                left, 0, max(self.width() - left - 8, 0), self.height()
-            )
-            p.drawText(
-                text_rect, int(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft), title
-            )
-            p.end()
-
-        def mouseMoveEvent(self, event):
-            pos = event.position() if hasattr(event, "position") else event.pos()
-            name = self._hit(pos)
-            if name != self._hover:
-                self._hover = name
-                self.update()
-            super().mouseMoveEvent(event)
-
-        def leaveEvent(self, event):
-            self._hover = None
-            self.update()
-            super().leaveEvent(event)
-
-        def mousePressEvent(self, event):
-            if event.button() != QtCore.Qt.LeftButton:
-                return super().mousePressEvent(event)
-            pos = event.position() if hasattr(event, "position") else event.pos()
-            name = self._hit(pos)
-            if name == "close":
-                self._host.close()
-                return
-            if name == "min":
-                self._host.showMinimized()
-                return
-            if name == "zoom":
-                if self._host.isMaximized():
-                    self._host.showNormal()
-                else:
-                    self._host.showMaximized()
-                return
-            wh = self._host.windowHandle()
-            if wh is not None:
-                try:
-                    wh.startSystemMove()
-                    return
-                except Exception:
-                    pass
-            super().mousePressEvent(event)
-
-        def mouseDoubleClickEvent(self, event):
-            if event.button() != QtCore.Qt.LeftButton:
-                return super().mouseDoubleClickEvent(event)
-            pos = event.position() if hasattr(event, "position") else event.pos()
-            if self._hit(pos) is None:
-                if self._host.isMaximized():
-                    self._host.showNormal()
-                else:
-                    self._host.showMaximized()
-                return
-            super().mouseDoubleClickEvent(event)
-
-    _TrafficTitleBar = TrafficTitleBar
-    _MacChromeFilter = MacChromeFilter
-
-
-def _reapply_custom_title_bar() -> None:
+    _LOGGED = True
     try:
-        _, Gui = app_gui()
-        _install_custom_title_bar(Gui.getMainWindow())
+        import FreeCAD as App
+
+        App.Console.PrintMessage(
+            "BtStudio: restoring native macOS traffic lights (top-left).\n"
+        )
     except Exception:
         pass
 
 
-def _install_filter(mw) -> None:
-    global _FILTER
+def _disarm_ribbon_hide_titlebar() -> None:
+    """Stop Ribbon UI from treating the FreeCAD title bar as hidden."""
+    try:
+        import FreeCAD as App
+
+        App.ParamGet("User parameter:BaseApp/Preferences/Mod/FreeCAD-Ribbon").SetBool(
+            "Hide_Titlebar_FC", False
+        )
+    except Exception:
+        pass
+    for name, mod in list(sys.modules.items()):
+        if mod is None:
+            continue
+        if name == "Parameters_Ribbon" or name.endswith(".Parameters_Ribbon"):
+            if hasattr(mod, "HIDE_TITLEBAR_FC"):
+                try:
+                    mod.HIDE_TITLEBAR_FC = False
+                except Exception:
+                    pass
+
+
+def _restore_qt_titlebar(mw, QtCore) -> None:
+    """Undo CustomizeWindowHint / FramelessWindowHint. Avoid repeating this —
+    setWindowFlags recreates the NSWindow and is what makes lights flash off.
+    """
+    global _RESTORED_FLAGS
+    try:
+        flags = int(mw.windowFlags())
+        broken = bool(flags & int(QtCore.Qt.FramelessWindowHint)) or bool(
+            flags & int(QtCore.Qt.CustomizeWindowHint)
+        )
+        if _RESTORED_FLAGS or not broken:
+            return
+        wanted = (
+            QtCore.Qt.Window
+            | QtCore.Qt.WindowTitleHint
+            | QtCore.Qt.WindowSystemMenuHint
+            | QtCore.Qt.WindowMinMaxButtonsHint
+            | QtCore.Qt.WindowCloseButtonHint
+        )
+        extra = getattr(QtCore.Qt, "WindowFullscreenButtonHint", None)
+        if extra is not None:
+            wanted |= extra
+        visible = mw.isVisible()
+        mw.setWindowFlags(wanted)
+        _RESTORED_FLAGS = True
+        if visible:
+            mw.show()
+            mw.raise_()
+            mw.activateWindow()
+    except Exception:
+        pass
+
+
+def _remove_fake_chrome(mw, QtWidgets) -> None:
+    for name in ("BtStudioTitleBar", "BtStudioMacPad"):
+        for w in mw.findChildren(QtWidgets.QWidget, name):
+            try:
+                if isinstance(w, QtWidgets.QToolBar):
+                    mw.removeToolBar(w)
+            except Exception:
+                pass
+            w.setParent(None)
+            w.deleteLater()
+
+
+def _strip_old_style_chrome(mw, QtWidgets) -> None:
+    """Remove Ribbon's fake Windows min/max/close and duplicate window title.
+
+    Native traffic lights already live in the macOS title bar; the old-style
+    buttons on the right of the ribbon are redundant.
+    """
+    for restore in mw.findChildren(QtWidgets.QToolButton, "RestoreButton"):
+        _hide_window_button_triple(restore, QtWidgets)
+
+    for widget in mw.findChildren(QtWidgets.QWidget):
+        if not hasattr(widget, "rightToolBar"):
+            continue
+        try:
+            tb = widget.rightToolBar()
+        except Exception:
+            continue
+        restore = tb.findChild(QtWidgets.QToolButton, "RestoreButton")
+        if restore is not None:
+            _hide_window_button_triple(restore, QtWidgets)
+        title_widget = getattr(widget, "_titleWidget", None)
+        if title_widget is None:
+            continue
+        label = getattr(title_widget, "_titleLabel", None)
+        if label is not None:
+            try:
+                label.hide()
+                label.setText("")
+            except Exception:
+                pass
+
+
+def _hide_window_button_triple(restore, QtWidgets) -> None:
+    """Hide RestoreButton plus the minimize/close siblings beside it."""
+    tb = restore.parent()
+    while tb is not None and not isinstance(tb, QtWidgets.QToolBar):
+        tb = tb.parent()
+    buttons = list(tb.findChildren(QtWidgets.QToolButton)) if tb is not None else []
+    if restore in buttons:
+        i = buttons.index(restore)
+        targets = buttons[max(0, i - 1) : i + 2]
+    else:
+        targets = [restore]
+        parent = restore.parent()
+        if parent is not None:
+            for sibling in parent.findChildren(QtWidgets.QToolButton):
+                if sibling is restore:
+                    continue
+                try:
+                    if abs(sibling.x() - restore.x()) < 80 and abs(sibling.y() - restore.y()) < 12:
+                        targets.append(sibling)
+                except Exception:
+                    pass
+    for w in targets:
+        try:
+            w.hide()
+            w.setEnabled(False)
+            w.setFixedWidth(0)
+        except Exception:
+            pass
+
+
+def _start_poll() -> None:
+    """Ribbon rebuilds its right toolbar after first show; keep stripping it."""
+    global _POLL, _POLL_TICKS
+    QtCore, QtGui, QtWidgets = qt()
+    if _POLL is not None:
+        return
+    _POLL_TICKS = 0
+    _POLL = QtCore.QTimer()
+    _POLL.setInterval(250)
+
+    def tick():
+        global _POLL_TICKS
+        _POLL_TICKS += 1
+        _reapply_cocoa()
+        if _POLL_TICKS >= 40:
+            _POLL.stop()
+
+    _POLL.timeout.connect(tick)
+    _POLL.start()
+
+
+def _bind_filter(mw) -> None:
+    global _FILTER, _MacChromeFilter
+    QtCore, QtGui, QtWidgets = qt()
+    if _MacChromeFilter is None:
+
+        class MacChromeFilter(QtCore.QObject):
+            def eventFilter(self, obj, event):
+                et = event.type()
+                if et in (
+                    QtCore.QEvent.Show,
+                    QtCore.QEvent.WindowActivate,
+                    QtCore.QEvent.WinIdChange,
+                ):
+                    # Cocoa unhide only — do not setWindowFlags here (flicker).
+                    QtCore.QTimer.singleShot(0, _reapply_cocoa)
+                return False
+
+        _MacChromeFilter = MacChromeFilter
     if _FILTER is None:
         _FILTER = _MacChromeFilter(mw)
-    mw.installEventFilter(_FILTER)
+        mw.installEventFilter(_FILTER)
+
+
+def _reapply_cocoa() -> None:
+    try:
+        _, Gui = app_gui()
+        QtCore, QtGui, QtWidgets = qt()
+        mw = Gui.getMainWindow()
+        flags = int(mw.windowFlags())
+        if flags & int(QtCore.Qt.FramelessWindowHint) or flags & int(
+            QtCore.Qt.CustomizeWindowHint
+        ):
+            _restore_qt_titlebar(mw, QtCore)
+        _restore_cocoa_lights(mw)
+        _strip_old_style_chrome(mw, QtWidgets)
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +317,6 @@ def _objc():
         return CFUNCTYPE(restype, *argtypes)(("objc_msgSend", lib))
 
     _OBJC = {
-        "lib": lib,
         "id_id": msg(c_void_p, (c_void_p, c_void_p)),
         "id_id_u": msg(c_void_p, (c_void_p, c_void_p, c_ulong)),
         "void_u": msg(None, (c_void_p, c_void_p, c_ulong)),
@@ -295,10 +332,14 @@ def _objc():
 
 def _nsview(widget) -> int:
     try:
+        widget.winId()
         widget.createWinId()
     except Exception:
         pass
-    return int(widget.winId())
+    try:
+        return int(widget.winId())
+    except Exception:
+        return 0
 
 
 def _nswindow(widget) -> int:
@@ -314,8 +355,8 @@ def _nswindow(widget) -> int:
     return int(win or 0)
 
 
-def _restore_cocoa_titlebar(mw) -> bool:
-    """Ask AppKit for a normal titled window with close / miniaturize / zoom."""
+def _restore_cocoa_lights(mw) -> bool:
+    """Unhide the real red/yellow/green NSWindow buttons."""
     try:
         o = _objc()
         win = _nswindow(mw)
@@ -334,124 +375,3 @@ def _restore_cocoa_titlebar(mw) -> bool:
         return True
     except Exception:
         return False
-
-
-def _hide_cocoa_traffic_lights(mw) -> None:
-    """Hide AppKit's own lights so we don't draw two sets after going frameless."""
-    try:
-        o = _objc()
-        win = _nswindow(mw)
-        if not win:
-            return
-        sel = o["sel"]
-        o["void_b"](win, sel("setTitlebarAppearsTransparent:"), True)
-        o["void_u"](win, sel("setTitleVisibility:"), 1)  # NSWindowTitleHidden
-        for btn_id in (_NS_CLOSE, _NS_MINIATURIZE, _NS_ZOOM):
-            btn = o["id_id_u"](win, sel("standardWindowButton:"), btn_id)
-            if btn:
-                o["void_b"](btn, sel("setHidden:"), True)
-    except Exception:
-        pass
-
-
-def _native_lights_visible(mw) -> bool:
-    try:
-        o = _objc()
-        win = _nswindow(mw)
-        if not win:
-            return False
-        sel = o["sel"]
-        mask = o["u_id"](win, sel("styleMask"))
-        if not (mask & _NS_TITLED):
-            return False
-        btn = o["id_id_u"](win, sel("standardWindowButton:"), _NS_CLOSE)
-        if not btn:
-            return False
-        return not o["b_id"](btn, sel("isHidden"))
-    except Exception:
-        return False
-
-
-# ---------------------------------------------------------------------------
-# Custom title bar — only if native lights never appeared
-# ---------------------------------------------------------------------------
-
-
-def _install_custom_title_bar(mw) -> None:
-    global _TITLE_BAR, _TITLE_TOOLBAR
-    QtCore, QtGui, QtWidgets = qt()
-    if _TITLE_BAR is not None:
-        _TITLE_BAR.show()
-        if _TITLE_TOOLBAR is not None:
-            _TITLE_TOOLBAR.show()
-        return
-
-    # Drop Qt's Fusion-drawn min/max/close on the right. Frameless is OK here
-    # because we immediately put stoplights on the left ourselves.
-    try:
-        if int(mw.windowFlags() & QtCore.Qt.FramelessWindowHint) == 0:
-            visible = mw.isVisible()
-            mw.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.FramelessWindowHint)
-            if visible:
-                mw.show()
-                mw.raise_()
-                mw.activateWindow()
-    except Exception:
-        pass
-
-    _hide_cocoa_traffic_lights(mw)
-    try:
-        sb = mw.statusBar()
-        if sb is not None:
-            sb.setSizeGripEnabled(True)
-    except Exception:
-        pass
-
-    bar = _TrafficTitleBar(mw)
-    tb = QtWidgets.QToolBar("BtStudioTitleBar", mw)
-    tb.setObjectName("BtStudioTitleBar")
-    tb.setMovable(False)
-    tb.setFloatable(False)
-    tb.setContextMenuPolicy(QtCore.Qt.PreventContextMenu)
-    tb.setIconSize(QtCore.QSize(1, 1))
-    tb.setFixedHeight(TRAFFIC_LIGHT_BAR_HEIGHT + 4)
-    tb.setStyleSheet(
-        "QToolBar#BtStudioTitleBar { border: none; padding: 0px; spacing: 0px; }"
-    )
-    bar.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
-    tb.addWidget(bar)
-
-    existing = [
-        t
-        for t in mw.findChildren(QtWidgets.QToolBar)
-        if t is not tb and mw.toolBarArea(t) == QtCore.Qt.TopToolBarArea
-    ]
-    if existing:
-        mw.insertToolBar(existing[0], tb)
-    else:
-        mw.addToolBar(QtCore.Qt.TopToolBarArea, tb)
-
-    _TITLE_BAR = bar
-    _TITLE_TOOLBAR = tb
-    try:
-        import FreeCAD as App
-
-        App.Console.PrintMessage(
-            "BtStudio: macOS traffic lights drawn top-left "
-            "(native NSWindow chrome was not available).\n"
-        )
-    except Exception:
-        pass
-
-
-def _remove_custom_title_bar(mw) -> None:
-    global _TITLE_BAR, _TITLE_TOOLBAR
-    if _TITLE_TOOLBAR is None:
-        return
-    try:
-        mw.removeToolBar(_TITLE_TOOLBAR)
-    except Exception:
-        pass
-    _TITLE_TOOLBAR.deleteLater()
-    _TITLE_BAR = None
-    _TITLE_TOOLBAR = None

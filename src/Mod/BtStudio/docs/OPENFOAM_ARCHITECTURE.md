@@ -1,11 +1,15 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-# OpenFOAM GUI architecture (future module)
+# OpenFOAM GUI architecture
 
 Goal: an ANSYS Fluent-like workbench that **owns an OpenFOAM case tree**,
-not a pile of macros. This is future work. The code in
-`src/Mod/BtStudio/solvers/openfoam.py` is the registry and case layout
-only — it does not call `blockMesh` yet.
+not a pile of macros.
+
+**This slice:** `solvers/foam_write.py` emits a valid incompressible case
+(`simpleFoam` / `pimpleFoam` / `potentialFoam`) from a CAD bounding box.
+`FoamCase` is a FeaturePython object; **BtStudio_FoamWriteCase** writes
+`0/`, `constant/`, `system/` (including `blockMeshDict`). It still does
+**not** spawn `blockMesh` or the solver — that is the next slice.
 
 FEM/Elmer flow stays for slow internal FEM-NS. Production CFD goes here.
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 import unittest
 
 # Allow `python3 -m btstudio.tests` from src/Mod/BtStudio
@@ -18,11 +19,13 @@ if _ROOT not in sys.path:
 from btstudio.core import (  # noqa: E402
     DESIGN_WORKBENCH_ORDER,
     FEM_WIZARD_STEPS,
+    FOAM_WIZARD_STEPS,
     characteristic_length,
     merge_workbench_order,
 )
 from solvers.registry import PHYSICS, by_domain, planned_backends  # noqa: E402
 from solvers.openfoam import case_tree  # noqa: E402
+from solvers.foam_write import FoamCaseSpec, case_files, write_case  # noqa: E402
 
 
 class TestCore(unittest.TestCase):
@@ -73,6 +76,14 @@ class TestCore(unittest.TestCase):
         mesh = next(s for s in FEM_WIZARD_STEPS if s["id"] == "mesh")
         self.assertEqual(mesh["command"], "BtStudio_FemAutoMesh")
 
+    def test_foam_wizard_writes_before_solve(self):
+        ids = [s["id"] for s in FOAM_WIZARD_STEPS]
+        self.assertEqual(ids[0], "geometry")
+        self.assertIn("write", ids)
+        self.assertLess(ids.index("write"), ids.index("solve"))
+        write = next(s for s in FOAM_WIZARD_STEPS if s["id"] == "write")
+        self.assertEqual(write["command"], "BtStudio_FoamWriteCase")
+
 
 class TestSolvers(unittest.TestCase):
     def test_openfoam_is_planned(self):
@@ -89,7 +100,79 @@ class TestSolvers(unittest.TestCase):
         tree = case_tree()
         self.assertIn("0", tree["dirs"])
         self.assertIn("system/controlDict", tree["files"])
+        self.assertIn("system/blockMeshDict", tree["files"])
         self.assertIn("simpleFoam", tree["solvers"])
+        self.assertIn("simpleFoam", tree["incompressible"])
+        self.assertNotIn("rhoSimpleFoam", tree["incompressible"])
+
+
+class TestFoamWriter(unittest.TestCase):
+    def test_default_case_has_protocol_files(self):
+        files = case_files(FoamCaseSpec())
+        for rel in (
+            "system/controlDict",
+            "system/fvSchemes",
+            "system/fvSolution",
+            "system/blockMeshDict",
+            "constant/transportProperties",
+            "constant/turbulenceProperties",
+            "0/U",
+            "0/p",
+        ):
+            self.assertIn(rel, files)
+            self.assertGreater(len(files[rel]), 40)
+        self.assertNotIn("0/k", files)
+
+    def test_control_dict_names_simplefoam(self):
+        text = case_files(FoamCaseSpec())["system/controlDict"]
+        self.assertIn("application     simpleFoam;", text)
+        self.assertIn("endTime         100;", text)
+
+    def test_bbox_converts_millimetres_to_metres(self):
+        spec = FoamCaseSpec(bbox_mm=(0.0, 100.0, 0.0, 50.0, 0.0, 10.0))
+        mesh = case_files(spec)["system/blockMeshDict"]
+        self.assertIn("( 0 0 0 )", mesh)
+        self.assertIn("( 0.1 0.05 0.01 )", mesh)
+        self.assertIn("hex (0 1 2 3 4 5 6 7) (20 20 1)", mesh)
+        self.assertIn("inlet", mesh)
+        self.assertIn("outlet", mesh)
+        self.assertIn("walls", mesh)
+
+    def test_inlet_velocity_and_walls(self):
+        u = case_files(FoamCaseSpec(inlet_velocity=(2.5, 0.0, 0.0)))["0/U"]
+        self.assertIn("uniform (2.5 0 0)", u)
+        self.assertIn("noSlip", u)
+        p = case_files(FoamCaseSpec())["0/p"]
+        self.assertIn("fixedValue", p)
+
+    def test_komega_adds_turbulence_fields(self):
+        files = case_files(FoamCaseSpec(turbulence="kOmegaSST"))
+        self.assertIn("0/k", files)
+        self.assertIn("0/omega", files)
+        self.assertNotIn("0/epsilon", files)
+        self.assertIn("kOmegaSST", files["constant/turbulenceProperties"])
+
+    def test_pimple_uses_euler(self):
+        schemes = case_files(FoamCaseSpec(application="pimpleFoam"))["system/fvSchemes"]
+        self.assertIn("Euler", schemes)
+
+    def test_write_case_creates_tree(self):
+        spec = FoamCaseSpec()
+        with tempfile.TemporaryDirectory() as tmp:
+            written = write_case(tmp, spec)
+            self.assertIn("system/controlDict", written)
+            self.assertTrue(os.path.isfile(os.path.join(tmp, "0", "U")))
+            self.assertTrue(os.path.isfile(os.path.join(tmp, "constant", "transportProperties")))
+
+    def test_rejects_bad_spec(self):
+        with self.assertRaises(ValueError):
+            FoamCaseSpec(application="rhoSimpleFoam")
+        with self.assertRaises(ValueError):
+            FoamCaseSpec(bbox_mm=(0, 0, 0, 1, 0, 1))
+        with self.assertRaises(ValueError):
+            FoamCaseSpec(nu=0)
+        with self.assertRaises(ValueError):
+            FoamCaseSpec(end_time=0, start_time=1)
 
 
 class TestDocsPresent(unittest.TestCase):

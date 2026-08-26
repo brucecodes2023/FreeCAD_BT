@@ -12,6 +12,26 @@ from __future__ import annotations
 from .qtutil import app_gui, param_group, qt
 
 
+def clamp_windows_to_screens() -> None:
+    """Move top-level widgets that restored off-screen (multi-monitor leftover)."""
+    QtCore, QtGui, QtWidgets = qt()
+    app = QtWidgets.QApplication.instance()
+    if app is None:
+        return
+    screens = app.screens()
+    if not screens:
+        return
+    unions = [s.availableGeometry() for s in screens]
+    primary = app.primaryScreen().availableGeometry() if app.primaryScreen() else unions[0]
+    for widget in app.topLevelWidgets():
+        if not widget.isVisible() or widget.isMinimized():
+            continue
+        geo = widget.frameGeometry()
+        if any(rect.intersects(geo) for rect in unions):
+            continue
+        widget.move(primary.x() + 24, primary.y() + 24)
+
+
 def _find(docks, *names):
     for d in docks:
         title = (d.windowTitle() or "").lower()
@@ -56,6 +76,7 @@ def apply_studio_layout() -> None:
 
     tree.show()
     prop.show()
+    clamp_windows_to_screens()
 
     # Give the tree the top third, tables/data the rest.
     try:

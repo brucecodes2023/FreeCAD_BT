@@ -1,30 +1,42 @@
 #!/bin/bash
-# Build (if needed) and run the FreeCAD_BT development GUI.
-# Must be executed from the FreeCAD_BT repo root.
+# Launch this worktree's BtStudio overlay on the primary checkout's binary.
+# Python-only worktrees do not configure/build (OVERVIEW.md §10).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$ROOT"
+MAIN="/Users/brucetokar/Documents/GitHub/FreeCAD_BT"
+BIN="$MAIN/build/release/bin/FreeCAD"
+PIXI_ROOT="$MAIN"
 
-if [ ! -f build/release/bin/FreeCAD ]; then
-  echo "No binary found — configuring and building first (this takes a while)..."
-  pixi run cmake -S . -B build/release \
-    -DCMAKE_OSX_SYSROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk \
-    -DCMAKE_CXX_FLAGS="-Wno-elaborated-enum-base -Wno-availability -Wno-nullability-extension" \
-    -DFREECAD_3DCONNEXION_SUPPORT=None
-  pixi run ninja -C build/release -j 12
+if [ ! -x "$BIN" ]; then
+  BIN="$ROOT/build/release/bin/FreeCAD"
+  PIXI_ROOT="$ROOT"
+fi
+if [ ! -x "$BIN" ]; then
+  echo "No FreeCAD binary at $MAIN/build/release/bin/FreeCAD" >&2
+  echo "This worktree is Python-only — build once in the primary checkout, then rerun." >&2
+  exit 1
 fi
 
-# Pixi/rattler marks extracted dylibs UF_HIDDEN on this Mac. Qt's plugin
-# scanner uses QDir::Files without Hidden, so it cannot see libqcocoa.dylib
-# and the GUI dies with "Could not find the Qt platform plugin cocoa".
-# pixi re-applies the flag whenever it re-extracts the env, so clear it on
-# every launch. This is the decisive fix; do NOT also set QT_PLUGIN_PATH /
-# QT_QPA_PLATFORM_PLUGIN_PATH — Qt resolves the plugins relative to
-# libQt6Core on its own, and those overrides can re-trigger the same failure.
-PLUGINS="$ROOT/.pixi/envs/default/lib/qt6/plugins"
+OVERLAY="$ROOT/src/Mod/BtStudio"
+if [ ! -d "$OVERLAY" ]; then
+  echo "BtStudio overlay missing at $OVERLAY" >&2
+  exit 1
+fi
+
+PLUGINS="$PIXI_ROOT/.pixi/envs/default/lib/qt6/plugins"
 if [ -d "$PLUGINS" ]; then
   chflags -R nohidden "$PLUGINS" 2>/dev/null || true
 fi
 
-exec pixi run ./build/release/bin/FreeCAD "$@"
+echo "Using binary: $BIN"
+echo "Loading overlay: $OVERLAY"
+cd "$PIXI_ROOT"
+exec pixi run -- bash -c '
+  set -euo pipefail
+  plugins="${CONDA_PREFIX}/lib/qt6/plugins"
+  if [ -d "$plugins" ]; then
+    chflags -R nohidden "$plugins" 2>/dev/null || true
+  fi
+  exec "$1" -M "$2" "${@:3}"
+' bash "$BIN" "$OVERLAY" "$@"

@@ -112,6 +112,59 @@ class CmdWorkbenchOrder:
         apply_workbench_order(force=True)
 
 
+class CmdFoamWizard:
+    def GetResources(self):
+        return _resources(
+            "OpenFOAM walkthrough",
+            "Right-sidebar checklist: FoamCase → write 0/constant/system. Does not run the solver.",
+            "FEM_Analysis",
+        )
+
+    def IsActive(self):
+        return True
+
+    def Activated(self):
+        from .foam_wizard import show_wizard
+
+        show_wizard()
+
+
+class CmdFoamNewCase:
+    def GetResources(self):
+        return _resources(
+            "New FoamCase",
+            "Create a FoamCase object. Selected solid becomes the blockMesh bounding box.",
+        )
+
+    def IsActive(self):
+        import FreeCAD as App
+
+        return App.ActiveDocument is not None
+
+    def Activated(self):
+        from solvers.foam_objects import make_foam_case
+
+        make_foam_case()
+
+
+class CmdFoamWriteCase:
+    def GetResources(self):
+        return _resources(
+            "Write OpenFOAM case",
+            "Emit 0/, constant/, system/ for simpleFoam. Does not call blockMesh.",
+        )
+
+    def IsActive(self):
+        import FreeCAD as App
+
+        return App.ActiveDocument is not None
+
+    def Activated(self):
+        from solvers.foam_objects import write_foam_case
+
+        write_foam_case()
+
+
 class CmdOpenTheory:
     def GetResources(self):
         return _resources("FEM theory guide", "Open the fork FEM theory guide.")
@@ -134,6 +187,9 @@ COMMANDS = {
     "BtStudio_NewSketch": CmdNewSketch,
     "BtStudio_FemWizard": CmdFemWizard,
     "BtStudio_FemAutoMesh": CmdFemAutoMesh,
+    "BtStudio_FoamWizard": CmdFoamWizard,
+    "BtStudio_FoamNewCase": CmdFoamNewCase,
+    "BtStudio_FoamWriteCase": CmdFoamWriteCase,
     "BtStudio_History": CmdHistory,
     "BtStudio_Properties": CmdProperties,
     "BtStudio_WorkbenchOrder": CmdWorkbenchOrder,

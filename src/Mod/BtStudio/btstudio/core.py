@@ -66,6 +66,39 @@ FEM_WIZARD_STEPS = [
     },
 ]
 
+FOAM_WIZARD_STEPS = [
+    {
+        "id": "geometry",
+        "title": "Select solid geometry",
+        "hint": "Pick the Part or PartDesign body. Its bounding box becomes blockMesh (mm → m).",
+        "command": None,
+    },
+    {
+        "id": "case",
+        "title": "Create FoamCase",
+        "hint": "Adds a FoamCase object. Solver defaults to simpleFoam, laminar, nu = 1e-5 m^2/s.",
+        "command": "BtStudio_FoamNewCase",
+    },
+    {
+        "id": "write",
+        "title": "Write case tree",
+        "hint": "Emits 0/, constant/, system/ next to the document. Does not run OpenFOAM.",
+        "command": "BtStudio_FoamWriteCase",
+    },
+    {
+        "id": "mesh",
+        "title": "Mesh (later)",
+        "hint": "blockMesh / snappyHexMesh stay off this slice. Install OpenFOAM and run them by hand to check the case.",
+        "command": None,
+    },
+    {
+        "id": "solve",
+        "title": "Solve (later)",
+        "hint": "simpleFoam via QProcess is the next slice. Residual logs will land in the Report view.",
+        "command": None,
+    },
+]
+
 
 def characteristic_length(diagonal: float, divisor: float = 20.0) -> float:
     """Global mesh size from a bounding-box diagonal (ANSYS body-sizing analogue)."""
