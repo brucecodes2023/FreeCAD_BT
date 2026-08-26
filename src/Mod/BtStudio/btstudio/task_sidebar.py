@@ -44,7 +44,10 @@ def apply_task_sidebar(side: str = "right") -> None:
     same_side = [
         d
         for d in docks
-        if d is not tasks and mw.dockWidgetArea(d) == area and d.isVisible()
+        if d is not tasks
+        and mw.dockWidgetArea(d) == area
+        and d.isVisible()
+        and (d.objectName() or "") != "BtStudioAnalysisWizard"
     ]
     for other in same_side:
         mw.tabifyDockWidget(other, tasks)

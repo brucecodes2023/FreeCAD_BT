@@ -24,15 +24,6 @@ except ImportError:
         QTimer = None
 
 
-def _start_chrome():
-    try:
-        from btstudio.mac_chrome import apply_mac_chrome
-
-        apply_mac_chrome()
-    except Exception:
-        pass
-
-
 def _start():
     try:
         from btstudio.boot import startup
@@ -48,8 +39,7 @@ def _start():
 
 
 if QTimer is not None:
-    # Traffic lights first so Fusion's right-side min/max/close don't linger.
-    QTimer.singleShot(0, _start_chrome)
+    # After the window is up. Chrome at t=0 raced Ribbon and unmapped the app.
     QTimer.singleShot(1200, _start)
 else:
     try:

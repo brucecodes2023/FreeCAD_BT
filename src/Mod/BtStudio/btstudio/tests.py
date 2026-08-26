@@ -327,6 +327,16 @@ class TestWizardGating(unittest.TestCase):
         self.assertTrue(callable(fem_show))
         self.assertTrue(callable(create_sample_cube))
 
+    def test_closed_wizard_is_not_alive(self):
+        from btstudio.analysis_wizard import _dock_alive
+
+        self.assertFalse(_dock_alive(None))
+
+        class Dead:
+            widget = None
+
+        self.assertFalse(_dock_alive(Dead()))
+
 
     def test_safe_named_attr_skips_pyqtribbon_getattr(self):
         from btstudio.core import safe_named_attr

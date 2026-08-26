@@ -256,13 +256,16 @@ class AnalysisWizardDock:
         QtCore, QtGui, QtWidgets = qt()
         mw = Gui.getMainWindow()
         mw.addDockWidget(QtCore.Qt.RightDockWidgetArea, self.widget)
-        tasks = [
-            d
-            for d in mw.findChildren(QtWidgets.QDockWidget)
-            if (d.windowTitle() or "").lower().startswith("task")
-        ]
-        if tasks:
-            mw.tabifyDockWidget(tasks[0], self.widget)
+        # Stay a real right dock. Tabifying with Tasks hid the walkthrough.
+        self.widget.setFeatures(
+            QtWidgets.QDockWidget.DockWidgetMovable
+            | QtWidgets.QDockWidget.DockWidgetFloatable
+            | QtWidgets.QDockWidget.DockWidgetClosable
+        )
+        try:
+            self.widget.setAttribute(QtCore.Qt.WA_DeleteOnClose, False)
+        except Exception:
+            pass
         try:
             Gui.Selection.addObserver(self._sel_obs)
         except Exception:
@@ -537,11 +540,36 @@ class _DocumentObs:
         self.dock.refresh()
 
 
+def _dock_alive(dock) -> bool:
+    if dock is None:
+        return False
+    widget = getattr(dock, "widget", None)
+    if widget is None:
+        return False
+    try:
+        widget.objectName()
+    except Exception:
+        return False
+    return True
+
+
 def show_wizard(physics: str | None = None) -> None:
+    """Open or re-show the walkthrough. Closing the dock must not lose it."""
     global _DOCK
     chosen = physics or PHYSICS_FLUIDS
-    if _DOCK is None:
+    if not _dock_alive(_DOCK):
         _DOCK = AnalysisWizardDock(chosen)
         _DOCK.attach()
-    else:
-        _DOCK.set_physics(chosen)
+        return
+    _DOCK.set_physics(chosen)
+    widget = _DOCK.widget
+    try:
+        _, Gui = app_gui()
+        QtCore, QtGui, QtWidgets = qt()
+        mw = Gui.getMainWindow()
+        mw.addDockWidget(QtCore.Qt.RightDockWidgetArea, widget)
+    except Exception:
+        pass
+    widget.setVisible(True)
+    widget.show()
+    widget.raise_()

@@ -44,9 +44,9 @@ def startup() -> None:
     from .navigation import install_navigation
     from .prefs import apply_defaults
     from .task_sidebar import apply_task_sidebar
-    from .layout import apply_studio_layout, clamp_windows_to_screens
+    from .layout import apply_studio_layout
 
-    from .studio_toolbar import install_studio_toolbar
+    from .studio_toolbar import install_studio_chrome
 
     register()
     apply_defaults()
@@ -64,7 +64,7 @@ def startup() -> None:
         import FreeCADGui as Gui
 
         _MANIP = StudioManipulator()
-        install_studio_toolbar()
+        install_studio_chrome()
         Gui.addWorkbenchManipulator(_MANIP)
         # Do not call reloadActive() here — rebuilding toolbars on startup
         # pops FreeCAD's Menu / File-toolbar overflow.
@@ -77,13 +77,14 @@ def startup() -> None:
 
         QtCore, QtGui, QtWidgets = qt()
         QtCore.QTimer.singleShot(0, dismiss_open_menus)
-        QtCore.QTimer.singleShot(0, clamp_windows_to_screens)
         QtCore.QTimer.singleShot(400, dismiss_open_menus)
-        QtCore.QTimer.singleShot(400, clamp_windows_to_screens)
+        # Ribbon rebuilds chrome after first show and swallows custom bars.
+        QtCore.QTimer.singleShot(400, install_studio_chrome)
+        QtCore.QTimer.singleShot(1600, install_studio_chrome)
     except Exception:
         pass
 
     App.Console.PrintMessage(
-        "BtStudio overlay loaded. Analysis walkthrough: BtStudio toolbar "
-        "(Structures FEM or Fluids simpleFoam).\n"
+        "BtStudio overlay loaded. Analysis walkthrough: Analysis menu "
+        "or BtStudio toolbar (Structures FEM or Fluids simpleFoam).\n"
     )

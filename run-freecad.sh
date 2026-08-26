@@ -1,6 +1,11 @@
 #!/bin/bash
 # Launch this worktree's BtStudio overlay on the primary checkout's binary.
 # Python-only worktrees do not configure/build (OVERVIEW.md §10).
+#
+# Direct exec (not `pixi run`): pixi re-applies UF_HIDDEN on Qt plugins during
+# env validation, which makes Qt miss libqcocoa.dylib and die with
+# 'Could not find the Qt platform plugin "cocoa" in ""'.
+# The binary rpath already points at the primary pixi env.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,19 +29,25 @@ if [ ! -d "$OVERLAY" ]; then
   exit 1
 fi
 
+# Empty/wrong QT_PLUGIN_PATH is exactly the `in ""` search path. Let Qt
+# resolve plugins from libQt6Core via rpath.
+unset QT_PLUGIN_PATH QT_QPA_PLATFORM_PLUGIN_PATH || true
+
 PLUGINS="$PIXI_ROOT/.pixi/envs/default/lib/qt6/plugins"
+COCOA="$PLUGINS/platforms/libqcocoa.dylib"
 if [ -d "$PLUGINS" ]; then
-  chflags -R nohidden "$PLUGINS" 2>/dev/null || true
+  chflags -R nohidden "$PLUGINS"
+fi
+if [ ! -f "$COCOA" ]; then
+  echo "Qt cocoa plugin missing at $COCOA" >&2
+  exit 1
+fi
+if ls -lO "$COCOA" | grep -q hidden; then
+  echo "Qt cocoa plugin is still UF_HIDDEN at $COCOA" >&2
+  echo "Run: chflags -R nohidden $PLUGINS" >&2
+  exit 1
 fi
 
 echo "Using binary: $BIN"
 echo "Loading overlay: $OVERLAY"
-cd "$PIXI_ROOT"
-exec pixi run -- bash -c '
-  set -euo pipefail
-  plugins="${CONDA_PREFIX}/lib/qt6/plugins"
-  if [ -d "$plugins" ]; then
-    chflags -R nohidden "$plugins" 2>/dev/null || true
-  fi
-  exec "$1" -M "$2" "${@:3}"
-' bash "$BIN" "$OVERLAY" "$@"
+exec "$BIN" -M "$OVERLAY" "$@"

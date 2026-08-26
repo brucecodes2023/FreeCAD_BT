@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-"""Always-visible BtStudio toolbar so OpenFOAM/FEM commands are not FEM-only."""
+"""Always-visible BtStudio toolbar + Analysis menu (Ribbon hides custom bars)."""
 
 from __future__ import annotations
 
@@ -16,6 +16,11 @@ _BUTTONS = (
 )
 
 
+def install_studio_chrome() -> None:
+    install_studio_toolbar()
+    install_analysis_menu()
+
+
 def install_studio_toolbar() -> None:
     global _TOOLBAR
     _, Gui = app_gui()
@@ -24,6 +29,7 @@ def install_studio_toolbar() -> None:
     existing = mw.findChild(QtWidgets.QToolBar, "BtStudioToolbar")
     if existing is not None:
         _TOOLBAR = existing
+        existing.setVisible(True)
         existing.show()
         return
     tb = QtWidgets.QToolBar("BtStudio", mw)
@@ -36,6 +42,25 @@ def install_studio_toolbar() -> None:
     mw.addToolBar(QtCore.Qt.TopToolBarArea, tb)
     tb.show()
     _TOOLBAR = tb
+
+
+def install_analysis_menu() -> None:
+    """Native macOS / Qt menu that survives Ribbon hiding the toolbar."""
+    _, Gui = app_gui()
+    QtCore, QtGui, QtWidgets = qt()
+    mw = Gui.getMainWindow()
+    mb = mw.menuBar()
+    if mb is None:
+        return
+    for action in mb.actions():
+        text = (action.text() or "").replace("&", "")
+        if text == "Analysis":
+            return
+    menu = mb.addMenu("&Analysis")
+    menu.setObjectName("BtStudioAnalysisMenu")
+    for command, label in _BUTTONS:
+        act = menu.addAction(label)
+        act.triggered.connect(lambda _checked=False, name=command: _run(name))
 
 
 def _run(name: str) -> None:

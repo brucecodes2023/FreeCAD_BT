@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 
-def _resources(text: str, tip: str, pixmap: str = "applications-engineering"):
+def _resources(text: str, tip: str, pixmap: str = "FEM_Analysis"):
     return {"MenuText": text, "ToolTip": tip, "Pixmap": pixmap}
 
 
@@ -134,6 +134,7 @@ class CmdFoamNewCase:
         return _resources(
             "New FoamCase",
             "Create a FoamCase object. Selected solid becomes the blockMesh bounding box.",
+            "Part_Box",
         )
 
     def IsActive(self):
@@ -152,6 +153,7 @@ class CmdFoamWriteCase:
         return _resources(
             "Write OpenFOAM case",
             "Emit 0/, constant/, system/ for simpleFoam. Does not call blockMesh.",
+            "FEM_MeshGmshFromShape",
         )
 
     def IsActive(self):

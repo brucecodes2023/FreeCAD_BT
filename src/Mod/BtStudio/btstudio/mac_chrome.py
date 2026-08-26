@@ -38,9 +38,11 @@ _RESTORED_FLAGS = False
 _LOGGED = False
 _POLL = None
 _POLL_TICKS = 0
+_APPLIED = False
 
 
 def apply_mac_chrome() -> None:
+    global _APPLIED
     if sys.platform != "darwin":
         return
     _, Gui = app_gui()
@@ -61,14 +63,21 @@ def apply_mac_chrome() -> None:
         pass
 
     _remove_fake_chrome(mw, QtWidgets)
-    _restore_qt_titlebar(mw, QtCore)
-    _restore_cocoa_lights(mw)
+    if not _APPLIED:
+        _restore_cocoa_lights(mw)
+        _APPLIED = True
     try:
         _strip_old_style_chrome(mw, QtWidgets)
     except Exception:
         pass
-    _bind_filter(mw)
-    _start_poll()
+    # Never poll setStyleMask / setWindowFlags — that unmaps the window
+    # and aborts with recursive_mutex lock failed.
+    try:
+        QtCore.QTimer.singleShot(
+            800, lambda: _strip_old_style_chrome(mw, QtWidgets)
+        )
+    except Exception:
+        pass
     _log_once()
 
 
