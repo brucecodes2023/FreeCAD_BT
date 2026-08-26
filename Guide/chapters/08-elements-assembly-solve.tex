@@ -1,0 +1,162 @@
+\chapter{Element Stiffness, Assembly and Solution}
+\label{ch:elements-assembly}
+
+This chapter completes the discretisation: it forms the element stiffness
+matrix and load vector by numerical integration, assembles the global
+system, imposes the Dirichlet boundary conditions, and solves. The result
+is the linear system $\Kmat\dof=\force$ that CalculiX and Elmer actually
+factorise.
+
+\section{Element stiffness and load vector}
+
+Substituting the Galerkin interpolation $\disp^h=\Nmat\dofe$,
+$\vec w=\Nmat\vec c$ (with $\vec c$ arbitrary) and $\evec=\Bmat\dofe$ into
+the weak form~\eqref{eq:weak}, and requiring it to hold for all $\vec c$,
+yields the element equations $\ke\dofe=\vec f^e$ with
+\begin{align}
+  \ke &= \int_{\domain^e}\Bmat\transpose\,\Dmat\,\Bmat\dd V,
+  \label{eq:ke}\\[2pt]
+  \vec f^e &= \underbrace{\int_{\domain^e}\Nmat\transpose\bodyforce\dd V}_{\text{body force}}
+   + \underbrace{\int_{\Gamma^e_N}\Nmat\transpose\bar{\traction}\dd A}_{\text{surface traction}}
+   + \underbrace{\int_{\domain^e}\Bmat\transpose\Dmat\,\evec_0\dd V}_{\text{thermal/initial strain}} .
+  \label{eq:fe}
+\end{align}
+The stiffness $\ke$ is symmetric (because $\Dmat$ is) and positive
+\emph{semi}-definite: its zero-energy modes are exactly the element's
+rigid-body motions. The last term of~\eqref{eq:fe} is the thermal load
+from~\eqref{eq:thermal-strain}, the entry point for thermomechanical
+coupling.
+
+\section{Numerical integration (Gauss quadrature)}
+
+The integrals~\eqref{eq:ke}--\eqref{eq:fe} are evaluated on the parent
+element by \textbf{Gauss--Legendre quadrature}. In 1D,
+\begin{equation}
+  \int_{-1}^{1} f(\xi)\dd\xi \approx \sum_{i=1}^{n} w_i\,f(\xi_i),
+\end{equation}
+which is exact for polynomials up to degree $2n-1$. Quads and hexes use
+tensor products of the 1D rule; triangles and tets use dedicated
+symmetric (Hammer) rules. Mapping via~\eqref{eq:jacobian},
+\begin{equation}
+  \ke = \int \Bmat\transpose\Dmat\,\Bmat\,\det\Jmat\dd\xi\dd\eta\dd\zeta
+      \approx \sum_{i} w_i\,\Bmat_i\transpose\Dmat\,\Bmat_i\,\det\Jmat_i .
+\end{equation}
+
+\begin{center}
+\begin{tabularx}{\linewidth}{lXl}
+  \toprule
+  Element & ``Full'' rule & Points \\
+  \midrule
+  Quad4      & $2\times2$ Gauss           & 4 \\
+  Quad8/9    & $3\times3$ Gauss           & 9 \\
+  Hex8       & $2\times2\times2$ Gauss    & 8 \\
+  Hex20      & $3\times3\times3$ (or 14-pt)& 27 \\
+  Tri3 / Tet4& centroid                   & 1 \\
+  Tri6       & symmetric 3-point          & 3 \\
+  Tet10      & symmetric 4-point          & 4 \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Full, reduced and selective integration}
+
+\emph{Full} integration integrates $\ke$ exactly for an undistorted
+element. \emph{Reduced} integration deliberately uses fewer points ---
+cheaper, and it can relieve locking --- but under-integration can leave
+$\ke$ rank-deficient, admitting spurious zero-energy
+\textbf{hourglass} modes that must be stabilised (Flanagan--Belytschko
+control). \emph{Selective/reduced-selective} integration treats the
+volumetric (dilatational) part with a lower order than the deviatoric
+part, curing volumetric locking while preserving rank.
+
+\begin{remark}[Locking pathologies]
+Two failure modes haunt low-order elements. \textbf{Shear locking}:
+fully-integrated linear elements (Quad4, Hex8) develop parasitic shear
+strain in bending and become spuriously stiff. \textbf{Volumetric
+locking}: as $\nu\to\tfrac12$ (near-incompressibility, e.g.\ rubber,
+metal plasticity) the volumetric constraint over-stiffens low-order
+elements. Remedies include reduced/selective integration, incompatible
+modes (Q6/QM6), assumed/enhanced strain (B-bar, EAS), and mixed
+displacement--pressure ($u$--$p$) formulations. Using quadratic elements
+(Tet10, Hex20) largely sidesteps shear locking, which is another reason
+they are the default for stress analysis.
+\end{remark}
+
+\section{Assembly of the global system}
+
+Each element's DOF are a subset of the global DOF, fixed by the mesh
+\textbf{connectivity}. The assembly operator $\mathbb A$ scatters and adds
+element contributions into their global locations:
+\begin{equation}
+  \Kmat = \operatorname*{\mathbb A}_{e} \ke, \qquad
+  \force = \operatorname*{\mathbb A}_{e} \vec f^e, \qquad
+  \Longrightarrow\quad \Kmat\,\dof=\force .
+  \label{eq:assembly}
+\end{equation}
+Concretely, entry $\ke_{ij}$ is added to $\Kmat_{IJ}$ where $I,J$ are the
+global indices of the element's local DOF $i,j$. The assembled $\Kmat$ is
+symmetric, sparse (each node couples only to mesh neighbours), and ---
+before boundary conditions --- positive semi-definite with the six
+global rigid-body modes as its null space.
+
+\section{Imposing Dirichlet boundary conditions}
+
+The rigid-body singularity of $\Kmat$ is removed by the essential
+(Dirichlet) constraints $\dof=\bar{\dof}$ on restrained DOF. Three
+standard techniques:
+
+\begin{description}
+  \item[Elimination (partitioning).] Split DOF into free ($f$) and
+        constrained ($c$) and solve the reduced system
+        \begin{equation}
+          \Kmat_{ff}\dof_f = \force_f - \Kmat_{fc}\bar{\dof}_c .
+        \end{equation}
+        Exact, and it shrinks the system; the textbook default.
+  \item[Penalty.] Add a large stiffness $\alpha$ to each constrained
+        diagonal, $K_{ii}\!\mathrel{+}=\!\alpha$,
+        $f_i\!\mathrel{+}=\!\alpha\bar d_i$. Trivial to implement and
+        preserves the sparsity pattern, but too large an $\alpha$
+        ill-conditions $\Kmat$ while too small a value violates the
+        constraint. Approximate.
+  \item[Lagrange multipliers.] Append the constraints $\mat C\dof=\bar{\dof}$
+        and solve the saddle-point (KKT) system
+        \begin{equation}
+          \begin{bmatrix}\Kmat & \mat C\transpose\\ \mat C & \mat 0\end{bmatrix}
+          \begin{Bmatrix}\dof\\ \bm\lambda\end{Bmatrix}
+          = \begin{Bmatrix}\force\\ \bar{\dof}\end{Bmatrix} .
+        \end{equation}
+        Exact, and the multipliers $\bm\lambda$ are the reaction forces
+        --- but the system grows and becomes indefinite. The
+        \emph{augmented Lagrangian} blends penalty and multiplier.
+\end{description}
+Penalty and Lagrange generalise beyond nodal restraints to
+\emph{multipoint constraints}, tie/contact conditions and periodic
+boundaries, which is why solvers implement them.
+
+\section{Solving \texorpdfstring{$\Kmat\dof=\force$}{Ku=f}}
+
+After imposing enough restraints to suppress rigid-body motion, $\Kmat$
+is symmetric positive-definite (SPD) and the system is solved by:
+
+\begin{description}
+  \item[Direct solvers.] Factorise $\Kmat$. For SPD systems the
+        \textbf{Cholesky} factorisation $\Kmat=\mat L\mat L\transpose$ is
+        standard; indefinite systems (Lagrange multipliers) use
+        $\mat L\mat D\mat L\transpose$. Sparsity is exploited by
+        \emph{skyline/profile} storage and historically by
+        \emph{frontal/multifrontal} solvers (Irons); modern codes reorder
+        (nested dissection, AMD) to limit fill-in. Robust and accurate;
+        memory grows quickly for large 3D models.
+  \item[Iterative solvers.] For very large 3D problems,
+        \textbf{preconditioned conjugate gradients (PCG)} on the SPD
+        system, with Jacobi, incomplete-Cholesky, or algebraic-multigrid
+        preconditioners. Convergence is governed by the condition number
+        $\kappa(\Kmat)$; a good preconditioner is essential. CalculiX
+        offers both direct (default SPOOLES/PaStiX) and iterative solvers.
+\end{description}
+
+Post-processing recovers strains $\evec=\Bmat\dof$ and stresses
+$\svec=\Dmat(\evec-\evec_0)$ element-by-element; the accuracy of those
+derived fields, and where they are most trustworthy, is the subject of
+\cref{ch:meshing-convergence}. First, \cref{ch:extensions} extends the
+machinery beyond linear statics.

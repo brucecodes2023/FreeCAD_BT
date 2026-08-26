@@ -1,0 +1,68 @@
+\chapter{The Sketcher: Constraint-Based Profiles}
+\label{ch:sketcher}
+
+Almost every solid built for analysis begins as a 2D \emph{sketch}: a
+planar collection of geometry (lines, arcs, circles, B-splines)
+governed by \emph{constraints}. The Sketcher is a
+\textbf{2D geometric constraint solver}, and understanding it as such ---
+rather than as a drawing tool --- is the key to using it well.
+
+\section{Degrees of freedom and the solver}
+
+A sketch's geometry carries \emph{degrees of freedom} (DOF): a free point
+has 2 (its $x,y$), a free line segment has 4, and so on. Constraints
+remove DOF. The Sketcher continuously reports the remaining DOF in the
+solver-messages area:
+
+\begin{itemize}
+  \item \textbf{Under-constrained} ($\text{DOF}>0$): geometry can still
+        move; dragging changes shape.
+  \item \textbf{Fully constrained} ($\text{DOF}=0$): geometry is fixed
+        and the sketch turns green. This is the target state for a
+        production model.
+  \item \textbf{Over-constrained / conflicting}: redundant or
+        contradictory constraints; the solver flags them and refuses to
+        solve. Redundant constraints should be removed, not left.
+\end{itemize}
+
+Mathematically the solver assembles the constraints as a system of
+(generally nonlinear) equations $\vec{c}(\vec{q})=\vec 0$ in the geometry
+parameters $\vec q$ and solves it by a Newton-type iteration; the DOF
+count is $\dim\vec q$ minus the rank of the constraint Jacobian.
+
+\section{Two kinds of constraint}
+
+\begin{description}
+  \item[Geometric constraints] impose relationships without numbers:
+        coincident, horizontal, vertical, parallel, perpendicular,
+        tangent, equal, symmetric, point-on-object.
+  \item[Dimensional constraints] impose measured values: distance,
+        horizontal/vertical distance, radius, diameter, angle. These are
+        the \emph{parameters} that make the model editable, and they can
+        be named and driven by expressions or a spreadsheet.
+\end{description}
+
+\begin{fctip}[Constrain like an engineer]
+Prefer a small set of dimensional constraints tied to design intent
+(``bracket width'', ``hole pitch'') over many arbitrary ones. Name the
+important dimensions; you can then reference them in expressions
+(\texttt{Sketch.Constraints.width}) and sweep them for a parametric
+study --- exactly what a design-of-experiments FEA campaign needs.
+\end{fctip}
+
+\section{Workflow}
+
+The typical loop is: pick a plane (or a planar face) $\rightarrow$ enter
+the sketch $\rightarrow$ draw rough geometry $\rightarrow$ add geometric
+constraints to capture intent $\rightarrow$ add dimensional constraints
+to fix size $\rightarrow$ reach $\text{DOF}=0$ $\rightarrow$ close the
+sketch. The finished sketch becomes the profile for a solid feature
+(\cref{ch:part-partdesign}).
+
+\section{External geometry and construction geometry}
+
+\emph{Construction geometry} (toggle mode) participates in constraints
+but is not part of the output profile --- useful for reference lines and
+symmetry axes. \emph{External geometry} imports edges from existing
+solids into the sketch as references, letting a new feature key off
+previously built geometry while preserving the parametric link.

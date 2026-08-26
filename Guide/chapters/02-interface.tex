@@ -1,0 +1,73 @@
+\chapter{The Interface, Navigation and the Document}
+\label{ch:interface}
+
+This chapter is a fast orientation to the FreeCAD window and the handful
+of interactions you will repeat thousands of times.
+
+\section{Anatomy of the window}
+
+\begin{description}
+  \item[Workbench selector.] The dropdown (or the \emph{View
+        $\rightarrow$ Workbench} menu) switches the active toolset. Its
+        contents are context-specific to the task, not the document.
+  \item[Tree view (Model tab).] The document object graph
+        (\cref{ch:introduction}). Objects nest under their consumers;
+        the tip feature of a solid body sits at the bottom.
+  \item[Property editor.] Below the tree; shows the properties of the
+        selected object, split into \emph{Data} (geometric/parametric)
+        and \emph{View} (appearance). Editing a Data property and
+        recomputing changes the model.
+  \item[3D view.] The OpenGL viewport. Selection here is synchronised
+        with the tree.
+  \item[Report view / Python console.] Optional panels (\emph{View
+        $\rightarrow$ Panels}) that surface messages and give a live
+        Python prompt.
+\end{description}
+
+\section{Navigation}
+
+FreeCAD offers several \emph{navigation styles} (Edit $\rightarrow$
+Preferences $\rightarrow$ Display $\rightarrow$ Navigation, or the
+selector in the status bar). The default \emph{CAD} style is:
+
+\begin{center}
+\begin{tabularx}{\linewidth}{lX}
+  \toprule
+  Action & Input \\
+  \midrule
+  Pan    & middle mouse button + drag \\
+  Zoom   & scroll wheel \\
+  Rotate & middle button + right button (or the on-screen navigation cube) \\
+  Select & left click \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+The \textbf{navigation cube} in the corner gives named standard views
+(Front, Top, Isometric). The numeric keys \texttt{1}--\texttt{6} snap to
+the standard orthographic views; \texttt{0} gives the isometric view.
+
+\section{Units and preferences}
+
+Set your unit system early: \emph{Edit $\rightarrow$ Preferences
+$\rightarrow$ General $\rightarrow$ Units}. FreeCAD stores lengths
+internally in millimetres regardless of the display unit. For FEA this
+matters enormously: material properties, forces and results must be in a
+\emph{consistent} unit system, a point we return to with emphasis in
+\cref{ch:fem-workbench}.
+
+\begin{fcwarn}[Consistent units]
+FreeCAD's default internal length unit is the millimetre. If a Young's
+modulus is entered in \si{\mega\pascal} ($=\si{\newton\per\milli\metre\squared}$),
+lengths in \si{\milli\metre} and forces in \si{\newton}, then stresses
+come out in \si{\mega\pascal}. Mixing this with SI-metre inputs is the
+single most common source of nonsensical FEA results.
+\end{fcwarn}
+
+\section{Saving and the file format}
+
+An \texttt{.FCStd} file is a ZIP archive containing the serialised
+object graph, the OCCT geometry (BREP), a thumbnail and GUI state.
+Because it is just a ZIP, models are diff-unfriendly but robust and
+self-contained. FreeCAD keeps an undo/redo transaction stack per
+document; each GUI command is one transaction.

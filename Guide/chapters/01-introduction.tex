@@ -1,0 +1,82 @@
+\chapter{Introduction: FreeCAD's Architecture}
+\label{ch:introduction}
+
+FreeCAD is a free, open-source, general-purpose parametric 3D CAD
+modeler. For the engineer coming from a commercial package
+(SolidWorks, Inventor, CATIA), three architectural ideas explain almost
+everything about how FreeCAD behaves and why. This short chapter fixes
+them before we touch a mouse.
+
+\section{Parametric, history-based modeling}
+
+A FreeCAD model is not a static mesh of triangles; it is a
+\emph{recipe}. Each operation --- a sketch, a pad, a fillet, a Boolean
+cut --- is stored as a \emph{feature} that remembers its parameters and
+its inputs. Re-evaluating the recipe (\emph{recomputing} the document)
+regenerates the geometry. Change a sketch dimension and every downstream
+feature updates. This is the same \emph{feature tree} paradigm used by
+mainstream MCAD, and it is what makes CAD models editable rather than
+merely drawable.
+
+The underlying geometry kernel is \textbf{OpenCascade Technology (OCCT)},
+which provides the boundary-representation (B-rep) solids, the NURBS
+surfaces, and the geometric operations. FreeCAD is, in large part, an
+application framework wrapped around OCCT plus a scripting layer.
+
+\section{The document object model}
+
+Everything in a FreeCAD file (\texttt{.FCStd}) lives in a
+\textbf{Document}, which is a container of \textbf{Document Objects}. A
+document object (\texttt{App::DocumentObject}) is a typed node --- a
+sketch, a solid, a mesh, an FEM constraint --- with:
+
+\begin{itemize}
+  \item a set of \textbf{Properties} (typed, introspectable fields:
+        lengths, placements, links to other objects, \ldots);
+  \item a \textbf{dependency graph} linking it to the objects it consumes;
+  \item an \texttt{execute()} method that recomputes it from its inputs.
+\end{itemize}
+
+The objects and their links form a \emph{directed acyclic graph}; a
+recompute is a topological traversal of that graph. The \emph{Model} tab
+of the tree view is simply a human-readable rendering of this object
+graph.
+
+\begin{fctip}[Scripting is first-class]
+Every property you set through the GUI is equally reachable from Python.
+The document object model \emph{is} the API:
+\begin{lstlisting}[language=FreeCADPython]
+import FreeCAD as App
+doc = App.newDocument("Demo")
+box = doc.addObject("Part::Box", "Box")
+box.Length = 40      # a property, identical to the GUI field
+doc.recompute()
+\end{lstlisting}
+This matters for FEA: complete analyses can be built, meshed, solved and
+post-processed headlessly in Python, which is how automated verification
+and parameter sweeps are done (Part~III).
+\end{fctip}
+
+\section{The workbench paradigm}
+
+FreeCAD does not present one monolithic toolset. Instead it groups
+functionality into \textbf{Workbenches} --- self-contained sets of tools,
+toolbars and menus for a particular task. \textsf{Sketcher} constrains 2D
+profiles; \textsf{PartDesign} builds solids feature-by-feature;
+\textsf{Part} offers direct primitive-and-Boolean modeling;
+\textsf{FEM} performs finite-element analysis; \textsf{TechDraw}
+produces drawings, and so on. Switching workbench changes the available
+tools but \emph{not} the document --- all workbenches operate on the same
+underlying object graph.
+
+For this book the relevant workbenches are \textsf{Sketcher},
+\textsf{Part}, \textsf{PartDesign} (Part~I) and \textsf{FEM}
+(Part~III).
+
+\section{Scope of this book}
+
+We assume FreeCAD~1.x. Part~I is deliberately brisk: enough of the
+interface, Sketcher and solid modeling to build the geometry an analysis
+needs, and no more. Readers wanting exhaustive modeling tutorials should
+consult the official wiki~\citep{freecad_wiki}; readers who already model
+in FreeCAD can jump to the FEM theory in Part~II.

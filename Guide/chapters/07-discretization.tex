@@ -1,0 +1,127 @@
+\chapter{Galerkin Discretisation and Isoparametric Elements}
+\label{ch:discretization}
+
+We now turn the weak form~\eqref{eq:weak} into a finite system of
+algebraic equations. The idea is Galerkin's: replace the
+infinite-dimensional spaces $\mathcal S,\mathcal V$ with
+finite-dimensional subspaces built from piecewise polynomials over a
+mesh of \emph{elements}. This chapter constructs the element
+interpolation, the strain--displacement operator, and the isoparametric
+mapping that makes curved, distorted elements practical.
+
+\section{Interpolation and shape functions}
+
+Partition $\domain$ into non-overlapping elements $\domain^e$. Over each
+element the displacement field is interpolated from \emph{nodal} values
+$\dofe$ using \textbf{shape (basis) functions} $N_a$:
+\begin{equation}
+  \disp^h(\vec x) = \sum_{a=1}^{n_{en}} N_a(\vec x)\,\vec d_a
+                  = \Nmat(\vec x)\,\dofe ,
+  \label{eq:interp}
+\end{equation}
+where $n_{en}$ is the number of element nodes and $\Nmat$ arranges the
+$N_a$ into the shape-function matrix. Shape functions satisfy the
+\textbf{Kronecker-delta / partition-of-unity} properties
+\begin{equation}
+  N_a(\vec x_b)=\delta_{ab}, \qquad \sum_a N_a(\vec x)=1,
+\end{equation}
+so nodal coefficients \emph{are} nodal displacements and rigid-body
+translations are representable exactly (a prerequisite for convergence,
+\cref{ch:meshing-convergence}).
+
+\section{The strain--displacement matrix \texorpdfstring{$\Bmat$}{B}}
+
+Applying the symmetric gradient~\eqref{eq:strain-disp} to the
+interpolation~\eqref{eq:interp} gives the strain in terms of nodal DOF:
+\begin{equation}
+  \evec = \grad_{\!s}\disp^h = \Bmat\,\dofe, \qquad \Bmat=\grad_{\!s}\Nmat,
+  \label{eq:Bdef}
+\end{equation}
+so $\Bmat$ contains shape-function derivatives. In 2D the block for node
+$a$ is
+\begin{equation}
+  \Bmat_a =
+  \begin{bmatrix}
+    \partial N_a/\partial x & 0 \\
+    0 & \partial N_a/\partial y \\
+    \partial N_a/\partial y & \partial N_a/\partial x
+  \end{bmatrix},
+\end{equation}
+with rows corresponding to $(\varepsilon_{xx},\varepsilon_{yy},\gamma_{xy})$;
+the 3D case is the direct six-row analogue. $\Bmat$ is the single most
+important operator in the FEM: it maps discrete DOF to strains and,
+through $\ke=\int\Bmat\transpose\Dmat\,\Bmat\dd V$
+(\cref{ch:elements-assembly}), to element stiffness.
+
+\section{Isoparametric mapping}
+
+Rather than compute $N_a(\vec x)$ directly for every distorted element,
+we define the shape functions once on a fixed \textbf{parent element} in
+\emph{natural coordinates} $\vec\xi=(\xi,\eta,\zeta)$ and map to physical
+space. The \textbf{isoparametric} principle uses the \emph{same} shape
+functions for geometry and field:
+\begin{equation}
+  \vec x = \sum_a N_a(\vec\xi)\,\vec x_a, \qquad
+  \disp^h = \sum_a N_a(\vec\xi)\,\vec d_a .
+  \label{eq:isoparam}
+\end{equation}
+Derivatives transform through the \textbf{Jacobian} of the map,
+\begin{equation}
+  \Jmat = \pd{\vec x}{\vec\xi} = \sum_a \pd{N_a}{\vec\xi}\,\vec x_a\transpose,
+  \qquad
+  \pd{N_a}{\vec x} = \Jmat^{-1}\pd{N_a}{\vec\xi},
+  \qquad
+  \dd V = \det\Jmat \,\dd\xi\,\dd\eta\,\dd\zeta .
+  \label{eq:jacobian}
+\end{equation}
+A valid map requires $\det\Jmat>0$ at every integration point; a
+non-positive Jacobian signals an inverted or excessively distorted
+element and is a common cause of solver failure.
+
+\section{A catalogue of common elements}
+
+Shape functions for the workhorse elements (natural coordinates
+$\xi,\eta,\zeta\in[-1,1]$ for quad/hex families; area/volume
+\emph{barycentric} coordinates $L_i$ for triangle/tet families):
+
+\begin{center}
+\begin{tabularx}{\linewidth}{p{3.1cm}p{1.1cm}X}
+  \toprule
+  Element & Nodes & Shape functions \\
+  \midrule
+  Bar (linear)     & 2 & $N_{1,2}=\tfrac12(1\mp\xi)$ \\
+  Bar (quadratic)  & 3 & $N_1=\tfrac12\xi(\xi-1),\ N_2=1-\xi^2,\ N_3=\tfrac12\xi(\xi+1)$ \\
+  Tri (linear, CST)& 3 & $N_i=L_i$ (constant strain) \\
+  Tri (quadratic)  & 6 & corner $L_i(2L_i-1)$, midside $4L_iL_j$ \\
+  Quad (bilinear)  & 4 & $N_a=\tfrac14(1+\xi\xi_a)(1+\eta\eta_a)$ \\
+  Quad (serendip.) & 8 & corner $\tfrac14(1+\xi\xi_a)(1+\eta\eta_a)(\xi\xi_a+\eta\eta_a-1)$ \\
+  Tet (linear)     & 4 & $N_i=L_i$ (constant strain) \\
+  Tet (quadratic)  & 10& corner $L_i(2L_i-1)$, midedge $4L_iL_j$ \\
+  Hex (trilinear)  & 8 & $N_a=\tfrac18(1+\xi\xi_a)(1+\eta\eta_a)(1+\zeta\zeta_a)$ \\
+  Hex (serendip.)  & 20& corner \& midedge serendipity formulae \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{remark}[Linear vs quadratic, and why FreeCAD defaults to Tet10]
+Linear simplex elements (Tri3, Tet4) have \emph{constant} strain over the
+element: they capture bending only through many elements and are prone to
+shear locking. Quadratic elements (Tri6, Tet10) represent linear strain
+fields, model curved boundaries far better, and are dramatically more
+accurate per node for stress analysis. This is why the FreeCAD/CalculiX
+default for solids is the 10-node tetrahedron (C3D10), discussed in
+\cref{ch:solvers}. Automatic tetrahedral meshers fill arbitrary solids
+that hexahedra cannot, at the cost of more elements for equal accuracy.
+\end{remark}
+
+\begin{remark}[Serendipity vs Lagrange]
+The 8-node quad and 20-node hex are \emph{serendipity} elements: only
+edge nodes, incomplete high-order polynomial basis. Their Lagrange
+cousins (Quad9, Hex27) add interior nodes for a complete basis and
+slightly better accuracy, at higher cost. Either family requires
+matching the correct quadrature rule (\cref{ch:elements-assembly}).
+\end{remark}
+
+With the interpolation, the $\Bmat$ operator, and the isoparametric map
+in hand, the next chapter integrates $\Bmat\transpose\Dmat\Bmat$ to form
+element stiffness, assembles the global system, and solves it.

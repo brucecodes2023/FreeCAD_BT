@@ -1,0 +1,72 @@
+% ======================================================================
+%  A Rigorous Guide to FreeCAD --- Modeling and the Finite Element Method
+%
+%  Build:  latexmk -pdf main.tex      (or: make)
+%  Requires: pdflatex, biber/bibtex, a full TeX distribution (TeX Live /
+%            MacTeX). See README.md.
+% ======================================================================
+\documentclass[11pt,openright,twoside]{book}
+
+\input{preamble}
+
+% --- Document metadata ------------------------------------------------
+\title{\Huge\bfseries A Rigorous Guide to FreeCAD\\[0.4em]
+       \Large Parametric Modeling and the Finite Element Method}
+\author{FreeCAD\_BT Project}
+\date{\today}
+
+\makeatletter
+\hypersetup{
+  pdftitle={A Rigorous Guide to FreeCAD: Modeling and the FEM},
+  pdfauthor={\@author},
+  pdfsubject={FreeCAD, CAD, Finite Element Method, FEA},
+}
+\makeatother
+
+\begin{document}
+
+% ---- Front matter ----------------------------------------------------
+\frontmatter
+\maketitle
+
+\input{frontmatter/preface}
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+% ---- Main matter -----------------------------------------------------
+\mainmatter
+
+% Part I --- FreeCAD foundations (brisk, engineer-oriented)
+\part{FreeCAD Foundations}
+\include{chapters/01-introduction}
+\include{chapters/02-interface}
+\include{chapters/03-sketcher}
+\include{chapters/04-part-partdesign}
+
+% Part II --- The Finite Element Method: theory
+\part{The Finite Element Method: Theory}
+\include{chapters/05-continuum-mechanics}
+\include{chapters/06-strong-weak-form}
+\include{chapters/07-discretization}
+\include{chapters/08-elements-assembly-solve}
+\include{chapters/09-extensions}
+\include{chapters/10-meshing-convergence}
+
+% Part III --- FEM in FreeCAD: practice
+\part{The FEM Workbench in Practice}
+\include{chapters/11-fem-workbench}
+\include{chapters/12-solvers}
+\include{chapters/13-worked-example}
+\include{chapters/14-postprocessing-verification}
+
+% ---- Back matter -----------------------------------------------------
+\backmatter
+\appendix
+\include{appendix/notation}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

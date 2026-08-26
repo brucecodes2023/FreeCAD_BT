@@ -1,0 +1,136 @@
+\chapter{A Continuum-Mechanics Primer}
+\label{ch:continuum}
+
+The finite element method solves the field equations of continuum
+mechanics. This chapter states those equations for the linear
+(small-strain, linear-elastic) theory that underlies the great majority
+of engineering stress analysis, and casts them in the matrix (Voigt)
+form the FEM will consume. Readers fluent in elasticity may skim to
+\cref{ch:strong-weak}. The development follows the standard
+treatments~\citep{malvern1969,hughes2000,bathe2014}.
+
+\section{Kinematics: the strain tensor}
+
+Let $\disp(\vec x)$ be the displacement field of a body occupying the
+domain $\domain\subset\mathbb R^3$. Under the \emph{small-strain}
+assumption $\lVert\grad\disp\rVert\ll 1$, deformation is measured by the
+infinitesimal (Cauchy) strain tensor, the symmetric part of the
+displacement gradient:
+\begin{equation}
+  \varepsilon_{ij} = \tfrac12\!\left(\pd{u_i}{x_j}+\pd{u_j}{x_i}\right),
+  \qquad
+  \strain = \tfrac12\bigl(\grad\disp+\grad\disp\transpose\bigr)
+          = \sym\grad\disp .
+  \label{eq:strain-disp}
+\end{equation}
+Equation~\eqref{eq:strain-disp} is the \emph{strain--displacement
+relation}; it is linear in $\disp$, which is precisely what makes the
+resulting problem linear. Discarding the antisymmetric part (the
+infinitesimal rotation) is legitimate only when strains \emph{and}
+rotations are small; large-rotation problems require the nonlinear
+strain measures of \cref{ch:extensions}.
+
+\section{Kinetics: stress and equilibrium}
+
+Internal forces are described by the \textbf{Cauchy stress tensor}
+$\stress$. By Cauchy's theorem the traction on an internal surface with
+unit normal $\vec n$ is
+\begin{equation}
+  \traction = \stress\,\vec n, \qquad t_i = \sigma_{ij}n_j .
+\end{equation}
+Balance of angular momentum makes $\stress$ symmetric
+($\sigma_{ij}=\sigma_{ji}$), leaving six independent components. Balance
+of linear momentum, in the static case, gives the \textbf{equilibrium
+equations}
+\begin{equation}
+  \pd{\sigma_{ij}}{x_j} + b_i = 0, \qquad
+  \divergence\stress + \bodyforce = \vec 0 \quad\text{in }\domain,
+  \label{eq:equilibrium}
+\end{equation}
+where $\bodyforce$ is the body force per unit volume. (The dynamic case
+replaces the right-hand side with $\rho\,\ddot{\disp}$; see
+\cref{ch:extensions}.)
+
+\section{Constitutive law: linear isotropic elasticity}
+
+For a linear elastic material, stress is linear in strain via the
+fourth-order elasticity tensor, $\sigma_{ij}=C_{ijkl}\varepsilon_{kl}$.
+For the \emph{isotropic} case this reduces to two constants. In terms of
+the Lam\'e parameters $\lambda,\mu$,
+\begin{equation}
+  \sigma_{ij} = \lambda\,\varepsilon_{kk}\,\delta_{ij} + 2\mu\,\varepsilon_{ij},
+  \label{eq:hooke}
+\end{equation}
+with $\mu=G=E/[2(1+\nu)]$ the shear modulus and
+$\lambda=E\nu/[(1+\nu)(1-2\nu)]$, where $E$ is Young's modulus and $\nu$
+Poisson's ratio. The inverse relation is
+$\varepsilon_{ij}=\tfrac{1}{E}[(1+\nu)\sigma_{ij}-\nu\sigma_{kk}\delta_{ij}]$.
+
+\section{Voigt form and the elasticity matrix}
+
+For computation we collapse the symmetric tensors to six-vectors
+(\cref{app:notation}) and write $\svec=\Dmat\,\evec$ with the strain
+vector using \emph{engineering} shear strains $\gamma_{ij}=2\varepsilon_{ij}$.
+The 3D isotropic elasticity matrix is
+\begin{equation}
+  \Dmat = \frac{E}{(1+\nu)(1-2\nu)}
+  \begin{bmatrix}
+    1-\nu & \nu & \nu & 0 & 0 & 0\\
+    \nu & 1-\nu & \nu & 0 & 0 & 0\\
+    \nu & \nu & 1-\nu & 0 & 0 & 0\\
+    0 & 0 & 0 & \tfrac{1-2\nu}{2} & 0 & 0\\
+    0 & 0 & 0 & 0 & \tfrac{1-2\nu}{2} & 0\\
+    0 & 0 & 0 & 0 & 0 & \tfrac{1-2\nu}{2}
+  \end{bmatrix}.
+  \label{eq:Dmat3d}
+\end{equation}
+The engineering-shear convention is what makes $\svec\transpose\evec$ the
+correct (scalar) work-conjugate product used to form the strain energy.
+
+\subsection{Two-dimensional reductions}
+
+For thin bodies loaded in-plane (\textbf{plane stress},
+$\sigma_{zz}=\tau_{xz}=\tau_{yz}=0$),
+\begin{equation}
+  \Dmat = \frac{E}{1-\nu^2}
+  \begin{bmatrix} 1 & \nu & 0\\ \nu & 1 & 0\\ 0 & 0 & \tfrac{1-\nu}{2}\end{bmatrix},
+  \qquad \evec=[\varepsilon_{xx},\varepsilon_{yy},\gamma_{xy}]\transpose .
+\end{equation}
+For long prismatic bodies (\textbf{plane strain},
+$\varepsilon_{zz}=\gamma_{xz}=\gamma_{yz}=0$),
+\begin{equation}
+  \Dmat = \frac{E}{(1+\nu)(1-2\nu)}
+  \begin{bmatrix} 1-\nu & \nu & 0\\ \nu & 1-\nu & 0\\ 0 & 0 & \tfrac{1-2\nu}{2}\end{bmatrix},
+\end{equation}
+with the out-of-plane stress recovered as
+$\sigma_{zz}=\nu(\sigma_{xx}+\sigma_{yy})\neq 0$.
+
+\section{Thermal strains}
+
+A temperature change $\Delta T$ adds an isotropic \emph{initial}
+(thermal) strain $\evec_0=\alpha\,\Delta T\,[1,1,1,0,0,0]\transpose$,
+where $\alpha$ is the coefficient of thermal expansion. Stress is then
+driven only by the \emph{mechanical} (total minus thermal) strain:
+\begin{equation}
+  \svec = \Dmat\,(\evec-\evec_0).
+  \label{eq:thermal-strain}
+\end{equation}
+This term reappears in \cref{ch:elements-assembly} as a thermal load
+vector, and it is the mechanism behind thermomechanical (coupled)
+analyses in \cref{ch:extensions}.
+
+\section{The boundary-value problem, informally}
+
+Collecting \eqref{eq:strain-disp}, \eqref{eq:equilibrium} and
+\eqref{eq:hooke}, elastostatics asks: find $\disp$ on $\domain$
+satisfying equilibrium, with the material law and strain definition
+substituted in, subject to prescribed displacements on part of the
+boundary and prescribed tractions on the rest. Substituting throughout
+yields the \textbf{Navier--Lam\'e} displacement equations
+\begin{equation}
+  \mu\,\grad^2\disp + (\lambda+\mu)\,\grad(\divergence\disp) + \bodyforce = \vec 0 .
+  \label{eq:navier}
+\end{equation}
+The next chapter states this boundary-value problem precisely (its
+\emph{strong form}) and then recasts it into the \emph{weak form} that
+the finite element method actually discretises.
