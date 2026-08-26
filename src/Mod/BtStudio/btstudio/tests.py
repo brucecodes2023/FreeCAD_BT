@@ -17,11 +17,24 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 from btstudio.core import (  # noqa: E402
+    ACTION_CREATE_SAMPLE_CUBE,
     DESIGN_WORKBENCH_ORDER,
     FEM_WIZARD_STEPS,
     FOAM_WIZARD_STEPS,
+    PHYSICS_FLUIDS,
+    PHYSICS_STRUCTURES,
+    STATE_COMING,
+    STATE_CURRENT,
+    STATE_LOCKED,
+    STATE_PASSED,
+    WizardFacts,
     characteristic_length,
+    evaluate_wizard,
+    foam_case_tree_ready,
+    geometry_hint,
+    geometry_ready,
     merge_workbench_order,
+    steps_for_physics,
 )
 from solvers.registry import PHYSICS, by_domain, planned_backends  # noqa: E402
 from solvers.openfoam import case_tree  # noqa: E402
@@ -75,6 +88,8 @@ class TestCore(unittest.TestCase):
         self.assertIn("solve", ids)
         mesh = next(s for s in FEM_WIZARD_STEPS if s["id"] == "mesh")
         self.assertEqual(mesh["command"], "BtStudio_FemAutoMesh")
+        geo = next(s for s in FEM_WIZARD_STEPS if s["id"] == "geometry")
+        self.assertEqual(geo["action"], ACTION_CREATE_SAMPLE_CUBE)
 
     def test_foam_wizard_writes_before_solve(self):
         ids = [s["id"] for s in FOAM_WIZARD_STEPS]
@@ -83,6 +98,235 @@ class TestCore(unittest.TestCase):
         self.assertLess(ids.index("write"), ids.index("solve"))
         write = next(s for s in FOAM_WIZARD_STEPS if s["id"] == "write")
         self.assertEqual(write["command"], "BtStudio_FoamWriteCase")
+        geo = next(s for s in FOAM_WIZARD_STEPS if s["id"] == "geometry")
+        self.assertEqual(geo["action"], ACTION_CREATE_SAMPLE_CUBE)
+        mesh = next(s for s in FOAM_WIZARD_STEPS if s["id"] == "mesh")
+        self.assertTrue(mesh.get("coming"))
+
+
+class TestWizardGating(unittest.TestCase):
+    def test_geometry_ready_requires_named_solid(self):
+        self.assertFalse(geometry_ready([], False))
+        self.assertFalse(geometry_ready(["Box"], False))
+        self.assertFalse(geometry_ready([], True))
+        self.assertTrue(geometry_ready(["Box"], True))
+
+    def test_geometry_ready_with_foam_link(self):
+        self.assertTrue(geometry_ready([], False, geometry_link_set=True))
+        self.assertTrue(geometry_ready((), False, True))
+
+    def test_geometry_hint_tells_you_to_create_or_pick(self):
+        hint = geometry_hint([], False)
+        self.assertIn("Create sample cube", hint)
+        self.assertIn("No solid selected", hint)
+        self.assertIn("Cube", geometry_hint(["Cube"], True))
+
+    def test_empty_fluids_starts_at_geometry_with_run(self):
+        view = evaluate_wizard(WizardFacts(physics=PHYSICS_FLUIDS))
+        self.assertEqual([s.id for s in view.steps], [s["id"] for s in FOAM_WIZARD_STEPS])
+        geo = view.steps[0]
+        self.assertEqual(geo.state, STATE_CURRENT)
+        self.assertTrue(geo.run_enabled)
+        self.assertEqual(geo.run_label, "Create sample cube")
+        self.assertEqual(geo.action, ACTION_CREATE_SAMPLE_CUBE)
+        self.assertEqual(view.current_id, "geometry")
+        self.assertEqual(view.steps[1].state, STATE_LOCKED)
+        self.assertFalse(view.steps[1].run_enabled)
+        self.assertEqual(view.steps[-2].state, STATE_COMING)
+        self.assertEqual(view.steps[-1].state, STATE_COMING)
+        self.assertFalse(view.steps[-2].run_enabled)
+        self.assertFalse(view.foam_settings_enabled)
+        self.assertEqual(view.output_path, "")
+
+    def test_geometry_unlocks_case_only(self):
+        view = evaluate_wizard(
+            WizardFacts(selection_names=("Cube",), has_shape=True)
+        )
+        by_id = {s.id: s for s in view.steps}
+        self.assertEqual(by_id["geometry"].state, STATE_PASSED)
+        self.assertFalse(by_id["geometry"].run_enabled)
+        self.assertEqual(by_id["case"].state, STATE_CURRENT)
+        self.assertTrue(by_id["case"].run_enabled)
+        self.assertEqual(by_id["write"].state, STATE_LOCKED)
+        self.assertFalse(by_id["write"].run_enabled)
+
+    def test_foam_geometry_link_counts_without_selection(self):
+        view = evaluate_wizard(WizardFacts(geometry_link_set=True))
+        self.assertEqual(view.current_id, "case")
+        self.assertEqual(view.steps[0].state, STATE_PASSED)
+
+    def test_case_unlocks_write(self):
+        view = evaluate_wizard(
+            WizardFacts(
+                selection_names=("Cube",),
+                has_shape=True,
+                has_foam_case=True,
+            )
+        )
+        by_id = {s.id: s for s in view.steps}
+        self.assertEqual(by_id["case"].state, STATE_PASSED)
+        self.assertEqual(by_id["write"].state, STATE_CURRENT)
+        self.assertTrue(by_id["write"].run_enabled)
+        self.assertTrue(view.foam_settings_enabled)
+        self.assertEqual(view.output_path, "")
+
+    def test_write_requires_control_dict_and_u(self):
+        incomplete = evaluate_wizard(
+            WizardFacts(
+                selection_names=("Cube",),
+                has_shape=True,
+                has_foam_case=True,
+                case_path="/tmp/FoamCase",
+                case_files=("system/controlDict",),
+            )
+        )
+        self.assertEqual(incomplete.current_id, "write")
+        self.assertEqual(incomplete.output_path, "")
+
+        done = evaluate_wizard(
+            WizardFacts(
+                selection_names=("Cube",),
+                has_shape=True,
+                has_foam_case=True,
+                case_path="/tmp/FoamCase",
+                case_files=("system/controlDict", "0/U"),
+            )
+        )
+        by_id = {s.id: s for s in done.steps}
+        self.assertEqual(by_id["write"].state, STATE_PASSED)
+        self.assertFalse(by_id["write"].run_enabled)
+        self.assertEqual(by_id["mesh"].state, STATE_COMING)
+        self.assertEqual(by_id["solve"].state, STATE_COMING)
+        self.assertIsNone(done.current_id)
+        self.assertEqual(done.output_path, "/tmp/FoamCase")
+        self.assertIn("/tmp/FoamCase", by_id["write"].hint)
+
+    def test_foam_case_tree_ready_filesystem(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertFalse(foam_case_tree_ready(tmp))
+            os.makedirs(os.path.join(tmp, "system"))
+            os.makedirs(os.path.join(tmp, "0"))
+            with open(os.path.join(tmp, "system", "controlDict"), "w", encoding="utf-8") as fh:
+                fh.write("application simpleFoam;\n")
+            self.assertFalse(foam_case_tree_ready(tmp))
+            with open(os.path.join(tmp, "0", "U"), "w", encoding="utf-8") as fh:
+                fh.write("internalField uniform (1 0 0);\n")
+            self.assertTrue(foam_case_tree_ready(tmp))
+        self.assertFalse(foam_case_tree_ready(""))
+        self.assertTrue(
+            foam_case_tree_ready("/unused", ("system/controlDict", "0/U"))
+        )
+
+    def test_only_current_run_is_enabled(self):
+        snapshots = [
+            WizardFacts(),
+            WizardFacts(selection_names=("Cube",), has_shape=True),
+            WizardFacts(selection_names=("Cube",), has_shape=True, has_foam_case=True),
+            WizardFacts(
+                selection_names=("Cube",),
+                has_shape=True,
+                has_foam_case=True,
+                case_path="/tmp/x",
+                case_files=("system/controlDict", "0/U"),
+            ),
+            WizardFacts(physics=PHYSICS_STRUCTURES),
+            WizardFacts(
+                physics=PHYSICS_STRUCTURES,
+                selection_names=("Cube",),
+                has_shape=True,
+                has_analysis=True,
+            ),
+            WizardFacts(
+                physics=PHYSICS_STRUCTURES,
+                selection_names=("Cube",),
+                has_shape=True,
+                has_analysis=True,
+                has_material=True,
+                has_constraint=True,
+                has_mesh=True,
+                has_solver_run=True,
+                has_results=True,
+            ),
+        ]
+        for facts in snapshots:
+            view = evaluate_wizard(facts)
+            enabled = [s.id for s in view.steps if s.run_enabled]
+            self.assertLessEqual(len(enabled), 1, facts)
+            if view.current_id:
+                self.assertEqual(enabled, [view.current_id])
+            for step in view.steps:
+                if step.coming or step.state in (STATE_LOCKED, STATE_PASSED, STATE_COMING):
+                    self.assertFalse(step.run_enabled, step)
+                if step.state == STATE_CURRENT:
+                    self.assertTrue(step.run_enabled, step)
+                    self.assertFalse(step.coming)
+
+    def test_switching_physics_rebuilds_step_ids(self):
+        fem = evaluate_wizard(WizardFacts(physics=PHYSICS_STRUCTURES))
+        foam = evaluate_wizard(WizardFacts(physics=PHYSICS_FLUIDS))
+        self.assertEqual(steps_for_physics(PHYSICS_STRUCTURES), FEM_WIZARD_STEPS)
+        self.assertNotEqual([s.id for s in fem.steps], [s.id for s in foam.steps])
+        self.assertIn("analysis", [s.id for s in fem.steps])
+        self.assertNotIn("write", [s.id for s in fem.steps])
+        self.assertIn("write", [s.id for s in foam.steps])
+        with self.assertRaises(ValueError):
+            steps_for_physics("electromagnetics")
+
+    def test_fem_gates_analysis_until_geometry(self):
+        empty = evaluate_wizard(WizardFacts(physics=PHYSICS_STRUCTURES))
+        self.assertEqual(empty.current_id, "geometry")
+        self.assertTrue(empty.steps[0].run_enabled)
+        self.assertEqual(empty.steps[0].run_label, "Create sample cube")
+        self.assertEqual(empty.steps[1].state, STATE_LOCKED)
+        ready = evaluate_wizard(
+            WizardFacts(
+                physics=PHYSICS_STRUCTURES,
+                selection_names=("Cube",),
+                has_shape=True,
+            )
+        )
+        self.assertEqual(ready.current_id, "analysis")
+        self.assertTrue(ready.steps[1].run_enabled)
+        self.assertFalse(ready.foam_settings_enabled)
+
+    def test_fem_mesh_is_not_coming(self):
+        view = evaluate_wizard(
+            WizardFacts(
+                physics=PHYSICS_STRUCTURES,
+                selection_names=("Cube",),
+                has_shape=True,
+                has_analysis=True,
+                has_material=True,
+                has_constraint=True,
+            )
+        )
+        mesh = next(s for s in view.steps if s.id == "mesh")
+        self.assertEqual(mesh.state, STATE_CURRENT)
+        self.assertFalse(mesh.coming)
+        self.assertEqual(mesh.command, "BtStudio_FemAutoMesh")
+
+    def test_locked_hint_names_the_current_step(self):
+        view = evaluate_wizard(WizardFacts())
+        self.assertIn("Select solid geometry", view.steps[1].hint)
+        self.assertIn("Locked", view.steps[1].hint)
+
+    def test_core_module_does_not_import_freecad(self):
+        import inspect
+        import btstudio.core as core
+
+        source = inspect.getsource(core)
+        self.assertNotIn("import FreeCAD", source)
+        self.assertNotIn("from FreeCAD", source)
+
+    def test_wizard_modules_import_without_freecad(self):
+        from btstudio.foam_wizard import show_wizard as foam_show
+        from btstudio.fem_wizard import show_wizard as fem_show
+        from btstudio.analysis_wizard import create_sample_cube
+
+        self.assertTrue(callable(foam_show))
+        self.assertTrue(callable(fem_show))
+        self.assertTrue(callable(create_sample_cube))
+
 
 
 class TestSolvers(unittest.TestCase):
@@ -163,6 +407,20 @@ class TestFoamWriter(unittest.TestCase):
             self.assertIn("system/controlDict", written)
             self.assertTrue(os.path.isfile(os.path.join(tmp, "0", "U")))
             self.assertTrue(os.path.isfile(os.path.join(tmp, "constant", "transportProperties")))
+            view = evaluate_wizard(
+                WizardFacts(
+                    selection_names=("Cube",),
+                    has_shape=True,
+                    has_foam_case=True,
+                    case_path=tmp,
+                    case_files=None,
+                )
+            )
+            by_id = {s.id: s for s in view.steps}
+            self.assertEqual(by_id["write"].state, STATE_PASSED)
+            self.assertEqual(view.output_path, tmp)
+            self.assertEqual(by_id["mesh"].state, STATE_COMING)
+            self.assertFalse(by_id["mesh"].run_enabled)
 
     def test_rejects_bad_spec(self):
         with self.assertRaises(ValueError):

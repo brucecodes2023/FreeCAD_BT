@@ -32,7 +32,7 @@ class CmdFemWizard:
     def GetResources(self):
         return _resources(
             "FEM walkthrough",
-            "Right-sidebar checklist: analysis → material → BCs → mesh → solve → results.",
+            "Analysis walkthrough on Structures: geometry → analysis → material → BCs → mesh → solve.",
             "FEM_Analysis",
         )
 
@@ -115,8 +115,8 @@ class CmdWorkbenchOrder:
 class CmdFoamWizard:
     def GetResources(self):
         return _resources(
-            "OpenFOAM walkthrough",
-            "Right-sidebar checklist: FoamCase → write 0/constant/system. Does not run the solver.",
+            "Analysis walkthrough",
+            "Guided right-sidebar: pick Structures or Fluids, then only the next required step is enabled.",
             "FEM_Analysis",
         )
 

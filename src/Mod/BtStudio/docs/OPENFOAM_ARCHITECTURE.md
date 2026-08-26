@@ -11,6 +11,20 @@ not a pile of macros.
 `0/`, `constant/`, `system/` (including `blockMeshDict`). It still does
 **not** spawn `blockMesh` or the solver — that is the next slice.
 
+The right-sidebar **Analysis walkthrough** (`btstudio/analysis_wizard.py`)
+is a gated wizard, not a checklist of Run buttons that always succeed:
+
+1. Physics picker: Structures (FEM) | Fluids (simpleFoam). Switching rebuilds steps.
+2. Live status per step (Next / Done / Locked / Coming) from document facts.
+3. Only the current step’s Run is enabled. Geometry’s Run is **Create sample cube**.
+4. Fluids: geometry (solid Volume>0 or `FoamCase.Geometry`) → FoamCase → write
+   `0/` + `system/controlDict` → show the output path. Mesh/solve stay Coming.
+5. Step gating lives in `btstudio/core.py` (`geometry_ready`, `evaluate_wizard`)
+   so `python3 -m btstudio.tests` can prove it without importing FreeCAD.
+
+Toolbar commands stay `BtStudio_FoamWizard` / `BtStudio_FemWizard` /
+`BtStudio_FoamNewCase` / `BtStudio_FoamWriteCase`.
+
 FEM/Elmer flow stays for slow internal FEM-NS. Production CFD goes here.
 
 ## Why a new module (Tier 4)
@@ -80,8 +94,10 @@ Propulsion (reacting, high-Mach) is a second wave: `rhoCentralFoam`,
 - Right: task sidebar tabs (same BtStudio Tasks-on-the-right rule):
   General, Models, Materials, Boundary Conditions, Mesh, Solution, Results.
 - Ribbon (workbench toolbars): Mesh | Physics | BCs | Run | Post.
-- A walkthrough wizard parallel to the FEM wizard (checklist in the
-  right sidebar).
+- A walkthrough wizard parallel to the FEM wizard, in one **Analysis
+  walkthrough** dock: physics picker at the top, live Next/Done/Locked/Coming
+  status, only the next required Run enabled. Fluids mesh/solve are Coming
+  until a later slice that can optionally spawn OpenFOAM.
 
 ## Execution
 
