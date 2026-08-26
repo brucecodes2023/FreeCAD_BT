@@ -74,7 +74,9 @@ void ToolHandler::deactivate()
 
     unsetCursor();
 
-    Gui::MainWindow::getInstance()->hideHints();
+    if (auto mw = Gui::MainWindow::getInstance()) {
+        mw->hideHints();
+    }
 }
 
 //**************************************************************************

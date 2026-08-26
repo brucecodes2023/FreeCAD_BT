@@ -1504,7 +1504,9 @@ TaskDlgAttacher::TaskDlgAttacher(
 
 TaskDlgAttacher::~TaskDlgAttacher()
 {
-    Gui::getMainWindow()->hideHints();
+    if (auto mw = Gui::getMainWindow()) {
+        mw->hideHints();
+    }
     if (dblClickViewer) {
         // Re-enable selection in case it was disabled for a double-click that never completed
         dblClickViewer->setSelectionEnabled(true);

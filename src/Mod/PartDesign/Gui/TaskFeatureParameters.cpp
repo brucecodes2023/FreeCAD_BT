@@ -149,7 +149,9 @@ void TaskFeatureParameters::showDraggerHints()
 
 void TaskFeatureParameters::hideDraggerHints()
 {
-    Gui::getMainWindow()->hideHints();
+    if (auto mw = Gui::getMainWindow()) {
+        mw->hideHints();
+    }
 }
 
 void TaskFeatureParameters::slotDeletedObject(const Gui::ViewProviderDocumentObject& Obj)

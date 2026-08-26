@@ -615,7 +615,9 @@ void InteractiveScale::deactivate()
         viewer->setSelectionEnabled(true);
         viewer->getWidget()->setCursor(QCursor(Qt::ArrowCursor));
         active = false;
-        Gui::getMainWindow()->hideHints();
+        if (auto mw = Gui::getMainWindow()) {
+            mw->hideHints();
+        }
     }
 }
 
