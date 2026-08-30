@@ -376,6 +376,26 @@ display the splash screen.</string>
          </property>
         </widget>
        </item>
+       <item row="7" column="1">
+        <widget class="Gui::PrefCheckBox" name="UseRibbon">
+         <property name="toolTip">
+          <string>Replace classic stacked toolbars with a Fusion-style ribbon
+while a document is open. The Start dashboard never shows the ribbon.</string>
+         </property>
+         <property name="text">
+          <string>Use Fusion-style ribbon instead of classic toolbars</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+         <property name="prefEntry" stdset="0">
+          <cstring>UseRibbon</cstring>
+         </property>
+         <property name="prefPath" stdset="0">
+          <cstring>MainWindow</cstring>
+         </property>
+        </widget>
+       </item>
       </layout>
      </widget>
     </item>

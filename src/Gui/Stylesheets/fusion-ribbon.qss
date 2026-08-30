@@ -1,0 +1,145 @@
+/* Fusion-style ribbon chrome. Tokens come from the active theme YAML. */
+QWidget#RibbonBar {
+  background-color: @PrimaryColorLighten2;
+  border-bottom: 1px solid @GeneralBorderColor;
+  min-height: 120px;
+}
+
+QWidget#RibbonQuickAccessBar {
+  background-color: @TabbarBackgroundColor;
+  border-bottom: 1px solid @GeneralBorderColor;
+  min-height: 28px;
+}
+
+QToolButton#RibbonQatButton {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 2px 4px;
+}
+
+QToolButton#RibbonQatButton:hover {
+  background: @AccentHoverColor;
+  border-color: @GeneralBorderHoverColor;
+}
+
+QToolButton#RibbonOverflowButton {
+  min-width: 28px;
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: bold;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+}
+
+QToolButton#RibbonOverflowButton:hover {
+  background: @AccentHoverColor;
+}
+
+QWidget#RibbonTabRow {
+  background-color: @TabbarBackgroundColor;
+}
+
+QTabBar#RibbonTabBar::tab {
+  background: @InActiveTabBackgroundColor;
+  color: @TextForegroundColor;
+  border: none;
+  padding: 8px 16px;
+  margin-right: 1px;
+  min-width: 64px;
+}
+
+QTabBar#RibbonTabBar::tab:selected {
+  background: @PrimaryColorLighten2;
+  color: @AccentColor;
+  border-bottom: 2px solid @AccentColor;
+  font-weight: bold;
+}
+
+QTabBar#RibbonTabBar::tab:hover:!selected {
+  background: @GeneralBackgroundHoverColor;
+}
+
+QWidget#RibbonPage {
+  background-color: @PrimaryColorLighten2;
+}
+
+QScrollArea#RibbonPageScroll {
+  background: transparent;
+  border: none;
+}
+
+QFrame#RibbonGroup {
+  background: transparent;
+  border: none;
+}
+
+QLabel#RibbonGroupTitle {
+  color: @TextDisabledColor;
+  font-size: 10px;
+}
+
+QFrame#RibbonGroupDivider {
+  color: @GeneralBorderColor;
+  max-width: 1px;
+}
+
+QToolButton#RibbonCommandButton {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 4px 4px 2px 4px;
+  min-width: 56px;
+  max-width: 80px;
+  min-height: 64px;
+  font-size: 11px;
+}
+
+QToolButton#RibbonCommandButton:hover {
+  background: @AccentHoverColor;
+  border-color: @GeneralBorderHoverColor;
+}
+
+QToolButton#RibbonCommandButton:pressed,
+QToolButton#RibbonCommandButton:checked {
+  background: @AccentBackgroundColor;
+  border-color: @AccentColor;
+}
+
+QComboBox#RibbonWorkbenchBox {
+  min-height: 28px;
+  padding: 2px 8px;
+}
+
+QFrame#DashboardMetricCard {
+  background-color: @PrimaryColorLighten3;
+  border: 1px solid @GeneralBorderColor;
+  border-radius: 6px;
+  padding: 12px 16px;
+  min-width: 180px;
+}
+
+QLabel#DashboardMetricValue {
+  font-size: 22px;
+  font-weight: bold;
+  color: @AccentColor;
+}
+
+QLabel#DashboardTitle {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+QFrame#DashboardTips {
+  background-color: @PrimaryColorLighten3;
+  border: 1px solid @GeneralBorderColor;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+QLineEdit#DashboardCommandSearch {
+  min-height: 28px;
+  padding: 4px 10px;
+  max-width: 420px;
+}

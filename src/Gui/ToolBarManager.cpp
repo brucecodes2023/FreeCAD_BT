@@ -44,6 +44,7 @@
 #include "Command.h"
 #include "MainWindow.h"
 #include "OverlayWidgets.h"
+#include "RibbonManager.h"
 #include "WidgetFactory.h"
 
 
@@ -190,7 +191,12 @@ void ToolBar::undock()
             getMainWindow()->addToolBar(this);
         }
 
+#ifdef Q_OS_MAC
+        // Keep Cocoa's native floating-window chrome on macOS.
+        setWindowFlags(Qt::Tool);
+#else
         setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
+#endif
         adjustSize();
         setVisible(true);
     }
@@ -805,6 +811,10 @@ void ToolBarManager::setup(ToolBarItem* toolBarItems)
     }
 
     setMovable(!areToolBarsLocked());
+
+    if (RibbonManager::useRibbon()) {
+        hideAllForRibbon();
+    }
 }
 
 void ToolBarManager::setup(ToolBarItem* item, QToolBar* toolbar) const
@@ -913,6 +923,10 @@ void ToolBarManager::restoreState() const
     statusBarAreaWidget->restoreState(sbToolBars);
     menuBarRightAreaWidget->restoreState(mbRightToolBars);
     menuBarLeftAreaWidget->restoreState(mbLeftToolBars);
+
+    if (RibbonManager::useRibbon()) {
+        hideAllForRibbon();
+    }
 }
 
 bool ToolBarManager::addToolBarToArea(QObject* source, QMouseEvent* ev)
@@ -1257,6 +1271,17 @@ QList<ToolBar*> ToolBarManager::toolBars() const
     return tb;
 }
 
+void ToolBarManager::hideAllForRibbon()
+{
+    const QList<ToolBar*> bars = toolBars();
+    for (ToolBar* toolbar : bars) {
+        toolbar->hide();
+        if (QAction* toggle = toolbar->toggleViewAction()) {
+            toggle->setVisible(false);
+        }
+    }
+}
+
 ToolBarItem::DefaultVisibility ToolBarManager::getToolbarPolicy(const QToolBar* toolbar) const
 {
     auto* action = toolbar->toggleViewAction();
@@ -1342,6 +1367,11 @@ void ToolBarManager::setState(const QString& name, State state)
             auto show = tb->isVisible();
             saveVisibility(show, policy);
         }
+    }
+
+    if (RibbonManager::useRibbon()) {
+        hideAllForRibbon();
+        RibbonManager::getInstance()->syncVisibility();
     }
 }
 

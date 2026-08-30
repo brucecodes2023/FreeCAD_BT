@@ -177,6 +177,10 @@
             "type": "STRING",
             "value": "Both"
           },
+          "CMAKE_OSX_DEPLOYMENT_TARGET": {
+            "type": "STRING",
+            "value": "11.0"
+          },
           "OCC_INCLUDE_DIR": {
             "type": "FILEPATH",
             "value": "$env{CONDA_PREFIX}/include/opencascade"

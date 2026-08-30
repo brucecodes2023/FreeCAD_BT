@@ -1,0 +1,15 @@
+/* macOS: let Cocoa draw dock title bars instead of FreeCAD's custom QSS chrome. */
+QDockWidget::title {
+  background: none;
+  padding: 0px;
+  spacing: 0px;
+  border-style: none;
+  font-weight: normal;
+}
+
+QDockWidget::close-button,
+QDockWidget::float-button {
+  image: none;
+  border: none;
+  background: transparent;
+}

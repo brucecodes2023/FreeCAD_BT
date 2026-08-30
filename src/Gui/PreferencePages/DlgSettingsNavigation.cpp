@@ -168,20 +168,17 @@ void DlgSettingsNavigation::loadSettings()
     ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath(
         "User parameter:BaseApp/Preferences/View"
     );
-    std::string model = hGrp->GetASCII(
-        "NavigationStyle",
-        std::string {CADNavigationStyle::getClassTypeId().getName()}.c_str()
-    );
+    std::string model = hGrp->GetASCII("NavigationStyle", DefaultNavigationStyleName);
     int index = ui->comboNavigationStyle->findData(QByteArray(model.c_str()));
     if (index > -1) {
         ui->comboNavigationStyle->setCurrentIndex(index);
     }
 
-    index = hGrp->GetInt("OrbitStyle", int(NavigationStyle::RoundedArcball));
+    index = hGrp->GetInt("OrbitStyle", DefaultOrbitStyle);
     index = Base::clamp(index, 0, ui->comboOrbitStyle->count() - 1);
     ui->comboOrbitStyle->setCurrentIndex(index);
 
-    index = hGrp->GetInt("RotationMode", 0);
+    index = hGrp->GetInt("RotationMode", DefaultRotationMode);
     ui->comboRotationMode->setCurrentIndex(index);
 
     bool showNaviCube = hGrp->GetBool("ShowNaviCube", true);

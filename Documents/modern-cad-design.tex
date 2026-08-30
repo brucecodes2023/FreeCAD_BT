@@ -1,0 +1,541 @@
+% Modern CAD — product design plan and work tracker
+% Compile: cd Documents && ./build.sh
+% Successor to docs/macos-native-ui-scope.tex (env-setup branch; not on this branch).
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,top=26mm,bottom=24mm,left=24mm,right=24mm]{geometry}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{microtype}
+\usepackage[htt]{hyphenat}
+\usepackage[document]{ragged2e}
+\usepackage{setspace}
+\setstretch{1.18}
+\sloppy
+\emergencystretch=3em
+
+\usepackage{xcolor}
+\definecolor{appleink}{HTML}{1D1D1F}
+\definecolor{applegray}{HTML}{6E6E73}
+\definecolor{appleblue}{HTML}{0071E3}
+\definecolor{swblue}{HTML}{0066B3}
+\definecolor{applegreen}{HTML}{34C759}
+\definecolor{appleamber}{HTML}{FF9F0A}
+\definecolor{applered}{HTML}{FF3B30}
+\definecolor{hairline}{HTML}{D2D2D7}
+\definecolor{panel}{HTML}{F5F5F7}
+\color{appleink}
+
+\usepackage{titlesec}
+\setcounter{secnumdepth}{0}
+\titleformat{\section}{\LARGE\bfseries\color{appleink}}{}{0em}{}
+\titlespacing*{\section}{0pt}{2.4em}{0.8em}
+\titleformat{\subsection}{\large\bfseries\color{appleink}}{}{0em}{}
+\titlespacing*{\subsection}{0pt}{1.4em}{0.4em}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{applegray}}{}{0em}{}
+\titlespacing*{\subsubsection}{0pt}{1.0em}{0.2em}
+
+\usepackage{enumitem}
+\setlist{leftmargin=1.3em,itemsep=3pt,topsep=4pt,parsep=0pt}
+\setlist[itemize]{label=\textcolor{appleblue}{\small\raisebox{0.15ex}{\textbullet}}}
+
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\renewcommand{\arraystretch}{1.3}
+\newcolumntype{L}{>{\RaggedRight\arraybackslash}X}
+\newcolumntype{S}{>{\centering\arraybackslash}p{0.16\linewidth}}
+
+\usepackage[most]{tcolorbox}
+
+\usepackage[hidelinks]{hyperref}
+\hypersetup{pdftitle={Modern CAD Design Plan and Work Tracker}, pdfauthor={FreeCAD_BT}}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancyfoot[C]{\footnotesize\color{applegray}FreeCAD\_BT\quad\textbullet\quad Modern CAD design plan\quad\textbullet\quad\thepage}
+
+\newcommand{\hairrule}{\vspace{2pt}{\color{hairline}\hrule height 0.6pt}\vspace{2pt}}
+\usepackage{soul}
+\newcommand{\eyebrow}[1]{{\footnotesize\color{appleblue}\bfseries\so{\MakeUppercase{#1}}}}
+
+\newcommand{\trafficlights}{%
+  \raisebox{0.2ex}{\textcolor{applered}{\Large\textbullet}}\,%
+  \raisebox{0.2ex}{\textcolor{appleamber}{\Large\textbullet}}\,%
+  \raisebox{0.2ex}{\textcolor{applegreen}{\Large\textbullet}}%
+}
+
+\newcommand{\fp}[1]{\texttt{\detokenize{#1}}}
+
+\newtcbox{\ptag}[1][appleblue]{on line, colframe=#1, colback=#1, coltext=white,
+  boxrule=0pt, arc=3pt, left=4pt, right=4pt, top=1pt, bottom=1pt,
+  fontupper=\footnotesize\bfseries}
+
+\newcommand{\done}{\ptag[applegreen]{Done}}
+\newcommand{\partialst}{\ptag[appleamber]{Partial}}
+\newcommand{\later}{\ptag[applegray]{Later}}
+\newcommand{\wip}{\ptag[appleamber]{WIP}}
+
+\begin{document}
+\thispagestyle{fancy}
+
+% ============================ TITLE BLOCK ===================================
+\begingroup
+\setstretch{1.0}
+\noindent\trafficlights\hfill\eyebrow{Living design plan}\\[1.0em]
+{\fontsize{28}{32}\selectfont\bfseries Modern CAD\\ Design Plan \& Work Tracker\par}
+\vspace{0.7em}
+{\large\color{applegray} Close the gap from FreeCAD toward SolidWorks and Fusion~360, starting on the FreeCAD foundation and shipping first on Apple Silicon.\par}
+\vspace{1.1em}
+\noindent{\footnotesize\color{applegray} Repository \; \textbf{brucecodes2023/FreeCAD\_BT} \hfill Branch \; \textbf{cursor/modern-cad-phase1-953c} \hfill Updated \; \textbf{13~August~2026}}
+\endgroup
+
+\vspace{0.9em}
+\hairrule
+\vspace{1.3em}
+
+% ============================ SUMMARY =======================================
+\begin{tcolorbox}[enhanced, colback=panel, colframe=panel, boxrule=0pt,
+  arc=6pt, left=16pt, right=16pt, top=12pt, bottom=12pt]
+{\eyebrow{How to use this document}}\\[0.6em]
+This is the working design record for the fork. IDs are stable. When work lands,
+flip the status tag, name the files, and add a line to the work log at the end.
+The original Cloud Agent scoping note (\fp{docs/macos-native-ui-scope.tex} on
+branch \fp{cursor/setup-cloud-agent-env-d2a0}) covered A/B/C only. This file
+keeps those IDs and adds shell (D), look (E), modeling UX (F), and simulation (G).
+
+\vspace{0.5em}
+GitHub does not render \texttt{.tex}. Keep the Markdown edition open in a browser
+tab while we work: \fp{Documents/README.md} (also linked from repo-root
+\fp{PLAN.md}). The PDF in this folder is the typeset copy; CI rebuilds it as the
+\textbf{Design PDF} Action artifact when this source changes.
+
+\vspace{0.5em}
+\textbf{Constraints that still hold}
+\begin{itemize}
+  \item Source-only until a Mac checkout builds and launches the GUI. Do not treat a Linux VM as a visual preview.
+  \item Work from FreeCAD's existing extension points (preference packs, YAML/QSS, workbench \fp{ToolBarItem} trees, Elmer equation objects). Do not start with a Metal rewrite or a ribbon-only skin.
+  \item Effort ratings describe technical scope, not calendar time.
+\end{itemize}
+\end{tcolorbox}
+
+% ============================ THESIS ========================================
+\section{Product thesis}
+
+SolidWorks is the target \emph{feel} (FeatureManager, CommandManager-like strip,
+familiar mouse, guided simulation). Fusion is the target \emph{shell} (ribbon
+while modeling, dashboard on launch). FreeCAD is the \emph{foundation} (OCCT
+kernel, Body/Tip history, workbenches, CalculiX + Elmer).
+
+The gap is closed in this order, because that is the order the codebase actually
+supports:
+
+\begin{enumerate}[label=\textbf{\arabic*.}]
+  \item \textbf{Shell} --- Home dashboard + Fusion-style ribbon over existing commands.
+  \item \textbf{Look} --- YAML tokens, QSS, icons. Not a C++ widget rewrite.
+  \item \textbf{Modeling UX} --- Body/Tip, naming, rollback, sketch-in-tree.
+  \item \textbf{Mac smoothness} --- Qt/OpenGL mitigation now; Metal later.
+  \item \textbf{Simulation} --- guided CalculiX plus Elmer first-principles as WIP.
+\end{enumerate}
+
+Keep the native macOS menu bar. The ribbon is the command strip, not a replacement
+for File / Edit / View.
+
+% ============================ TRACKER =======================================
+\section{Status tracker}
+
+{\eyebrow{Shipped and native Mac}}\\[0.4em]
+\noindent\begin{tabularx}{\linewidth}{@{}p{0.10\linewidth}p{0.16\linewidth}p{0.14\linewidth}L@{}}
+\toprule
+\textbf{ID} & \textbf{Item} & \textbf{Status} & \textbf{Notes} \\
+\midrule
+A1 & SolidWorks nav default & \done & New profiles only; existing \fp{User.cfg} unchanged. \\
+A2 & Modern CAD behavior pack & \done & Nav, cube, combo view, ribbon flag. \\
+A3 & View cube defaults & \done & Top-right, size 132. \\
+A4 & First-start onboarding & \done & Applies Modern CAD pack once. \\
+A5 & Fusion 360 nav class & \done & Additive; MMB pan / Shift+MMB orbit. Default stays SolidWorks. \\
+A6 & Fusion-style ribbon & \partialst & QAT, overflow, captions, sketch contextual tabs. Mac QA remaining. \\
+\midrule
+B0 & Traffic lights already native & \done & Finding; no code move. \\
+B1 & Unified title + toolbar & \done & \fp{setUnifiedTitleAndToolBarOnMac(true)}. \\
+B2 & Native dock/toolbar chrome & \done & Cocoa chrome; \fp{macos-native-chrome.qss}. \\
+B3 & NSWindow full-size content & \later & New \fp{.mm} shim. \\
+B4 & Bundle id + dark mode & \done & \fp{org.freecad.FreeCAD}; Aqua appearance off. \\
+\midrule
+C1 & arm64 + macOS 11 pin & \done & CMake helpers + conda-macos preset. \\
+C2 & Optional LTO / apple-m1 & \done & Off by default. \\
+C3 & Enable TBB & \done & \fp{HAVE_TBB} + ImportOCAF. \\
+C4 & Defer InitGui.py & \later & Startup ordering risk. \\
+C5 & Metal / Qt RHI viewport & \later & Real M5 fix. Near-term: vsync + software GL. \\
+\bottomrule
+\end{tabularx}
+
+\vspace{1.0em}
+{\eyebrow{Shell, look, modeling, simulation}}\\[0.4em]
+\noindent\begin{tabularx}{\linewidth}{@{}p{0.10\linewidth}p{0.22\linewidth}p{0.14\linewidth}L@{}}
+\toprule
+\textbf{ID} & \textbf{Item} & \textbf{Status} & \textbf{Notes} \\
+\midrule
+D1 & Home dashboard & \partialst & Metrics, tips, command search, projects, new-file cards. \\
+D2 & Project folders & \partialst & Create + list; open file from folder. \\
+D3 & Dashboard health widgets & \partialst & Drawing + Continue; recompute errors; GPU warning; search. \\
+\midrule
+E1 & Modern CAD Light/Dark tokens & \partialst & Cool gray + SW blue; iterate on Mac. \\
+E2 & Denser Feature tree / icons & \partialst & Pack: 32px toolbars, tree icon 24 / indent 10. \\
+E3 & Viewport / PD preview colors & \partialst & Gradient off; dress-up preview blue-gray. \\
+E4 & Custom sketch/feature icons & \later & Optional icon set. \\
+\midrule
+F1 & Rollback bar & \later & Body/Tip history UX. \\
+F2 & Topological naming UX & \later & Kernel work, not chrome. \\
+F3 & Sketch-in-tree FeatureManager & \later & Single tree like SW. \\
+F4 & In-context assembly edits & \later & Beyond Ondsel joints. \\
+\midrule
+G1 & First Principles study stub & \wip & Elmer elasticity + heat; labeled WIP. \\
+G2 & Guided equation wizard & \partialst & Mesh / material / BC checklist before solve. \\
+G3 & CalculiX study presets & \partialst & Static + thermal wrappers; no auto-mesh. \\
+G4 & Assembly contact FEA & \later & Large gap vs SW Simulation. \\
+\bottomrule
+\end{tabularx}
+
+% ============================ WORKSTREAM A ==================================
+\section{Workstream A \; CAD-familiar defaults}
+
+Goal: a first launch that feels like SolidWorks / Fusion without touching
+preferences. Vehicle: built-in preference pack plus shipped fallbacks.
+
+\subsection{A1 \textemdash{} SolidWorks navigation}
+Navigation styles live under \fp{src/Gui/Navigation/}. \fp{SolidWorksNavigationStyle}
+already existed. New profiles now fall back to it, with turntable orbit and
+object-center rotation (\fp{DefaultNavigationStyleName}, \fp{DefaultOrbitStyle},
+\fp{DefaultRotationMode} in \fp{NavigationStyle.h}). Existing \fp{User.cfg} is not
+migrated.
+
+\subsection{A2 \textemdash{} Modern CAD behavior pack}
+Pack at \fp{src/Gui/PreferencePacks/Modern CAD/}: SolidWorks nav, cube, combo-view
+layout, \fp{UseRibbon=1}. Type is Behavior, not Theme --- apply on top of Light/Dark.
+
+\subsection{A3 \textemdash{} View cube}
+NaviCube top-right, size 132, rotate-to-nearest. Configurable via
+\fp{BaseApp/Preferences/NaviCube}.
+
+\subsection{A4 \textemdash{} First-start onboarding}
+Start workbench \fp{FirstStart2024} flow applies the Modern CAD pack once
+(\fp{ModernCADDefaultsApplied}), skipped in GUI tests. Copy mentions SW/Fusion nav
+and the ribbon/dashboard.
+
+\subsection{A5 \textemdash{} Fusion 360 navigation class}
+\fp{Gui::Fusion360NavigationStyle} is registered. Fusion defaults: MMB pan,
+Shift+MMB orbit, scroll zoom. New profiles still use SolidWorks. Pick Fusion~360
+in Preferences $\rightarrow$ Display $\rightarrow$ Navigation.
+
+\subsection{A6 \textemdash{} Fusion-style ribbon}
+Originally deferred. Product decision reversed: ribbon \emph{replaces} classic
+toolbars while a document is open.
+
+\textbf{Shipped}
+\begin{itemize}
+  \item \fp{Gui::RibbonBar} / \fp{RibbonManager} consume the workbench \fp{ToolBarItem} tree.
+  \item Tabs = toolbars; groups split on separators; workbench combo on the tab row.
+  \item Hidden when the active MDI view is \fp{StartView}.
+  \item Classic \fp{QToolBar}s hidden while ribbon is on (including after sketch \fp{setState}).
+  \item Preference \fp{BaseApp/Preferences/MainWindow/UseRibbon} (default on; off in GUI tests).
+  \item Ribbon sits above the MDI area, not inside the 22\,px unified title bar.
+  \item Quick Access strip: New, Save, Undo, Redo.
+  \item Per-page overflow chevron (\texttt{»}) when groups do not fit.
+  \item Fusion-sized captions (toolbar icon size from prefs, text under icon).
+  \item Contextual tabs: \fp{Unavailable} (sketch edit) toolbars shown only while a sketch is in edit.
+\end{itemize}
+
+\textbf{Still to polish on Mac:} height vs traffic lights, overflow at laptop widths,
+optional QAT customization.
+
+% ============================ WORKSTREAM D ==================================
+\section{Workstream D \; Home dashboard}
+
+The landing page must \emph{not} show the ribbon. It is a dashboard.
+
+\subsection{D1 \textemdash{} Dashboard chrome}
+\fp{StartGui::StartView} documents page is now Home: title, three metric cards
+(recent files, project count, graphics backend), then projects, new-file cards,
+recent files, examples. Metrics are placeholders for later health/solver widgets.
+
+\subsection{D2 \textemdash{} Projects}
+\fp{Start::ProjectsModel} stores folder paths under
+\fp{BaseApp/Preferences/Mod/Start/Projects}. New Project picks a parent folder,
+creates a named directory and a \fp{.freecad-project} JSON marker, then lists
+the project. Clicking opens a file dialog in that folder. Not a SolidWorks
+assembly project yet --- a workspace folder.
+
+\subsection{D3 \textemdash{} Dashboard widgets (partial)}
+\begin{itemize}
+  \item Templates: Part Design Body, Assembly, Drawing (TechDraw), plus Continue last file.
+  \item Document health: recompute error count across open documents.
+  \item In-page command search (\fp{Gui::CommandCompleter}).
+  \item Units / navigation style on a metric card.
+  \item What's-new / first-run tips (dismissible).
+  \item Mac GPU warning when the OpenGL renderer string looks like Metal 90.x.
+\end{itemize}
+Pinned folders and sketch-solver health remain later.
+
+% ============================ WORKSTREAM E ==================================
+\section{Workstream E \; SolidWorks-like facelift}
+
+Theming is YAML tokens + \fp{FreeCAD.qss} (\fp{StyleParameters::ParameterManager}),
+not a C++ skin.
+
+\subsection{E1 \textemdash{} Modern CAD Light / Dark}
+New packs and YAML:
+\begin{itemize}
+  \item Light: chrome \texttt{\#F5F5F7}, accent \texttt{\#0066B3}, flat padding, light-gray 3D background.
+  \item Dark: graphite \texttt{\#2D2D30}, brighter blue accent.
+\end{itemize}
+Apply from Preferences $\rightarrow$ Preference Packs, on top of the Modern CAD
+behavior pack. Visual QA waits for a Mac launch.
+
+\subsection{E2--E4 \textemdash{} Density, viewport, icons}
+Packs set toolbar icons to 32\,px and denser Feature tree (icon 24, indent 10,
+item spacing 1). Viewport gradient stays off. PartDesign dress-up preview is
+blue-gray instead of magenta (\fp{StyleParameters.h}). Custom SW-like glyphs (E4)
+remain later.
+
+% ============================ WORKSTREAM F ==================================
+\section{Workstream F \; Modeling kernel UX}
+
+This is the real SolidWorks gap. Chrome cannot fake it.
+
+\textbf{Today.} PartDesign is \fp{Body} + \fp{Tip} + history. Pad/Pocket/Fillet go through
+\fp{ProfileBased} / \fp{DressUp}. Recompute is \fp{App::Document::recompute()} topo-sort.
+Assembly is \fp{AssemblyObject} + OndselSolver joints (kinematic), not SW mates.
+
+\textbf{Gaps vs SolidWorks}
+\begin{itemize}
+  \item F1 --- no real rollback bar on the history tip.
+  \item F2 --- topological naming is still fragile after face edits.
+  \item F3 --- sketch is a separate object; no single FeatureManager tree.
+  \item F4 --- no in-context assembly edits / SW-style mates driving geometry.
+\end{itemize}
+
+Do not schedule F before D/E are usable on a Mac. When F starts, work in
+\fp{src/Mod/PartDesign/} and \fp{src/App/Document.cpp}, not in QSS.
+
+% ============================ WORKSTREAM G ==================================
+\section{Workstream G \; Simulation / first principles}
+
+\textbf{Today.} \fp{FemAnalysis} plus external solvers. CalculiX is the structural
+workhorse. Elmer is the continuum-PDE path (elasticity, heat, flow, EM equation
+objects under \fp{src/Mod/Fem/}).
+
+\subsection{G1 \textemdash{} First Principles Study}
+Command \fp{FEM_FirstPrinciplesStudy} (Model + Solve toolbars/menus): creates or
+reuses an analysis, adds Elmer, attaches elasticity + heat equations, shows a
+one-time WIP dialog. Does \emph{not} replace CalculiX, add contact, or invent a
+SW Simulation study tree.
+
+\subsection{G2--G4 \textemdash{} Wizard, CalculiX presets, contact}
+\fp{FEM_StudyGuidedWizard} is a mesh / material / BC checklist (no new solver).
+\fp{FEM_CalculiXStaticStudy} and \fp{FEM_CalculiXThermalStudy} create analysis +
+CalculiX + empty material. Assembly-wide contact (G4) remains a large gap, not a stub.
+
+% ============================ WORKSTREAM B ==================================
+\section{Workstream B \; macOS-native chrome}
+
+\subsection{B0 \textemdash{} Traffic lights already native}
+\fp{Gui::MainWindow} is a plain \fp{QMainWindow}. Qt/Cocoa draws the standard frame;
+red/amber/green already sit top-left. No code move.
+
+\subsection{B1 \textemdash{} Unified title + toolbar}
+\fp{setUnifiedTitleAndToolBarOnMac(true)} in the MainWindow constructor. The ribbon
+is \emph{not} placed in that unified bar (too tall); it is a widget above the MDI
+area.
+
+\subsection{B2 \textemdash{} Native dock \& floating toolbars}
+Floating toolbars keep native Cocoa chrome. Overlay
+\fp{src/Gui/Stylesheets/macos-native-chrome.qss} is appended on \fp{Q_OS_MAC}.
+
+\subsection{B3 \textemdash{} NSWindow full-size content}
+Content under the title bar / large-title behavior needs a new Objective-C++
+\fp{.mm} shim. Precedent exists (QuickLook, 3Dconnexion) but no window-chrome
+Cocoa code yet.
+
+\subsection{B4 \textemdash{} Bundle identity \& appearance}
+\fp{CFBundleIdentifier=org.freecad.FreeCAD},
+\fp{NSRequiresAquaSystemAppearance=false}. Signing/notarization is a release
+concern, not this branch.
+
+% ============================ WORKSTREAM C ==================================
+\section{Workstream C \; Apple Silicon \& M5 smoothness}
+
+\subsection{Why M4/M5 feel laggy}
+The 3D view is OpenGL via Coin3D + \fp{QOpenGLWidget}
+(\fp{src/Gui/Quarter/QuarterWidget.cpp}, \fp{src/Gui/View3DInventorViewer.cpp}).
+On macOS that OpenGL is Apple's Metal translation layer
+(\texttt{OpenGL 2.1 Metal - 90.x}). M5 GPUs are Metal-4 oriented; the translation
+path is the known hitch/crash source (upstream reports on M5 MacBook Air + macOS
+Tahoe, slow Sketcher recompute on M4). Safe mode does not fix it. Qt~6.8.3 has a
+related \fp{QMacAccessibilityElement} use-after-free on Tahoe.
+
+More OpenGL tweaks will not close this gap. C5 (Metal / Qt RHI) is the real fix.
+
+\subsection{C1 \textemdash{} Architecture pin}
+\fp{CMAKE_OSX_ARCHITECTURES=arm64} when building on Apple Silicon; default
+\fp{CMAKE_OSX_DEPLOYMENT_TARGET=11.0}.
+
+\subsection{C2 \textemdash{} Optional LTO / \texttt{-mcpu=apple-m1}}
+\fp{FREECAD_USE_LTO} and \fp{FREECAD_APPLE_SILICON_TUNING} are off by default.
+
+\subsection{C3 \textemdash{} TBB}
+\fp{find_package(TBB)} before compiler checks so \fp{HAVE_TBB} in
+\fp{src/config.h.cmake} lights up ImportOCAF parallel paths.
+
+\subsection{C4 \textemdash{} Faster startup}
+All modules' \fp{InitGui.py} still run eagerly (\fp{src/Gui/FreeCADGuiInit.py}).
+Deferral has ordering risk.
+
+\subsection{C5 \textemdash{} Metal / Qt RHI}
+Near-term (shipped): \fp{QSurfaceFormat::setSwapInterval(1)} on macOS; software
+OpenGL fallback tooltip updated for M-series. Prefer Qt newer than 6.8.3 on
+Tahoe when building. Do not treat nav cube, extra GL contexts, or QSS as the
+root cause.
+
+% ============================ SEQUENCING ===================================
+\section{Sequencing}
+
+\noindent\begin{tabularx}{\linewidth}{@{}p{0.16\linewidth}p{0.28\linewidth}L@{}}
+\toprule
+\textbf{Phase} & \textbf{Focus} & \textbf{Items} \\
+\midrule
+Phase 1 & Familiar defaults & A1, A3, A2, A4 \done \\
+Phase 2 & Native Mac chrome + arm64 & B1, B2, B4, C1, C2, C3 \done \\
+Phase 3 & Shell + look v0 & A6, D1, D2, E1, G1 \partialst{} / \wip \\
+Phase 4 & Shell/look polish (source in; Mac QA) & A6 polish, D3, E2--E3 \partialst{} \\
+Phase 5 & Modeling UX & F1--F4 \\
+Phase 6 & Simulation depth + Metal & G4, C5, B3, C4 (A5/G2/G3 started) \\
+\bottomrule
+\end{tabularx}
+
+\vspace{0.6em}
+Phase 3 is the current working phase. Modeling kernel (F) and Metal (C5) wait
+until a Mac build has validated Phase 3 visually.
+
+% ============================ VALIDATION ===================================
+\section{Validation plan}
+
+\noindent\begin{tabularx}{\linewidth}{@{}p{0.32\linewidth}L@{}}
+\toprule
+\textbf{Change} & \textbf{How it is proven} \\
+\midrule
+A1--A4 defaults / pack & Fresh profile: SW orbit, cube top-right, Modern CAD applied once. \\
+A6 ribbon & Document open $\rightarrow$ ribbon + QAT; Home $\rightarrow$ no ribbon; overflow \texttt{»}; sketch edit shows contextual tabs. \\
+D1--D3 dashboard & Home shows metrics, tips, search, New Project, Drawing, Continue. \\
+E1--E3 look & Modern CAD Light/Dark; 32px icons; flat viewport; PD dress-up blue-gray. \\
+G1--G3 FEM & First Principles Elmer stub; Guided Wizard; CalculiX static/thermal presets. \\
+A5 Fusion nav & Preferences lists Fusion 360; default remains SolidWorks. \\
+B1/B2/B4 Mac chrome & Traffic lights top-left; unified toolbar; dark mode follows system. \\
+C1/C3 build & Reports \fp{arm64}; TBB found; ImportOCAF can use it. \\
+C5 near-term & Vsync on; software GL option documented; M5 still expected to need Metal. \\
+No regressions & FreeCAD CLI + C++ self-tests remain green. GUI tests force ribbon off. \\
+\bottomrule
+\end{tabularx}
+
+% ============================ FILE INDEX ===================================
+\section{Grounded file index}
+
+\noindent\begin{tabularx}{\linewidth}{@{}p{0.36\linewidth}L@{}}
+\toprule
+\textbf{Concern} & \textbf{Key path(s)} \\
+\midrule
+This plan & \fp{Documents/modern-cad-design.tex} \\
+Navigation defaults & \fp{src/Gui/Navigation/NavigationStyle.h}, \fp{View3DSettings.cpp} \\
+Modern CAD packs & \fp{src/Gui/PreferencePacks/Modern CAD/} and Light/Dark \\
+Ribbon & \fp{src/Gui/RibbonBar.cpp}, \fp{RibbonManager.cpp}, \fp{Workbench.cpp} \\
+Ribbon QSS & \fp{src/Gui/Stylesheets/fusion-ribbon.qss} \\
+Home dashboard & \fp{src/Mod/Start/Gui/StartView.cpp}, \fp{ProjectsModel.cpp} \\
+Theme tokens & \fp{src/Gui/Stylesheets/parameters/Modern CAD Light.yaml} \\
+Main window chrome & \fp{src/Gui/MainWindow.cpp}, \fp{ToolBarManager.cpp} \\
+macOS bundle & \fp{src/MacAppBundle/FreeCAD.app/Contents/Info.plist} \\
+arm64 / TBB / LTO & \fp{cMake/FreeCAD_Helpers/}, \fp{SetupTBB.cmake} \\
+OpenGL / vsync & \fp{src/Gui/Application.cpp}, \fp{Quarter/QuarterWidget.cpp} \\
+FEM first principles & \fp{src/Mod/Fem/femcommands/commands.py}, \fp{femtools/study_presets.py} \\
+FEM wizard & \fp{src/Mod/Fem/femguiutils/study_wizard.py} \\
+Fusion 360 nav & \fp{src/Gui/Navigation/Fusion360NavigationStyle.cpp} \\
+PartDesign kernel & \fp{src/Mod/PartDesign/App/Body.h}, \fp{src/App/Document.cpp} \\
+Assembly & \fp{src/Mod/Assembly/App/AssemblyObject.*} \\
+GUI startup & \fp{src/Gui/FreeCADGuiInit.py}, \fp{StartupProcess.cpp} \\
+\bottomrule
+\end{tabularx}
+
+% ============================ MAC BUILD ====================================
+\section{Compile and launch on a Mac}
+
+Build from source on Apple Silicon with pixi. Do not treat a Linux VM as a visual
+preview. Full copy-paste lives in \fp{Documents/README.md}; this is the short form.
+
+\textbf{Prerequisites.} Xcode Command Line Tools (\texttt{xcode-select --install})
+and pixi (\texttt{curl -fsSL https://pixi.sh/install.sh | bash}). Homebrew Qt is
+not used. Plan on about 20\,GB free (clone + pixi env + \fp{build/release}
+objects). \texttt{install-release} is optional for a first launch.
+macOS~27 beta is newer than the Qt~6.8.3 pin --- save the log if configure or
+the GUI fails.
+
+\begin{verbatim}
+git clone https://github.com/brucecodes2023/FreeCAD_BT.git
+cd FreeCAD_BT
+git checkout cursor/modern-cad-phase1-953c
+pixi install
+pixi run initialize
+pixi run configure-release
+pixi run build-release
+
+export FREECAD_USER_HOME="$HOME/freecad-modern-cad-fresh"
+mkdir -p "$FREECAD_USER_HOME"
+pixi run freecad-release
+\end{verbatim}
+
+Use a fresh \fp{FREECAD_USER_HOME} so A1 defaults apply. After launch: Home has no
+ribbon; opening a document shows the ribbon and QAT; apply Modern CAD Light/Dark
+on top of the Modern CAD behavior pack; Fusion~360 nav is optional in Preferences.
+If the 3D view lags, enable software OpenGL and restart. C5 Metal stays later.
+
+The pixi build does \emph{not} install into \texttt{/Applications}. After
+\texttt{build/release/bin/FreeCAD} exists, \fp{pixi run macos-app} writes a
+\emph{launcher} at \texttt{\textasciitilde/Applications/FreeCAD\_BT.app} that still
+needs this checkout. After that GUI is good, \fp{pixi run install-release} and
+\fp{Documents/macos-standalone.sh} copy Qt/OCCT into a relocatable app. If that
+copy launches, you may \texttt{rm -rf} the git clone, \fp{build/}, and
+\fp{.pixi/}. The install is full FreeCAD. Pixi is Apple Silicon only.
+
+% ============================ WORK LOG =====================================
+\section{Work log}
+
+Update this list every time the plan or the code moves. Newest first.
+
+\begin{itemize}
+  \item \textbf{13 Aug 2026 --- Remaining IDs (source).} A5 Fusion nav; A6 QAT /
+        overflow / contextual tabs; D3 dashboard widgets; E2/E3 density + PD
+        previews; G2 wizard; G3 CalculiX presets. Mac compile walkthrough added.
+        F1--F4, C5 Metal, B3, C4, E4, G4 still later.
+  \item \textbf{13 Aug 2026 --- Documents/ revived.} Living LaTeX plan replaces the
+        missing \fp{docs/macos-native-ui-scope.tex}. Status tracker covers A--G.
+  \item \textbf{13 Aug 2026 --- Phase 3 v0.} Fusion ribbon (A6), Home dashboard +
+        projects (D1/D2), Modern CAD Light/Dark (E1), FEM First Principles Study
+        WIP (G1), macOS vsync + software-GL copy (C5 near-term). PR~\#2.
+  \item \textbf{13 Aug 2026 --- Phase 2.} B1 unified toolbar, B2 native chrome,
+        B4 bundle id, C1 arm64 pin, C2 optional LTO/mcpu, C3 TBB.
+  \item \textbf{13 Aug 2026 --- Phase 1.} A1 SolidWorks nav defaults, A2/A3 pack +
+        cube, A4 first-start apply.
+  \item \textbf{Earlier --- env-setup branch.} Original A/B/C scoping LaTeX and
+        Cloud Agent environment notes. Not on this branch.
+\end{itemize}
+
+\vspace{1.2em}
+\hairrule
+\vspace{0.6em}
+\noindent{\footnotesize\color{applegray} Effort ratings describe technical scope (breadth of components and invasiveness), not calendar estimates. ``Exists today'' items are configuration/defaults; ``new work'' items add code behind existing extension points. Compile with \texttt{cd Documents \&\& ./build.sh}.}
+
+\end{document}

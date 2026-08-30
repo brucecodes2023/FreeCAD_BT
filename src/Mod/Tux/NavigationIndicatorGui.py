@@ -32,6 +32,10 @@ p = App.ParamGet("User parameter:Tux/NavigationIndicator")
 pView = App.ParamGet("User parameter:BaseApp/Preferences/View")
 pMWin = App.ParamGet("User parameter:BaseApp/Preferences/MainWindow")
 
+# Keep in sync with Gui::DefaultNavigationStyleName / DefaultOrbitStyle.
+DEFAULT_NAVIGATION_STYLE = "Gui::SolidWorksNavigationStyle"
+DEFAULT_ORBIT_STYLE = 0
+
 
 def translate(context, text):
     "convenience function for Qt 5/6 translator"
@@ -872,7 +876,7 @@ def onOrbit():
 def onOrbitShow():
     """Set turntable or trackball orbit style."""
 
-    OrbitStyle = pView.GetInt("OrbitStyle", 4)
+    OrbitStyle = pView.GetInt("OrbitStyle", DEFAULT_ORBIT_STYLE)
     gOrbit.blockSignals(True)
     if OrbitStyle == 0:
         aTurntable.setChecked(True)
@@ -940,7 +944,7 @@ def setCurrent():
                 pass
     else:
         s = True
-        pView.SetString("NavigationStyle", a2.data())
+        pView.SetString("NavigationStyle", DEFAULT_NAVIGATION_STYLE)
 
     if s:
         a0.setVisible(False)

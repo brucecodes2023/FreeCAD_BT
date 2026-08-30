@@ -948,6 +948,7 @@ SET(Navigation_CPP_SRCS
     Navigation/BlenderNavigationStyle.cpp
     Navigation/SiemensNXNavigationStyle.cpp
     Navigation/SolidWorksNavigationStyle.cpp
+    Navigation/Fusion360NavigationStyle.cpp
     Navigation/MayaGestureNavigationStyle.cpp
     Navigation/OpenCascadeNavigationStyle.cpp
     Navigation/OpenSCADNavigationStyle.cpp
@@ -1282,6 +1283,8 @@ SET(Workbench_CPP_SRCS
     ToolBarAreaWidget.cpp
     ToolBarManager.cpp
     ToolBoxManager.cpp
+    RibbonBar.cpp
+    RibbonManager.cpp
     Workbench.cpp
     WorkbenchFactory.cpp
     WorkbenchManager.cpp
@@ -1298,6 +1301,8 @@ SET(Workbench_SRCS
     ToolBarAreaWidget.h
     ToolBarManager.h
     ToolBoxManager.h
+    RibbonBar.h
+    RibbonManager.h
     Workbench.h
     WorkbenchFactory.h
     WorkbenchManager.h

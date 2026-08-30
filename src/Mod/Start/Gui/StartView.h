@@ -31,11 +31,14 @@
 #include "../App/RecentFilesModel.h"
 #include "../App/ExamplesModel.h"
 #include "../App/CustomFolderModel.h"
+#include "../App/ProjectsModel.h"
 
 class QCheckBox;
 class QEvent;
+class QFrame;
 class QGridLayout;
 class QLabel;
+class QLineEdit;
 class QListView;
 class QMdiSubWindow;
 class QScrollArea;
@@ -70,7 +73,10 @@ public:
     void newAssemblyFile();
     void newDraftFile();
     void newArchFile();
+    void newTechDrawFile();
+    void continueLastFile();
     void recentFileAdded(const QString& filename);
+    void newProject();
 
     bool onHasMsg(const char* pMsg) const override;
 
@@ -97,6 +103,13 @@ protected:
     void showOnStartupChanged(bool checked);
     void openFirstStartClicked();
     void firstStartWidgetDismissed();
+    void openProjectAt(int row);
+    void refreshDashboardMetrics();
+    void rebuildProjectCards();
+    void dismissDashboardTips();
+    QWidget* createMetricCard(QLabel*& title, QLabel*& value);
+    QWidget* createTipsBanner();
+    int countDocumentErrors() const;
 
     QString fileCardStyle() const;
 
@@ -111,10 +124,28 @@ private:
     Start::RecentFilesModel _recentFilesModel;
     Start::ExamplesModel _examplesModel;
     Start::CustomFolderModel _customFolderModel;
+    Start::ProjectsModel _projectsModel;
+    QLabel* _dashboardTitle = nullptr;
     QLabel* _newFileLabel;
     QLabel* _examplesLabel;
     QLabel* _recentFilesLabel;
     QLabel* _customFolderLabel;
+    QLabel* _projectsLabel = nullptr;
+    QLabel* _metricFilesTitle = nullptr;
+    QLabel* _metricFilesValue = nullptr;
+    QLabel* _metricProjectsTitle = nullptr;
+    QLabel* _metricProjectsValue = nullptr;
+    QLabel* _metricGraphicsTitle = nullptr;
+    QLabel* _metricGraphicsValue = nullptr;
+    QLabel* _metricHealthTitle = nullptr;
+    QLabel* _metricHealthValue = nullptr;
+    QLabel* _metricUnitsTitle = nullptr;
+    QLabel* _metricUnitsValue = nullptr;
+    QFrame* _tipsFrame = nullptr;
+    QLabel* _tipsLabel = nullptr;
+    QPushButton* _tipsDismiss = nullptr;
+    QLineEdit* _commandSearch = nullptr;
+    QWidget* _projectsRow = nullptr;
     QPushButton* _openFirstStart;
     QCheckBox* _showOnStartupCheckBox;
 

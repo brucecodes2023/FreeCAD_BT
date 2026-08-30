@@ -561,6 +561,25 @@ private:
     SbBool lockButton1 {false};
 };
 
+class GuiExport Fusion360NavigationStyle: public UserNavigationStyle
+{
+    using inherited = UserNavigationStyle;
+
+    TYPESYSTEM_HEADER_WITH_OVERRIDE();
+
+public:
+    Fusion360NavigationStyle();
+    ~Fusion360NavigationStyle() override;
+    const char* mouseButtons(ViewerMode) override;
+    std::string userFriendlyName() const override;
+
+protected:
+    SbBool processSoEvent(const SoEvent* const ev) override;
+
+private:
+    SbBool lockButton1 {false};
+};
+
 class GuiExport MayaGestureNavigationStyle: public UserNavigationStyle
 {
     using inherited = UserNavigationStyle;
@@ -659,6 +678,15 @@ public:
 protected:
     SbBool processSoEvent(const SoEvent* const ev) override;
 };
+
+/** Shipped 3D mouse model for new profiles (SolidWorks / Fusion-like). */
+inline constexpr const char* DefaultNavigationStyleName = "Gui::SolidWorksNavigationStyle";
+
+/** Turntable orbit, matching typical mechanical-CAD conventions. */
+inline constexpr int DefaultOrbitStyle = static_cast<int>(NavigationStyle::Turntable);
+
+/** Preference combo: 0 = window center, 1 = drag at cursor, 2 = object center. */
+inline constexpr int DefaultRotationMode = 2;
 
 }  // namespace Gui
 // NOLINTEND(cppcoreguidelines-avoid*, readability-avoid-const-params-in-decls)

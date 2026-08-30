@@ -100,6 +100,7 @@ add_subdirectory(cMake/FreeCAD_Helpers)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cMake")
 
+SetupTBB()
 CompilerChecksAndSetups()
 ConfigureCMakeVariables()
 InitializeFreeCADBuildOptions()
