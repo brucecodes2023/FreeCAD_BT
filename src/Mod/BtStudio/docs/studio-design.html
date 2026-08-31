@@ -115,6 +115,55 @@
     .badge.catalog { background: #5f5f9a; }
     .badge.reuse { background: var(--accent); }
     .badge.gap { background: var(--gap); }
+    .badge.stock { background: var(--accent); }
+    .badge.later { background: var(--coming); }
+    .badge.upstream { background: var(--warn); }
+    .badge.oos { background: var(--locked); }
+    .cat {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+      padding: 1px 8px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #f6f8fa;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+    .cat-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 10px 0 12px;
+    }
+    .cat-chip {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 3px 10px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--ink);
+    }
+    .cat-chip.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+      background: #e8f0fe;
+    }
+    .gap-table .item-name { font-weight: 650; display: block; }
+    .gap-table .item-note { color: var(--muted); font-size: 12px; }
+    .gap-table td .badge { margin: 0 2px 2px 0; }
+    .status-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      margin: 0 0 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .status-legend span { white-space: nowrap; }
     .kicker { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 4px; }
 
     .mode-toggle { display: flex; gap: 6px; margin: 10px 0 12px; flex-wrap: wrap; }
@@ -332,6 +381,7 @@
       min-width: 124px;
     }
     .stage-card.next { border-color: var(--next); background: #e8f0fe; }
+    .stage-card.done { border-color: var(--done); background: #e6f4ea; }
     .stage-card h4 { margin: 4px 0 6px; font-size: 14px; }
     .stage-num { font-size: 11px; color: var(--muted); }
     .dont { background: #fff4f4; border-left: 3px solid var(--gap); padding: 8px 12px; margin: 10px 0; }
@@ -374,6 +424,7 @@
         <div class="toc-label">Roadmap</div>
         <a href="#rm-rules">1. Guardrails</a>
         <a href="#rm-considerations">Considerations</a>
+        <a href="#rm-community">Community gaps</a>
         <a href="#rm-flow">2. Stage map</a>
         <a href="#rm-0">0. Baseline</a>
         <a href="#rm-1">1. Insert DXF</a>
@@ -469,33 +520,300 @@
           </p>
         </section>
 
+        <section id="rm-community">
+          <h2>Community gaps vs commercial CAD</h2>
+          <p>
+            Demand map from
+            <a href="https://www.reddit.com/r/FreeCAD/comments/1sclqvy/what_is_still_missing_in_freecad_before_it_can/">r/FreeCAD: What is still missing in FreeCAD before it can replace commercial CAD</a>
+            (andrey_semjonov, mechanical / product design, Fusion 360 background).
+            This table is <strong>not</strong> a new stage list. Stages 0–5 stay the implementation sequence.
+            Overlay-feasible leftovers go to <a href="#rm-later">Later</a>; kernel, Coin3D, PDM, and nested Assembly stay out of scope.
+          </p>
+          <p class="muted">
+            Counter-thread worth keeping: a 3D-printer-class model is possible today; scripting and batch STEP export are FreeCAD strengths; Fusion’s free tier is the fair comparison, not NX / CATIA.
+          </p>
+          <div class="status-legend" aria-label="Status legend">
+            <span><span class="badge done">done</span> overlay ships it</span>
+            <span><span class="badge next">next</span> in progress</span>
+            <span><span class="badge stock">stock</span> FreeCAD has it; gap is discoverability</span>
+            <span><span class="badge later">later</span> overlay-feasible, not stages 1–5</span>
+            <span><span class="badge upstream">upstream</span> FreeCAD / OCC / CAM, not BtStudio</span>
+            <span><span class="badge oos">oos</span> fork will not do this</span>
+          </div>
+          <p class="muted" style="margin-bottom:4px">Filter by category. Default is All.</p>
+          <div class="cat-filters" id="gap-filters" role="group" aria-label="Filter community gaps by category">
+            <button type="button" class="cat-chip active" data-cat="all" aria-pressed="true">All</button>
+            <button type="button" class="cat-chip" data-cat="ux">UX</button>
+            <button type="button" class="cat-chip" data-cat="sketch">Sketch</button>
+            <button type="button" class="cat-chip" data-cat="partdesign">Part Design</button>
+            <button type="button" class="cat-chip" data-cat="assembly">Assembly</button>
+            <button type="button" class="cat-chip" data-cat="visualization">Visualization</button>
+            <button type="button" class="cat-chip" data-cat="drawing">Drawing</button>
+            <button type="button" class="cat-chip" data-cat="kernel">Kernel</button>
+            <button type="button" class="cat-chip" data-cat="performance">Performance</button>
+            <button type="button" class="cat-chip" data-cat="collaboration">Collaboration</button>
+            <button type="button" class="cat-chip" data-cat="cam">CAM</button>
+            <button type="button" class="cat-chip" data-cat="surfacing">Surfacing</button>
+            <button type="button" class="cat-chip" data-cat="manufacturability">Manufacturability</button>
+          </div>
+          <table class="gap-table" id="gap-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Fork action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-cat="ux">
+                <td>
+                  <span class="item-name">Learning curve / Fusion-like flow</span>
+                  <span class="item-note">OP: workflow differences if coming from Fusion, Inventor, or SolidWorks. Comments: cognitive load vs 10-hour commercial sessions; Blender-2.8 UX moment.</span>
+                </td>
+                <td><span class="cat">UX</span></td>
+                <td><span class="badge done">done</span> <span class="badge next">next</span></td>
+                <td>Stages 1–2, iso sketch planes, Tasks-on-right. Viewport HUD in flight.</td>
+              </tr>
+              <tr data-cat="sketch">
+                <td>
+                  <span class="item-name">Insert DXF into sketch</span>
+                  <span class="item-note">Not named in the thread; highest overlay gap already on this roadmap (Fusion / Onshape Insert DXF).</span>
+                </td>
+                <td><span class="cat">Sketch</span></td>
+                <td><span class="badge done">done</span></td>
+                <td>Stage 1 shipped — <code>BtStudio_InsertDxf</code>.</td>
+              </tr>
+              <tr data-cat="partdesign">
+                <td>
+                  <span class="item-name">Feature history / rollback</span>
+                  <span class="item-note">Commercial CAD rollback; Fusion-style timeline. Overlay already has a Tip slider.</span>
+                </td>
+                <td><span class="cat">Part Design</span></td>
+                <td><span class="badge done">done</span></td>
+                <td>Stage 2a shipped — <code>BtStudio_History</code>.</td>
+              </tr>
+              <tr data-cat="visualization">
+                <td>
+                  <span class="item-name">Viewport polish (views, zoom)</span>
+                  <span class="item-note">OP: visual quality / presentation less polished than Fusion or Inventor. Comments: rotation not as smooth on high-end GPUs.</span>
+                </td>
+                <td><span class="cat">Visualization</span></td>
+                <td><span class="badge next">next</span></td>
+                <td>Zoom all / Zoom to shipped. Heads-up view bar (<code>viewport_hud.py</code>) in flight. Do not replace Coin3D.</td>
+              </tr>
+              <tr data-cat="visualization">
+                <td>
+                  <span class="item-name">3D section cuts</span>
+                  <span class="item-note">OP first thought in-model sections were missing; TechDraw sections exist. Comments: section analysis tools in Part Design; Fusion-style section cuts.</span>
+                </td>
+                <td><span class="cat">Visualization</span></td>
+                <td><span class="badge stock">stock</span> <span class="badge later">later</span></td>
+                <td>Wrap <code>Std_ToggleClipPlane</code> / clipping on Part Design or the HUD. Do not rebuild Coin.</td>
+              </tr>
+              <tr data-cat="partdesign">
+                <td>
+                  <span class="item-name">Mass / inertia</span>
+                  <span class="item-note">Native measuring that accounts for materials in Part Design and Assembly. FCInfo macro is the workaround today.</span>
+                </td>
+                <td><span class="cat">Part Design</span></td>
+                <td><span class="badge stock">stock</span> <span class="badge later">later</span></td>
+                <td>Overlay on Measure / FCInfo; native-feeling button on a selected Body / Part.</td>
+              </tr>
+              <tr data-cat="sketch">
+                <td>
+                  <span class="item-name">Sketch dimension modes</span>
+                  <span class="item-note">Comments: a few more dimension modes for constraints; dimension orientation is a beginner blocker.</span>
+                </td>
+                <td><span class="cat">Sketch</span></td>
+                <td><span class="badge upstream">upstream</span></td>
+                <td>Sketcher solver. Not an overlay.</td>
+              </tr>
+              <tr data-cat="sketch">
+                <td>
+                  <span class="item-name">Sketch error verbosity</span>
+                  <span class="item-note">Comments: rectangle can scream errors after four clicks; beginners want verbose, researchable messages.</span>
+                </td>
+                <td><span class="cat">Sketch</span></td>
+                <td><span class="badge later">later</span></td>
+                <td>Friendlier overlay messages only. Do not rewrite PlaneGCS.</td>
+              </tr>
+              <tr data-cat="assembly">
+                <td>
+                  <span class="item-name">Nested / flexible assemblies</span>
+                  <span class="item-note">OP: assemblies less mature for bigger projects, nested / flexible subassemblies, workflow stability.</span>
+                </td>
+                <td><span class="cat">Assembly</span></td>
+                <td><span class="badge oos">oos</span></td>
+                <td>Already in Considerations. Simulation Geometry cell stays a Body. Do not pick A2plus / Asm4 in stages 1–5.</td>
+              </tr>
+              <tr data-cat="assembly">
+                <td>
+                  <span class="item-name">Large assembly performance</span>
+                  <span class="item-note">OP: large assembly performance still a concern.</span>
+                </td>
+                <td><span class="cat">Assembly</span></td>
+                <td><span class="badge upstream">upstream</span></td>
+                <td>Not a BtStudio change.</td>
+              </tr>
+              <tr data-cat="assembly">
+                <td>
+                  <span class="item-name">Assembly copies / restore pose</span>
+                  <span class="item-note">Comments: copies at locations without extra joints; revert parts to initial positions after drag (Ctrl+Z is too shallow).</span>
+                </td>
+                <td><span class="cat">Assembly</span></td>
+                <td><span class="badge later">later</span></td>
+                <td>Own future stage with an explicit workbench choice. Not stages 1–5.</td>
+              </tr>
+              <tr data-cat="drawing">
+                <td>
+                  <span class="item-name">TechDraw production workflow</span>
+                  <span class="item-note">OP: 2D drawing / documentation looks capable but not as production-friendly as commercial tools.</span>
+                </td>
+                <td><span class="cat">Drawing</span></td>
+                <td><span class="badge upstream">upstream</span></td>
+                <td>Out of the current CAD overlay. Do not start a TechDraw stage here.</td>
+              </tr>
+              <tr data-cat="kernel">
+                <td>
+                  <span class="item-name">OCC kernel reliability</span>
+                  <span class="item-note">Comments: Parasolid blows OpenCASCADE on not randomly failing; 3k-feature parts rebuild halfway through on kernel bugs.</span>
+                </td>
+                <td><span class="cat">Kernel</span></td>
+                <td><span class="badge oos">oos</span></td>
+                <td>Do not swap OCCT.</td>
+              </tr>
+              <tr data-cat="visualization">
+                <td>
+                  <span class="item-name">Coin3D / viewport FPS</span>
+                  <span class="item-note">Comments: geometry and rendering are slow; Coin3D should be overhauled; even an RTX 3090 feels less smooth than Fusion.</span>
+                </td>
+                <td><span class="cat">Visualization</span></td>
+                <td><span class="badge oos">oos</span></td>
+                <td>Do not replace the 3D engine.</td>
+              </tr>
+              <tr data-cat="performance">
+                <td>
+                  <span class="item-name">Multi-threading / GIL</span>
+                  <span class="item-note">OP asked; comments: single-threaded backend; Python handles threads poorly.</span>
+                </td>
+                <td><span class="cat">Performance</span></td>
+                <td><span class="badge oos">oos</span></td>
+                <td>Core C++. Not an overlay.</td>
+              </tr>
+              <tr data-cat="collaboration">
+                <td>
+                  <span class="item-name">PDM / PLM / check-in</span>
+                  <span class="item-note">Comments: version control, check-in / check-out, work together on an assembly, revert and fork designs.</span>
+                </td>
+                <td><span class="cat">Collaboration</span></td>
+                <td><span class="badge oos">oos</span></td>
+                <td>Out of product scope.</td>
+              </tr>
+              <tr data-cat="cam">
+                <td>
+                  <span class="item-name">CAM lathe paths</span>
+                  <span class="item-note">Comments: wish it could make lathe tool paths.</span>
+                </td>
+                <td><span class="cat">CAM</span></td>
+                <td><span class="badge upstream">upstream</span></td>
+                <td>CAM workbench, not BtStudio.</td>
+              </tr>
+              <tr data-cat="surfacing">
+                <td>
+                  <span class="item-name">Surface patch / tangency</span>
+                  <span class="item-note">Comments: Filling Surface breaks tangency; want NX Studio Surface-style patches that hold.</span>
+                </td>
+                <td><span class="cat">Surfacing</span></td>
+                <td><span class="badge upstream">upstream</span></td>
+                <td>Surface workbench. Not an overlay.</td>
+              </tr>
+              <tr data-cat="manufacturability">
+                <td>
+                  <span class="item-name">DFM checks</span>
+                  <span class="item-note">Comments: evaluate whether the part is manufacturable for the chosen production method; being backed but missing.</span>
+                </td>
+                <td><span class="cat">Manufacturability</span></td>
+                <td><span class="badge later">later</span></td>
+                <td>After Simulation stages.</td>
+              </tr>
+              <tr data-cat="partdesign">
+                <td>
+                  <span class="item-name">Cosmetic threads speed</span>
+                  <span class="item-note">Comments: better performance generating threads.</span>
+                </td>
+                <td><span class="cat">Part Design</span></td>
+                <td><span class="badge upstream">upstream</span></td>
+                <td>OCC. Not an overlay.</td>
+              </tr>
+              <tr data-cat="sketch">
+                <td>
+                  <span class="item-name">B-spline revolve</span>
+                  <span class="item-note">Comments: revolve a B-spline, or better B-spline support without tricks.</span>
+                </td>
+                <td><span class="cat">Sketch</span></td>
+                <td><span class="badge upstream">upstream</span></td>
+                <td>Sketcher / Part. Not an overlay.</td>
+              </tr>
+              <tr data-cat="visualization">
+                <td>
+                  <span class="item-name">Decals / photoreal</span>
+                  <span class="item-note">Comments: miss decals, sexier shading, “sexy renders.” Blender can do more with more work.</span>
+                </td>
+                <td><span class="cat">Visualization</span></td>
+                <td><span class="badge later">later</span></td>
+                <td>Not v1. Blender path stays external.</td>
+              </tr>
+              <tr data-cat="ux">
+                <td>
+                  <span class="item-name">Part vs Part Design confusion</span>
+                  <span class="item-note">Comments: Part vs Part Design, multiple binding types for simple projects; NX swaps the whole UI per workbench.</span>
+                </td>
+                <td><span class="cat">UX</span></td>
+                <td><span class="badge later">later</span></td>
+                <td>Ribbon regroup (2b) and copy. Not a new workbench.</td>
+              </tr>
+              <tr data-cat="ux">
+                <td>
+                  <span class="item-name">STEP import ease</span>
+                  <span class="item-note">Comments: ease of working on STEP is a beginner blocker. Stock import exists.</span>
+                </td>
+                <td><span class="cat">UX</span></td>
+                <td><span class="badge stock">stock</span> <span class="badge later">later</span></td>
+                <td>Discoverability. No new parser.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
         <section id="rm-flow">
           <h2>2. Stage map</h2>
-          <p class="muted">Left to right. Each box is a separate change-set. Click a heading in the TOC for the file list and checks.</p>
+          <p class="muted">Left to right. Each box is a separate change-set. Click a heading in the TOC for the file list and checks. Badges match the overlay <em>today</em>, not the original “not implemented” draft.</p>
           <div class="stage-flow">
-            <div class="stage-card next">
+            <div class="stage-card done">
               <div class="stage-num">Stage 0</div>
               <h4>Baseline</h4>
-              <p class="muted">Prove today’s GUI still works. No product code.</p>
-              <span class="badge next">now</span>
+              <p class="muted">Prove today’s GUI still works. Repeat after every stage.</p>
+              <span class="badge done">done</span>
             </div>
-            <div class="stage-card">
+            <div class="stage-card done">
               <div class="stage-num">Stage 1</div>
               <h4>Insert DXF</h4>
-              <p class="muted">New Sketch command wrapping Draft. Highest user gap, lowest blast radius.</p>
-              <span class="badge live">additive</span>
+              <p class="muted"><code>BtStudio_InsertDxf</code> wrapping Draft. Highest user gap, lowest blast radius.</p>
+              <span class="badge done">done</span>
             </div>
-            <div class="stage-card">
+            <div class="stage-card next">
               <div class="stage-num">Stage 2</div>
               <h4>Part Design ribbon</h4>
-              <p class="muted">History button first, then toolbar regroup. Visual only.</p>
-              <span class="badge catalog">overlay</span>
+              <p class="muted">2a History shipped. 2b toolbar regroup still coming.</p>
+              <span class="badge done">2a done</span>
+              <span class="badge coming">2b coming</span>
             </div>
             <div class="stage-card">
               <div class="stage-num">Stage 3</div>
               <h4>Simulation objects</h4>
               <p class="muted">New Simulation on the existing Analysis menu. Keep the wizard dock.</p>
-              <span class="badge catalog">additive</span>
+              <span class="badge coming">later</span>
             </div>
             <div class="stage-card">
               <div class="stage-num">Stage 4</div>
@@ -510,6 +828,10 @@
               <span class="badge coming">later</span>
             </div>
           </div>
+          <p class="muted">
+            Shipped outside the original five stages: Zoom all / Zoom to, construction plane.
+            In flight: viewport HUD. Next roadmap stage after 2b is Simulation objects (stage 3).
+          </p>
         </section>
 
         <section id="rm-0">
@@ -529,6 +851,7 @@
           <p>
             First product change. Adds a command; does not regroup Sketcher toolbars or change Pad.
             Defaults from Sketch questions: coincidents only (S2); overlay command (S3); idle = new sketch, in-edit = addTo (S1).
+            <span class="badge done">done</span> — <code>BtStudio_InsertDxf</code> is on the overlay.
           </p>
           <table>
             <thead><tr><th>Touch</th><th>Leave alone</th></tr></thead>
@@ -557,6 +880,7 @@
           <p>
             Insert existing <code>BtStudio_History</code> onto a Part Design toolbar via the manipulator.
             No new features. P2 on the Part Design chapter.
+            <span class="badge done">done</span>
           </p>
           <h3>2b. Regroup toolbars (visual)</h3>
           <p>
@@ -635,6 +959,16 @@
               <span class="badge coming">coming</span>
               <h4>DXF layers / canvas / 3D sketch</h4>
               <p class="muted">Called out as coming in the Sketch chapter. Not bundled with stage 1.</p>
+            </div>
+            <div class="pal">
+              <span class="badge later">later</span>
+              <h4>In-model section cut</h4>
+              <p class="muted">Reddit: section analysis in Part Design. Wrap stock <code>Std_ToggleClipPlane</code> on the PD ribbon or viewport HUD. Do not rebuild Coin3D.</p>
+            </div>
+            <div class="pal">
+              <span class="badge later">later</span>
+              <h4>Mass properties</h4>
+              <p class="muted">Reddit: native mass / inertia vs FCInfo. Overlay on Measure for the selected Body / Part; materials-aware if stock Measure already has it.</p>
             </div>
           </div>
         </section>
@@ -1923,6 +2257,26 @@
     });
 
     showChapter(chapterFromHash(), false);
+
+    /* Community gap table: category chips */
+    const gapFilters = document.getElementById("gap-filters");
+    const gapTable = document.getElementById("gap-table");
+    if (gapFilters && gapTable) {
+      const gapRows = gapTable.querySelectorAll("tbody tr");
+      gapFilters.querySelectorAll(".cat-chip").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const cat = btn.getAttribute("data-cat");
+          gapFilters.querySelectorAll(".cat-chip").forEach((b) => {
+            const on = b === btn;
+            b.classList.toggle("active", on);
+            b.setAttribute("aria-pressed", on ? "true" : "false");
+          });
+          gapRows.forEach((row) => {
+            row.hidden = cat !== "all" && row.getAttribute("data-cat") !== cat;
+          });
+        });
+      });
+    }
 
     /* Sketch idle / in-edit ribbon toggle */
     document.querySelectorAll("[data-sk-mode]").forEach((btn) => {
