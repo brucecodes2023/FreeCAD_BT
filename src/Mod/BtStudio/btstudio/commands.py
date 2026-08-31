@@ -31,8 +31,8 @@ class CmdNewSketch:
 class CmdFemWizard:
     def GetResources(self):
         return _resources(
-            "FEM walkthrough",
-            "Analysis walkthrough on Structures: geometry → analysis → material → BCs → mesh → solve.",
+            "FEM analysis wizard",
+            "ANSYS-style guided FEM: pick Static / Modal / Thermal / Buckling, then next-step only.",
             "FEM_Analysis",
         )
 
@@ -69,6 +69,7 @@ class CmdHistory:
         return _resources(
             "Feature history",
             "Roll a PartDesign Body Tip back like a Fusion timeline. Also enable DAG View.",
+            "PartDesign_MoveTip",
         )
 
     def IsActive(self):
@@ -115,8 +116,8 @@ class CmdWorkbenchOrder:
 class CmdFoamWizard:
     def GetResources(self):
         return _resources(
-            "Analysis walkthrough",
-            "Guided right-sidebar: pick Structures or Fluids, then only the next required step is enabled.",
+            "Fluid Flow (later)",
+            "OpenFOAM will get its own tab. Opens the Fluids placeholder in the analysis wizard.",
             "FEM_Analysis",
         )
 
@@ -167,6 +168,23 @@ class CmdFoamWriteCase:
         write_foam_case()
 
 
+class CmdInsertDxf:
+    def GetResources(self):
+        return _resources(
+            "Insert DXF / DWG",
+            "Insert a DXF or DWG into the active sketch, or a new sketch on the selected plane.",
+            "Sketcher_ExternalGeometry",
+        )
+
+    def IsActive(self):
+        return True
+
+    def Activated(self):
+        from .insert_dxf import run_insert_dxf
+
+        run_insert_dxf()
+
+
 class CmdOpenTheory:
     def GetResources(self):
         return _resources("FEM theory guide", "Open the fork FEM theory guide.")
@@ -185,8 +203,69 @@ class CmdOpenTheory:
         QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(path))
 
 
+class CmdZoomAll:
+    def GetResources(self):
+        return _resources(
+            "Zoom all",
+            "Fit everything in the 3D view.",
+            "zoom-all",
+        )
+
+    def IsActive(self):
+        import FreeCAD as App
+
+        return App.ActiveDocument is not None
+
+    def Activated(self):
+        from .zoom_view import zoom_all
+
+        zoom_all()
+
+
+class CmdZoomTo:
+    def GetResources(self):
+        return _resources(
+            "Zoom to…",
+            "Fit the selection, the active Body, or pick a part/body in the document.",
+            "zoom-selection",
+        )
+
+    def IsActive(self):
+        import FreeCAD as App
+
+        return App.ActiveDocument is not None
+
+    def Activated(self):
+        from .zoom_view import show_zoom_to_menu
+
+        show_zoom_to_menu()
+
+
+class CmdDatumPlane:
+    def GetResources(self):
+        return _resources(
+            "Construction plane",
+            "Add a datum plane in the active Body. Select a face or origin plane first, then set offset in Tasks.",
+            "PartDesign_Plane",
+        )
+
+    def IsActive(self):
+        import FreeCAD as App
+
+        return App.ActiveDocument is not None
+
+    def Activated(self):
+        from .sketch_planes import run_construction_plane
+
+        run_construction_plane()
+
+
 COMMANDS = {
     "BtStudio_NewSketch": CmdNewSketch,
+    "BtStudio_InsertDxf": CmdInsertDxf,
+    "BtStudio_ZoomAll": CmdZoomAll,
+    "BtStudio_ZoomTo": CmdZoomTo,
+    "BtStudio_DatumPlane": CmdDatumPlane,
     "BtStudio_FemWizard": CmdFemWizard,
     "BtStudio_FemAutoMesh": CmdFemAutoMesh,
     "BtStudio_FoamWizard": CmdFoamWizard,

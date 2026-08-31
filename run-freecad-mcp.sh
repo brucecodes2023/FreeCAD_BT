@@ -17,9 +17,12 @@ else
   exit 1
 fi
 
-unset QT_PLUGIN_PATH QT_QPA_PLATFORM_PLUGIN_PATH || true
+unset QT_PLUGIN_PATH QT_QPA_PLATFORM_PLUGIN_PATH QT_QPA_PLATFORM || true
 PLUGINS="$PIXI_ROOT/.pixi/envs/default/lib/qt6/plugins"
-[ -d "$PLUGINS" ] && chflags -R nohidden "$PLUGINS"
+if [ -d "$PLUGINS" ]; then
+  chflags -R nohidden "$PLUGINS" 2>/dev/null || true
+  [ -f "$PLUGINS/platforms/libqcocoa.dylib" ] && chflags nohidden "$PLUGINS/platforms/libqcocoa.dylib" 2>/dev/null || true
+fi
 
 export FCBRIDGE_TOKEN="${FCBRIDGE_TOKEN:-$(openssl rand -hex 16 2>/dev/null || echo dev-token)}"
 export FCBRIDGE_DIR="$ROOT/src/Mod/FcBridge"

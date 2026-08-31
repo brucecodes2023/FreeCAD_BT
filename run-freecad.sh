@@ -38,16 +38,40 @@ else
   exit 1
 fi
 
-unset QT_PLUGIN_PATH QT_QPA_PLATFORM_PLUGIN_PATH || true
+unset QT_PLUGIN_PATH QT_QPA_PLATFORM_PLUGIN_PATH QT_QPA_PLATFORM || true
+
+# pixi/rattler marks Qt plugin dylibs UF_HIDDEN. Qt's QDir scan skips Hidden
+# files, so only the built-in "offscreen" plugin is visible and the GUI aborts.
+# `ls | grep hidden` is the wrong test (Darwin flag column vs xattrs). Use st_flags.
+unhide_qt_plugins() {
+  local dir="$1"
+  [ -d "$dir" ] || return 0
+  chflags -R nohidden "$dir" 2>/dev/null || true
+  # -R can skip already-hidden files on some Darwin builds; hit cocoa directly.
+  local cocoa="$dir/platforms/libqcocoa.dylib"
+  [ -f "$cocoa" ] && chflags nohidden "$cocoa" 2>/dev/null || true
+}
+
+plugin_is_hidden() {
+  local f="$1"
+  [ -f "$f" ] || return 1
+  local flags
+  flags="$(stat -f '%f' "$f" 2>/dev/null || echo 0)"
+  # UF_HIDDEN = 0x8000 = 32768
+  [ $((flags & 32768)) -ne 0 ]
+}
 
 PLUGINS="$PIXI_ROOT/.pixi/envs/default/lib/qt6/plugins"
 COCOA="$PLUGINS/platforms/libqcocoa.dylib"
-if [ -d "$PLUGINS" ]; then
-  chflags -R nohidden "$PLUGINS"
-fi
-if [ -f "$COCOA" ] && ls -lO "$COCOA" | grep -q hidden; then
+unhide_qt_plugins "$PLUGINS"
+if plugin_is_hidden "$COCOA"; then
   echo "Qt cocoa plugin is still UF_HIDDEN at $COCOA" >&2
-  echo "Run: chflags -R nohidden $PLUGINS" >&2
+  echo "Run: chflags nohidden \"$COCOA\"" >&2
+  exit 1
+fi
+if [ ! -f "$COCOA" ]; then
+  echo "Qt cocoa plugin missing at $COCOA" >&2
+  echo "pixi env may be incomplete. Try: pixi install" >&2
   exit 1
 fi
 

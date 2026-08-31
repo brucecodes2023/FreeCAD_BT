@@ -17,7 +17,14 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 from btstudio.core import (  # noqa: E402
+    ACTION_CREATE_ANALYSIS,
     ACTION_CREATE_SAMPLE_CUBE,
+    ANALYSIS_BUCKLING,
+    ANALYSIS_HARMONIC,
+    ANALYSIS_MODAL,
+    ANALYSIS_STATIC,
+    ANALYSIS_THERMAL,
+    ANALYSIS_TRANSIENT,
     DESIGN_WORKBENCH_ORDER,
     FEM_WIZARD_STEPS,
     FOAM_WIZARD_STEPS,
@@ -28,12 +35,15 @@ from btstudio.core import (  # noqa: E402
     STATE_LOCKED,
     STATE_PASSED,
     WizardFacts,
+    analysis_system,
     characteristic_length,
     evaluate_wizard,
+    fem_wizard_steps,
     foam_case_tree_ready,
     geometry_hint,
     geometry_ready,
     merge_workbench_order,
+    steps_for_analysis,
     steps_for_physics,
 )
 from solvers.registry import PHYSICS, by_domain, planned_backends  # noqa: E402
@@ -148,6 +158,9 @@ class TestCore(unittest.TestCase):
         self.assertEqual(mesh["command"], "BtStudio_FemAutoMesh")
         geo = next(s for s in FEM_WIZARD_STEPS if s["id"] == "geometry")
         self.assertEqual(geo["action"], ACTION_CREATE_SAMPLE_CUBE)
+        analysis = next(s for s in FEM_WIZARD_STEPS if s["id"] == "analysis")
+        self.assertEqual(analysis["action"], ACTION_CREATE_ANALYSIS)
+        self.assertEqual(analysis_system(ANALYSIS_STATIC)["solver_type"], "static")
 
     def test_foam_wizard_writes_before_solve(self):
         ids = [s["id"] for s in FOAM_WIZARD_STEPS]
@@ -198,7 +211,7 @@ class TestWizardGating(unittest.TestCase):
 
     def test_geometry_unlocks_case_only(self):
         view = evaluate_wizard(
-            WizardFacts(selection_names=("Cube",), has_shape=True)
+            WizardFacts(physics=PHYSICS_FLUIDS, selection_names=("Cube",), has_shape=True)
         )
         by_id = {s.id: s for s in view.steps}
         self.assertEqual(by_id["geometry"].state, STATE_PASSED)
@@ -209,13 +222,14 @@ class TestWizardGating(unittest.TestCase):
         self.assertFalse(by_id["write"].run_enabled)
 
     def test_foam_geometry_link_counts_without_selection(self):
-        view = evaluate_wizard(WizardFacts(geometry_link_set=True))
+        view = evaluate_wizard(WizardFacts(physics=PHYSICS_FLUIDS, geometry_link_set=True))
         self.assertEqual(view.current_id, "case")
         self.assertEqual(view.steps[0].state, STATE_PASSED)
 
     def test_case_unlocks_write(self):
         view = evaluate_wizard(
             WizardFacts(
+                physics=PHYSICS_FLUIDS,
                 selection_names=("Cube",),
                 has_shape=True,
                 has_foam_case=True,
@@ -231,6 +245,7 @@ class TestWizardGating(unittest.TestCase):
     def test_write_requires_control_dict_and_u(self):
         incomplete = evaluate_wizard(
             WizardFacts(
+                physics=PHYSICS_FLUIDS,
                 selection_names=("Cube",),
                 has_shape=True,
                 has_foam_case=True,
@@ -243,6 +258,7 @@ class TestWizardGating(unittest.TestCase):
 
         done = evaluate_wizard(
             WizardFacts(
+                physics=PHYSICS_FLUIDS,
                 selection_names=("Cube",),
                 has_shape=True,
                 has_foam_case=True,
@@ -345,6 +361,7 @@ class TestWizardGating(unittest.TestCase):
         )
         self.assertEqual(ready.current_id, "analysis")
         self.assertTrue(ready.steps[1].run_enabled)
+        self.assertEqual(ready.steps[1].run_label, "Create analysis")
         self.assertFalse(ready.foam_settings_enabled)
 
     def test_fem_mesh_is_not_coming(self):
@@ -362,6 +379,53 @@ class TestWizardGating(unittest.TestCase):
         self.assertEqual(mesh.state, STATE_CURRENT)
         self.assertFalse(mesh.coming)
         self.assertEqual(mesh.command, "BtStudio_FemAutoMesh")
+
+    def test_default_analysis_is_static_structural(self):
+        view = evaluate_wizard(WizardFacts())
+        self.assertEqual(view.physics, PHYSICS_STRUCTURES)
+        self.assertEqual(view.steps[1].id, "analysis")
+        self.assertIn("Static Structural", view.steps[1].title)
+        spec = analysis_system(ANALYSIS_STATIC)
+        self.assertEqual(spec["ansys"], "Static Structural")
+        self.assertEqual(spec["solver_type"], "static")
+
+    def test_modal_pipeline_uses_frequency_solver_and_supports_only(self):
+        steps = fem_wizard_steps(ANALYSIS_MODAL)
+        by_id = {s["id"]: s for s in steps}
+        self.assertEqual(analysis_system(ANALYSIS_MODAL)["solver_type"], "frequency")
+        self.assertEqual(by_id["analysis"]["action"], ACTION_CREATE_ANALYSIS)
+        self.assertIn("Supports", by_id["constraints"]["title"])
+        self.assertEqual(by_id["constraints"]["command"], "FEM_ConstraintFixed")
+        view = evaluate_wizard(
+            WizardFacts(analysis=ANALYSIS_MODAL, selection_names=("Cube",), has_shape=True)
+        )
+        self.assertIn("Modal", view.steps[1].title)
+
+    def test_thermal_and_buckling_map_to_calculix_types(self):
+        self.assertEqual(analysis_system(ANALYSIS_THERMAL)["solver_type"], "thermomech")
+        self.assertEqual(analysis_system(ANALYSIS_BUCKLING)["solver_type"], "buckling")
+        thermal = {s["id"]: s for s in fem_wizard_steps(ANALYSIS_THERMAL)}
+        self.assertEqual(thermal["constraints"]["command"], "FEM_ConstraintInitialTemperature")
+        self.assertIn("Thermal", thermal["constraints"]["title"])
+
+    def test_coming_analysis_locks_setup(self):
+        view = evaluate_wizard(
+            WizardFacts(analysis=ANALYSIS_TRANSIENT, selection_names=("Cube",), has_shape=True)
+        )
+        self.assertIsNone(view.current_id)
+        self.assertEqual(view.steps[0].state, STATE_PASSED)
+        self.assertEqual(view.steps[1].id, "setup")
+        self.assertEqual(view.steps[1].state, STATE_COMING)
+        self.assertFalse(view.steps[1].run_enabled)
+        harmonic = fem_wizard_steps(ANALYSIS_HARMONIC)
+        self.assertTrue(harmonic[1].get("coming"))
+
+    def test_steps_for_analysis_fluids_is_foam_pipeline(self):
+        self.assertEqual(steps_for_analysis("fluids"), FOAM_WIZARD_STEPS)
+        with self.assertRaises(ValueError):
+            analysis_system("not-a-system")
+        with self.assertRaises(ValueError):
+            fem_wizard_steps("fluids")
 
     def test_locked_hint_names_the_current_step(self):
         view = evaluate_wizard(WizardFacts())
@@ -493,6 +557,7 @@ class TestFoamWriter(unittest.TestCase):
             self.assertTrue(os.path.isfile(os.path.join(tmp, "constant", "transportProperties")))
             view = evaluate_wizard(
                 WizardFacts(
+                    physics=PHYSICS_FLUIDS,
                     selection_names=("Cube",),
                     has_shape=True,
                     has_foam_case=True,
@@ -517,6 +582,181 @@ class TestFoamWriter(unittest.TestCase):
             FoamCaseSpec(end_time=0, start_time=1)
 
 
+class TestInsertDxf(unittest.TestCase):
+    def test_choose_mode_and_extensions(self):
+        from btstudio.insert_dxf import (
+            MODE_ACTIVE,
+            MODE_NEW,
+            choose_insert_mode,
+            is_cad_path,
+        )
+
+        self.assertEqual(choose_insert_mode(editing_sketch=True), MODE_ACTIVE)
+        self.assertEqual(choose_insert_mode(editing_sketch=False), MODE_NEW)
+        self.assertTrue(is_cad_path("/tmp/plate.dxf"))
+        self.assertTrue(is_cad_path("/tmp/PLATE.DWG"))
+        self.assertFalse(is_cad_path("/tmp/plate.step"))
+
+    def test_sample_dxf_counts_four_lines(self):
+        from btstudio.insert_dxf import (
+            ascii_dxf_is_simple,
+            dxf_entity_counts,
+            dxf_geometry_count,
+            parse_ascii_dxf_entities,
+            sample_rectangle_dxf,
+        )
+
+        text = sample_rectangle_dxf(100, 50)
+        counts = dxf_entity_counts(text)
+        self.assertEqual(counts["LINE"], 4)
+        self.assertEqual(dxf_geometry_count(text), 4)
+        self.assertTrue(ascii_dxf_is_simple(text))
+        ents, complex_kinds = parse_ascii_dxf_entities(text)
+        self.assertEqual(complex_kinds, [])
+        self.assertEqual(len(ents), 4)
+        self.assertEqual(ents[0]["kind"], "LINE")
+        self.assertEqual(ents[0]["x2"], 100.0)
+        path = os.path.join(tempfile.gettempdir(), "btstudio_sample_rect.dxf")
+        with open(path, "w", encoding="ascii") as fh:
+            fh.write(text)
+        with open(path, encoding="ascii") as fh:
+            self.assertEqual(dxf_geometry_count(fh.read()), 4)
+
+    def test_pin_slot_inner_rails_are_parsed(self):
+        from btstudio.insert_dxf import (
+            ascii_dxf_is_simple,
+            parse_ascii_dxf_entities,
+            sample_pin_slot_dxf,
+        )
+
+        text = sample_pin_slot_dxf()
+        self.assertTrue(ascii_dxf_is_simple(text))
+        ents, complex_kinds = parse_ascii_dxf_entities(text)
+        self.assertEqual(complex_kinds, [])
+        lines = [e for e in ents if e["kind"] == "LINE"]
+        self.assertEqual(len(lines), 8)
+
+        def ends(ent):
+            a = (round(ent["x1"], 4), round(ent["y1"], 4))
+            b = (round(ent["x2"], 4), round(ent["y2"], 4))
+            return tuple(sorted((a, b)))
+
+        segs = {ends(e) for e in lines}
+        self.assertIn(((-14.3, -4.0), (-11.1, -4.0)), segs)
+        self.assertIn(((-11.1, -4.0), (-11.1, 36.0)), segs)
+        self.assertIn(((-14.3, 36.0), (-11.1, 36.0)), segs)
+        self.assertIn(((-14.3, -4.0), (-14.3, 36.0)), segs)
+
+    def test_overwatch_bottom_dxf_pin_rails_if_present(self):
+        from btstudio.insert_dxf import ascii_dxf_is_simple, parse_ascii_dxf_entities
+
+        path = os.path.expanduser(
+            "~/Documents/Projects/Electronics/Overwatch/CAD/bottom.dxf"
+        )
+        if not os.path.isfile(path):
+            self.skipTest("bottom.dxf not on this machine")
+        with open(path, encoding="latin-1") as fh:
+            text = fh.read()
+        self.assertTrue(ascii_dxf_is_simple(text))
+        ents, complex_kinds = parse_ascii_dxf_entities(text)
+        self.assertEqual(complex_kinds, [])
+        self.assertEqual(sum(1 for e in ents if e["kind"] == "LINE"), 44)
+        self.assertEqual(sum(1 for e in ents if e["kind"] == "CIRCLE"), 12)
+        pin_xs = [
+            e
+            for e in ents
+            if e["kind"] == "LINE"
+            and min(e["x1"], e["x2"]) == -14.3
+            and max(e["x1"], e["x2"]) == -11.1
+        ]
+        self.assertGreaterEqual(len(pin_xs), 2, "left ESP32 pin-rail slot missing")
+
+    def test_command_and_toolbar_wire_insert_dxf(self):
+        from btstudio.commands import COMMANDS
+        from btstudio.manipulator import StudioManipulator
+
+        self.assertIn("BtStudio_InsertDxf", COMMANDS)
+        bars = StudioManipulator().modifyToolBars()
+        menus = StudioManipulator().modifyMenuBar()
+        self.assertTrue(any(d.get("insert") == "BtStudio_InsertDxf" for d in bars))
+        self.assertTrue(any(d.get("insert") == "BtStudio_InsertDxf" for d in menus))
+
+    def test_history_on_part_design_clone(self):
+        from btstudio.commands import COMMANDS, CmdHistory
+        from btstudio.manipulator import StudioManipulator
+        from btstudio.ribbon_inject import ribbon_inject_spec
+
+        self.assertIn("BtStudio_History", COMMANDS)
+        self.assertEqual(CmdHistory().GetResources()["Pixmap"], "PartDesign_MoveTip")
+        bars = StudioManipulator().modifyToolBars()
+        menus = StudioManipulator().modifyMenuBar()
+        self.assertTrue(
+            any(
+                d.get("insert") == "BtStudio_History"
+                and d.get("toolItem") == "PartDesign_Clone"
+                for d in bars
+            )
+        )
+        self.assertTrue(
+            any(
+                d.get("insert") == "BtStudio_History"
+                and d.get("menuItem") == "PartDesign_Clone"
+                for d in menus
+            )
+        )
+        spec = ribbon_inject_spec()
+        self.assertEqual(spec[0]["command"], "BtStudio_History")
+        self.assertEqual(spec[0]["panel"], "Helpers")
+        self.assertEqual(spec[0]["size"], "large")
+        zoom_cmds = {d["command"] for d in spec if d["command"].startswith("BtStudio_Zoom")}
+        self.assertEqual(zoom_cmds, {"BtStudio_ZoomAll", "BtStudio_ZoomTo"})
+
+
+class TestZoomView(unittest.TestCase):
+    def test_zoom_target_rules(self):
+        from btstudio.zoom_view import is_zoom_target
+
+        self.assertTrue(is_zoom_target(type_id="PartDesign::Body"))
+        self.assertTrue(is_zoom_target(type_id="App::Part"))
+        self.assertTrue(is_zoom_target(type_id="Part::Feature", volume=12.0))
+        self.assertFalse(is_zoom_target(type_id="Part::Feature", volume=0))
+        self.assertFalse(
+            is_zoom_target(
+                type_id="PartDesign::Pad",
+                parent_type_ids=("PartDesign::Body",),
+                volume=12.0,
+            )
+        )
+        self.assertFalse(is_zoom_target(type_id="Sketcher::SketchObject", volume=0))
+        self.assertFalse(is_zoom_target(type_id="App::Origin"))
+
+    def test_zoom_commands_registered(self):
+        from btstudio.commands import COMMANDS
+        from btstudio.manipulator import StudioManipulator
+
+        self.assertIn("BtStudio_ZoomAll", COMMANDS)
+        self.assertIn("BtStudio_ZoomTo", COMMANDS)
+        menus = StudioManipulator().modifyMenuBar()
+        self.assertTrue(any(d.get("insert") == "BtStudio_ZoomAll" for d in menus))
+        self.assertTrue(any(d.get("insert") == "BtStudio_ZoomTo" for d in menus))
+
+    def test_datum_plane_command_and_ribbon_spec(self):
+        from btstudio.commands import COMMANDS, CmdDatumPlane
+        from btstudio.manipulator import StudioManipulator
+        from btstudio.ribbon_inject import ribbon_inject_spec
+
+        self.assertIn("BtStudio_DatumPlane", COMMANDS)
+        self.assertEqual(CmdDatumPlane().GetResources()["Pixmap"], "PartDesign_Plane")
+        self.assertEqual(CmdDatumPlane().GetResources()["MenuText"], "Construction plane")
+        bars = StudioManipulator().modifyToolBars()
+        menus = StudioManipulator().modifyMenuBar()
+        self.assertTrue(any(d.get("insert") == "BtStudio_DatumPlane" for d in bars))
+        self.assertTrue(any(d.get("insert") == "BtStudio_DatumPlane" for d in menus))
+        panels = {(d.get("category"), d.get("panel")) for d in ribbon_inject_spec() if d["command"] == "BtStudio_DatumPlane"}
+        self.assertIn(("Part Design", "Helpers"), panels)
+        self.assertIn(("Sketcher", "Sketch"), panels)
+
+
 class TestDocsPresent(unittest.TestCase):
     def test_guides_exist(self):
         docs = os.path.join(_ROOT, "docs")
@@ -524,6 +764,7 @@ class TestDocsPresent(unittest.TestCase):
             "FEM_THEORY_GUIDE.md",
             "FIRST_PRINCIPLES.md",
             "ANSYS_MESHING_MAP.md",
+            "ANSYS_ANALYSIS_MAP.md",
             "OPENFOAM_ARCHITECTURE.md",
         ):
             path = os.path.join(docs, name)

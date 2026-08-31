@@ -9,10 +9,9 @@ from .qtutil import app_gui, qt
 _TOOLBAR = None
 
 _BUTTONS = (
-    ("BtStudio_FoamWizard", "Analysis walkthrough"),
-    ("BtStudio_FoamNewCase", "New FoamCase"),
-    ("BtStudio_FoamWriteCase", "Write OpenFOAM case"),
-    ("BtStudio_FemWizard", "FEM walkthrough"),
+    ("BtStudio_FemWizard", "FEM analysis wizard"),
+    ("BtStudio_FemAutoMesh", "Auto mesh"),
+    ("BtStudio_FoamWizard", "Fluid Flow (later)"),
 )
 
 

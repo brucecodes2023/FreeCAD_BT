@@ -7,7 +7,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from .core import (
+    ACTION_CREATE_ANALYSIS,
     ACTION_CREATE_SAMPLE_CUBE,
+    ANALYSIS_FLUIDS,
+    ANALYSIS_STATIC,
+    ANALYSIS_SYSTEMS,
     PHYSICS_FLUIDS,
     PHYSICS_STRUCTURES,
     STATE_COMING,
@@ -15,6 +19,7 @@ from .core import (
     STATE_LOCKED,
     STATE_PASSED,
     WizardFacts,
+    analysis_system,
     evaluate_wizard,
 )
 from .qtutil import app_gui, qt
@@ -58,7 +63,7 @@ def create_sample_cube(name: str = "Cube"):
     return obj
 
 
-def collect_facts(physics: str) -> WizardFacts:
+def collect_facts(physics: str, analysis: str = ANALYSIS_STATIC) -> WizardFacts:
     """Read the active document into WizardFacts (FreeCAD-only; tests skip this)."""
     App, Gui = app_gui()
     doc = App.ActiveDocument
@@ -130,6 +135,7 @@ def collect_facts(physics: str) -> WizardFacts:
 
     return WizardFacts(
         physics=physics,
+        analysis=analysis,
         selection_names=names,
         has_shape=has_shape,
         geometry_link_set=geometry_link_set,
@@ -173,31 +179,48 @@ def _find_foam_case():
 
 
 class AnalysisWizardDock:
-    def __init__(self, physics: str = PHYSICS_FLUIDS):
+    def __init__(self, physics: str = PHYSICS_STRUCTURES, analysis: str = ANALYSIS_STATIC):
         QtCore, QtGui, QtWidgets = qt()
-        self.physics = physics if physics in (PHYSICS_STRUCTURES, PHYSICS_FLUIDS) else PHYSICS_FLUIDS
-        self.widget = QtWidgets.QDockWidget("Analysis walkthrough")
+        self.physics = physics if physics in (PHYSICS_STRUCTURES, PHYSICS_FLUIDS) else PHYSICS_STRUCTURES
+        self.analysis = analysis if physics == PHYSICS_STRUCTURES else ANALYSIS_FLUIDS
+        self.widget = QtWidgets.QDockWidget("Analysis wizard")
         self.widget.setObjectName("BtStudioAnalysisWizard")
         panel = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(panel)
 
-        intro = QtWidgets.QLabel(
-            "Work top to bottom. Only the next required step is enabled. "
-            "Fluids writes a simpleFoam case tree; it does not spawn blockMesh or the solver."
+        self.tabs = QtWidgets.QTabBar()
+        self.tabs.addTab("FEM")
+        self.tabs.addTab("Fluids (later)")
+        self.tabs.setExpanding(False)
+        self.tabs.setToolTip(
+            "FEM is the Mechanical-style wizard. Fluids/OpenFOAM will get its own tab."
         )
-        intro.setWordWrap(True)
-        layout.addWidget(intro)
+        self.tabs.currentChanged.connect(self._tab_changed)
+        layout.addWidget(self.tabs)
 
-        phys_row = QtWidgets.QHBoxLayout()
-        phys_row.addWidget(QtWidgets.QLabel("Physics:"))
-        self.radio_structures = QtWidgets.QRadioButton("Structures (FEM)")
-        self.radio_fluids = QtWidgets.QRadioButton("Fluids (simpleFoam)")
-        self.radio_structures.toggled.connect(self._physics_toggled)
-        self.radio_fluids.toggled.connect(self._physics_toggled)
-        phys_row.addWidget(self.radio_structures)
-        phys_row.addWidget(self.radio_fluids)
-        phys_row.addStretch(1)
-        layout.addLayout(phys_row)
+        self.intro = QtWidgets.QLabel("")
+        self.intro.setWordWrap(True)
+        layout.addWidget(self.intro)
+
+        type_row = QtWidgets.QHBoxLayout()
+        self.analysis_label = QtWidgets.QLabel("Analysis system:")
+        type_row.addWidget(self.analysis_label)
+        self.analysis_combo = QtWidgets.QComboBox()
+        for spec in ANALYSIS_SYSTEMS:
+            if spec["domain"] != PHYSICS_STRUCTURES:
+                continue
+            label = spec["title"]
+            if spec.get("status") == "coming":
+                label = f"{label} (coming)"
+            self.analysis_combo.addItem(label, spec["id"])
+        self.analysis_combo.currentIndexChanged.connect(self._analysis_changed)
+        type_row.addWidget(self.analysis_combo, 1)
+        layout.addLayout(type_row)
+
+        self.blurb = QtWidgets.QLabel("")
+        self.blurb.setWordWrap(True)
+        self.blurb.setStyleSheet("color: #5f6368;")
+        layout.addWidget(self.blurb)
 
         self.output = QtWidgets.QLabel("")
         self.output.setWordWrap(True)
@@ -238,7 +261,7 @@ class AnalysisWizardDock:
         settings_l.addRow(hint)
         layout.addWidget(self.settings)
 
-        self.docs = QtWidgets.QPushButton("Open architecture / theory")
+        self.docs = QtWidgets.QPushButton("Open FEM theory guide")
         self.docs.clicked.connect(self._open_docs)
         layout.addWidget(self.docs)
 
@@ -248,8 +271,10 @@ class AnalysisWizardDock:
         self._timer = None
         self._sel_obs = _SelectionObs(self)
         self._doc_obs = _DocumentObs(self)
+        self._sync_tab()
+        self._sync_analysis_combo()
+        self._update_copy()
         self._rebuild_steps()
-        self._sync_physics_radios()
 
     def attach(self) -> None:
         App, Gui = app_gui()
@@ -285,35 +310,85 @@ class AnalysisWizardDock:
     def set_physics(self, physics: str) -> None:
         if physics not in (PHYSICS_STRUCTURES, PHYSICS_FLUIDS):
             return
-        if physics == self.physics:
-            self.widget.show()
-            self.widget.raise_()
-            self.refresh()
-            return
-        self.physics = physics
-        self._sync_physics_radios()
+        if physics == PHYSICS_FLUIDS:
+            self.physics = PHYSICS_FLUIDS
+            self.analysis = ANALYSIS_FLUIDS
+        else:
+            self.physics = PHYSICS_STRUCTURES
+            if self.analysis == ANALYSIS_FLUIDS:
+                self.analysis = ANALYSIS_STATIC
+        self._sync_tab()
+        self._sync_analysis_combo()
+        self._update_copy()
         self._rebuild_steps()
         self.widget.show()
         self.widget.raise_()
         self.refresh()
 
-    def _sync_physics_radios(self) -> None:
-        self.radio_structures.blockSignals(True)
-        self.radio_fluids.blockSignals(True)
-        self.radio_structures.setChecked(self.physics == PHYSICS_STRUCTURES)
-        self.radio_fluids.setChecked(self.physics == PHYSICS_FLUIDS)
-        self.radio_structures.blockSignals(False)
-        self.radio_fluids.blockSignals(False)
-
-    def _physics_toggled(self, checked: bool) -> None:
-        if not checked:
+    def set_analysis(self, analysis_id: str) -> None:
+        try:
+            spec = analysis_system(analysis_id)
+        except ValueError:
             return
-        physics = PHYSICS_STRUCTURES if self.radio_structures.isChecked() else PHYSICS_FLUIDS
+        if spec["domain"] == PHYSICS_FLUIDS:
+            self.set_physics(PHYSICS_FLUIDS)
+            return
+        self.physics = PHYSICS_STRUCTURES
+        self.analysis = analysis_id
+        self._sync_tab()
+        self._sync_analysis_combo()
+        self._update_copy()
+        self._rebuild_steps()
+        self.widget.show()
+        self.widget.raise_()
+        self.refresh()
+
+    def _sync_tab(self) -> None:
+        self.tabs.blockSignals(True)
+        self.tabs.setCurrentIndex(1 if self.physics == PHYSICS_FLUIDS else 0)
+        self.tabs.blockSignals(False)
+        self.analysis_combo.setVisible(self.physics == PHYSICS_STRUCTURES)
+        self.analysis_label.setVisible(self.physics == PHYSICS_STRUCTURES)
+
+    def _sync_analysis_combo(self) -> None:
+        if self.physics != PHYSICS_STRUCTURES:
+            return
+        self.analysis_combo.blockSignals(True)
+        idx = self.analysis_combo.findData(self.analysis)
+        if idx < 0:
+            idx = self.analysis_combo.findData(ANALYSIS_STATIC)
+            self.analysis = ANALYSIS_STATIC
+        self.analysis_combo.setCurrentIndex(max(idx, 0))
+        self.analysis_combo.blockSignals(False)
+
+    def _tab_changed(self, index: int) -> None:
+        physics = PHYSICS_FLUIDS if index == 1 else PHYSICS_STRUCTURES
         if physics == self.physics:
             return
-        self.physics = physics
-        self._rebuild_steps()
-        self.refresh()
+        self.set_physics(physics)
+
+    def _analysis_changed(self, _index: int) -> None:
+        analysis_id = self.analysis_combo.currentData()
+        if not analysis_id or analysis_id == self.analysis:
+            return
+        self.set_analysis(str(analysis_id))
+
+    def _update_copy(self) -> None:
+        if self.physics == PHYSICS_FLUIDS:
+            self.intro.setText(
+                "Fluids will become its own tab. For now this writes a simpleFoam case "
+                "tree; it does not spawn blockMesh or the solver."
+            )
+            self.blurb.setText(analysis_system(ANALYSIS_FLUIDS)["blurb"])
+            self.docs.setText("Open OpenFOAM architecture")
+            return
+        spec = analysis_system(self.analysis)
+        self.intro.setText(
+            "ANSYS Mechanical-style walkthrough. Pick an analysis system, then work "
+            "top to bottom. Only the next required step is enabled."
+        )
+        self.blurb.setText(f"{spec['ansys']}: {spec['blurb']}")
+        self.docs.setText("Open FEM theory guide")
 
     def _rebuild_steps(self) -> None:
         QtCore, QtGui, QtWidgets = qt()
@@ -323,7 +398,7 @@ class AnalysisWizardDock:
             if w is not None:
                 w.deleteLater()
         self._cards = []
-        view = evaluate_wizard(WizardFacts(physics=self.physics))
+        view = evaluate_wizard(WizardFacts(physics=self.physics, analysis=self.analysis))
         for i, step in enumerate(view.steps, start=1):
             box = QtWidgets.QGroupBox()
             v = QtWidgets.QVBoxLayout(box)
@@ -365,7 +440,7 @@ class AnalysisWizardDock:
             return
         self._refreshing = True
         try:
-            facts = collect_facts(self.physics)
+            facts = collect_facts(self.physics, self.analysis)
             view = evaluate_wizard(facts)
             if len(view.steps) != len(self._cards):
                 self._rebuild_steps()
@@ -453,7 +528,7 @@ class AnalysisWizardDock:
 
     def _run_step(self, step_id: str) -> None:
         self.error.hide()
-        facts = collect_facts(self.physics)
+        facts = collect_facts(self.physics, self.analysis)
         view = evaluate_wizard(facts)
         step = next((s for s in view.steps if s.id == step_id), None)
         if step is None or not step.run_enabled:
@@ -463,6 +538,10 @@ class AnalysisWizardDock:
         try:
             if step.action == ACTION_CREATE_SAMPLE_CUBE:
                 create_sample_cube()
+            elif step.action == ACTION_CREATE_ANALYSIS:
+                from .fem_setup import create_analysis_container
+
+                create_analysis_container(self.analysis)
             elif step.command == "BtStudio_FoamNewCase":
                 from solvers.foam_objects import make_foam_case
 
@@ -553,15 +632,21 @@ def _dock_alive(dock) -> bool:
     return True
 
 
-def show_wizard(physics: str | None = None) -> None:
+def show_wizard(physics: str | None = None, analysis: str | None = None) -> None:
     """Open or re-show the walkthrough. Closing the dock must not lose it."""
     global _DOCK
-    chosen = physics or PHYSICS_FLUIDS
+    chosen_physics = physics or PHYSICS_STRUCTURES
+    chosen_analysis = analysis or (
+        ANALYSIS_FLUIDS if chosen_physics == PHYSICS_FLUIDS else ANALYSIS_STATIC
+    )
     if not _dock_alive(_DOCK):
-        _DOCK = AnalysisWizardDock(chosen)
+        _DOCK = AnalysisWizardDock(chosen_physics, chosen_analysis)
         _DOCK.attach()
         return
-    _DOCK.set_physics(chosen)
+    if chosen_physics == PHYSICS_FLUIDS:
+        _DOCK.set_physics(PHYSICS_FLUIDS)
+    else:
+        _DOCK.set_analysis(chosen_analysis)
     widget = _DOCK.widget
     try:
         _, Gui = app_gui()

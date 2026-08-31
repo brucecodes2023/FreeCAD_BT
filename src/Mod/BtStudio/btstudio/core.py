@@ -34,54 +34,209 @@ STATE_PASSED = "passed"
 STATE_COMING = "coming"
 
 ACTION_CREATE_SAMPLE_CUBE = "create_sample_cube"
+ACTION_CREATE_ANALYSIS = "create_analysis"
 REQUIRED_FOAM_FILES = ("system/controlDict", "0/U")
 
-FEM_WIZARD_STEPS = [
+# ANSYS Mechanical analysis systems → CalculiX AnalysisType (or coming).
+ANALYSIS_STATIC = "static"
+ANALYSIS_MODAL = "frequency"
+ANALYSIS_THERMAL = "thermal"
+ANALYSIS_THERMAL_STRESS = "thermomech"
+ANALYSIS_BUCKLING = "buckling"
+ANALYSIS_TRANSIENT = "transient"
+ANALYSIS_HARMONIC = "harmonic"
+ANALYSIS_FLUIDS = "fluids"
+
+ANALYSIS_SYSTEMS = [
     {
+        "id": ANALYSIS_STATIC,
+        "domain": PHYSICS_STRUCTURES,
+        "title": "Static Structural",
+        "ansys": "Static Structural",
+        "solver_type": "static",
+        "status": "available",
+        "blurb": "Steady loads on a supported solid. CalculiX static.",
+        "material_hint": "Assign a solid card with E, ν, and density. Link it to the body.",
+        "constraint_title": "Supports and loads",
+        "constraint_hint": "At least one essential BC (Fixed) plus a load (Force or Pressure).",
+        "constraint_command": "FEM_ConstraintFixed",
+        "results_hint": "Check reactions and displacement; refine mesh where gradients are steep.",
+    },
+    {
+        "id": ANALYSIS_MODAL,
+        "domain": PHYSICS_STRUCTURES,
+        "title": "Modal",
+        "ansys": "Modal",
+        "solver_type": "frequency",
+        "status": "available",
+        "blurb": "Natural frequencies and mode shapes. Supports only — no loads required.",
+        "material_hint": "Density and stiffness (E, ν) set the eigenvalues. Link the card to the body.",
+        "constraint_title": "Supports (no loads)",
+        "constraint_hint": "Fix or constrain rigid-body modes. Loads are ignored in a modal solve.",
+        "constraint_command": "FEM_ConstraintFixed",
+        "results_hint": "Inspect eigenfrequencies and mode shapes, not a stress peak.",
+    },
+    {
+        "id": ANALYSIS_THERMAL,
+        "domain": PHYSICS_STRUCTURES,
+        "title": "Steady-State Thermal",
+        "ansys": "Steady-State Thermal",
+        "solver_type": "thermomech",
+        "status": "available",
+        "blurb": "Heat conduction to a steady temperature field. CalculiX thermomech.",
+        "material_hint": "Solid card needs thermal conductivity (and specific heat if transient later).",
+        "constraint_title": "Thermal boundary conditions",
+        "constraint_hint": "Initial temperature plus at least one Temperature, Heat flux, or Convection BC.",
+        "constraint_command": "FEM_ConstraintInitialTemperature",
+        "results_hint": "Check temperature range and flux; refine near sources and thin walls.",
+    },
+    {
+        "id": ANALYSIS_THERMAL_STRESS,
+        "domain": PHYSICS_STRUCTURES,
+        "title": "Thermal-Stress",
+        "ansys": "Static Structural + Thermal",
+        "solver_type": "thermomech",
+        "status": "available",
+        "blurb": "Temperature field driving thermal expansion stress. CalculiX thermomech.",
+        "material_hint": "Need E, ν, conductivity, and thermal expansion. Link the card to the body.",
+        "constraint_title": "Thermal BCs and mechanical supports",
+        "constraint_hint": "Temperature BCs plus Fixed (or equivalent) so expansion is not a rigid motion.",
+        "constraint_command": "FEM_ConstraintFixed",
+        "results_hint": "Look at von Mises from expansion, not just the peak temperature.",
+    },
+    {
+        "id": ANALYSIS_BUCKLING,
+        "domain": PHYSICS_STRUCTURES,
+        "title": "Linear Buckling",
+        "ansys": "Linear Buckling",
+        "solver_type": "buckling",
+        "status": "available",
+        "blurb": "Critical load factors under a preload. CalculiX buckling.",
+        "material_hint": "E and ν set the geometric stiffness. Link the card to the body.",
+        "constraint_title": "Supports and preload",
+        "constraint_hint": "Fix the structure, then apply the reference load (Force or Pressure).",
+        "constraint_command": "FEM_ConstraintFixed",
+        "results_hint": "Read the buckling load factor and the first mode shape.",
+    },
+    {
+        "id": ANALYSIS_TRANSIENT,
+        "domain": PHYSICS_STRUCTURES,
+        "title": "Transient Structural",
+        "ansys": "Transient Structural",
+        "solver_type": None,
+        "status": "coming",
+        "blurb": "Time-varying loads. Not wired yet — use Static Structural for a first pass.",
+    },
+    {
+        "id": ANALYSIS_HARMONIC,
+        "domain": PHYSICS_STRUCTURES,
+        "title": "Harmonic Response",
+        "ansys": "Harmonic Response",
+        "solver_type": None,
+        "status": "coming",
+        "blurb": "Frequency-domain forced response. Coming after Modal.",
+    },
+    {
+        "id": ANALYSIS_FLUIDS,
+        "domain": PHYSICS_FLUIDS,
+        "title": "Fluid Flow (OpenFOAM)",
+        "ansys": "Fluid Flow (Fluent)",
+        "solver_type": None,
+        "status": "coming",
+        "blurb": "Will become its own Fluids tab. Case writer exists; mesh/solve stay later.",
+    },
+]
+
+
+def analysis_system(analysis_id: str) -> dict:
+    for spec in ANALYSIS_SYSTEMS:
+        if spec["id"] == analysis_id:
+            return spec
+    raise ValueError(f"unknown analysis system {analysis_id!r}")
+
+
+def analysis_systems_for(domain: str, *, include_coming: bool = True) -> list[dict]:
+    out = [s for s in ANALYSIS_SYSTEMS if s["domain"] == domain]
+    if include_coming:
+        return out
+    return [s for s in out if s.get("status") == "available"]
+
+
+def _geometry_step() -> dict:
+    return {
         "id": "geometry",
         "title": "Select solid geometry",
         "hint": "Pick the Part or PartDesign body that will be meshed.",
         "command": None,
         "action": ACTION_CREATE_SAMPLE_CUBE,
         "run_label": "Create sample cube",
-    },
-    {
-        "id": "analysis",
-        "title": "Create analysis container",
-        "hint": "Adds Fem::Analysis and the default solver.",
-        "command": "FEM_Analysis",
-    },
-    {
-        "id": "material",
-        "title": "Assign a solid material",
-        "hint": "Card must reference the solid (E, nu, density as needed).",
-        "command": "FEM_MaterialSolid",
-    },
-    {
-        "id": "constraints",
-        "title": "Apply restraints and loads",
-        "hint": "At least one essential BC (fixed/displacement) plus loads.",
-        "command": "FEM_ConstraintFixed",
-    },
-    {
-        "id": "mesh",
-        "title": "Auto mesh (then refine concentrations)",
-        "hint": "Global h = bbox diagonal / 20. Add MeshRegion on fillets.",
-        "command": "BtStudio_FemAutoMesh",
-    },
-    {
-        "id": "solve",
-        "title": "Run the solver",
-        "hint": "Writes the input deck and launches CalculiX/Elmer.",
-        "command": "FEM_SolverRun",
-    },
-    {
-        "id": "results",
-        "title": "Show results",
-        "hint": "Check reactions and mesh convergence, not just the peak node.",
-        "command": "FEM_ResultShow",
-    },
-]
+    }
+
+
+def fem_wizard_steps(analysis_id: str = ANALYSIS_STATIC) -> list[dict]:
+    """ANSYS Mechanical-style pipeline for one FEM analysis system."""
+    spec = analysis_system(analysis_id)
+    if spec["domain"] != PHYSICS_STRUCTURES:
+        raise ValueError(f"{analysis_id!r} is not a FEM analysis system")
+    if spec.get("status") == "coming":
+        return [
+            _geometry_step(),
+            {
+                "id": "setup",
+                "title": spec["title"],
+                "hint": spec["blurb"],
+                "command": None,
+                "coming": True,
+            },
+        ]
+    return [
+        _geometry_step(),
+        {
+            "id": "analysis",
+            "title": f"Create {spec['title']} analysis",
+            "hint": (
+                f"Adds Fem::Analysis and a CalculiX solver "
+                f"(AnalysisType = {spec['solver_type']})."
+            ),
+            "command": None,
+            "action": ACTION_CREATE_ANALYSIS,
+            "run_label": "Create analysis",
+        },
+        {
+            "id": "material",
+            "title": "Engineering data (material)",
+            "hint": spec["material_hint"],
+            "command": "FEM_MaterialSolid",
+        },
+        {
+            "id": "constraints",
+            "title": spec["constraint_title"],
+            "hint": spec["constraint_hint"],
+            "command": spec["constraint_command"],
+        },
+        {
+            "id": "mesh",
+            "title": "Mesh (body sizing, then concentrations)",
+            "hint": "Global h = bbox diagonal / 20 (ANSYS body sizing). Add MeshRegion on fillets.",
+            "command": "BtStudio_FemAutoMesh",
+        },
+        {
+            "id": "solve",
+            "title": "Solve",
+            "hint": "Writes the CalculiX input deck and runs ccx.",
+            "command": "FEM_SolverRun",
+        },
+        {
+            "id": "results",
+            "title": "Results",
+            "hint": spec["results_hint"],
+            "command": "FEM_ResultShow",
+        },
+    ]
+
+
+# Back-compat: default Mechanical pipeline (Static Structural).
+FEM_WIZARD_STEPS = fem_wizard_steps(ANALYSIS_STATIC)
 
 FOAM_WIZARD_STEPS = [
     {
@@ -318,11 +473,17 @@ def foam_case_tree_ready(
     return (root / "system" / "controlDict").is_file() and (root / "0" / "U").is_file()
 
 
-def steps_for_physics(physics: str) -> list[dict]:
-    if physics == PHYSICS_STRUCTURES:
-        return FEM_WIZARD_STEPS
+def steps_for_analysis(analysis_id: str) -> list[dict]:
+    if analysis_id == ANALYSIS_FLUIDS:
+        return FOAM_WIZARD_STEPS
+    return fem_wizard_steps(analysis_id)
+
+
+def steps_for_physics(physics: str, analysis_id: str | None = None) -> list[dict]:
     if physics == PHYSICS_FLUIDS:
         return FOAM_WIZARD_STEPS
+    if physics == PHYSICS_STRUCTURES:
+        return fem_wizard_steps(analysis_id or ANALYSIS_STATIC)
     raise ValueError(f"unknown physics {physics!r}")
 
 
@@ -339,7 +500,8 @@ def step_is_coming(step: dict, physics: str) -> bool:
 class WizardFacts:
     """Document facts the GUI collects. Gating stays FreeCAD-free."""
 
-    physics: str = PHYSICS_FLUIDS
+    physics: str = PHYSICS_STRUCTURES
+    analysis: str = ANALYSIS_STATIC
     selection_names: tuple[str, ...] = ()
     has_shape: bool = False
     geometry_link_set: bool = False
@@ -403,6 +565,8 @@ def step_is_passed(step_id: str, facts: WizardFacts) -> bool:
         return bool(facts.has_solver_run)
     if step_id == "results":
         return bool(facts.has_results)
+    if step_id == "setup":
+        return False
     return False
 
 
@@ -447,6 +611,12 @@ def _contextual_hint(step: dict, facts: WizardFacts, state: str, current_title: 
         if sid == "write" and facts.case_path:
             return f"Case tree written to {facts.case_path}."
         if sid == "analysis":
+            spec = analysis_system(facts.analysis) if facts.physics == PHYSICS_STRUCTURES else None
+            if spec:
+                return (
+                    f"{spec['title']} analysis is in the document "
+                    f"(CalculiX {spec.get('solver_type')})."
+                )
             return "Analysis container is in the document."
         if sid == "material":
             return "Solid material is assigned."
@@ -480,7 +650,11 @@ def _run_label(step: dict) -> str:
 def evaluate_wizard(facts: WizardFacts, steps: list[dict] | None = None) -> WizardView:
     """Live status for each step. Only the current step has Run enabled."""
     physics = facts.physics
-    catalog = list(steps if steps is not None else steps_for_physics(physics))
+    catalog = list(
+        steps
+        if steps is not None
+        else steps_for_physics(physics, facts.analysis)
+    )
     current_id: str | None = None
     current_title: str | None = None
     for step in catalog:

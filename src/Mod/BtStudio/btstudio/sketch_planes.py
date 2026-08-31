@@ -401,6 +401,29 @@ def _ensure_body():
         return _active_body()
 
 
+def run_construction_plane():
+    """Create a PartDesign Datum Plane on the active Body (offset/angled sketch support)."""
+    from .qtutil import app_gui
+
+    App, Gui = app_gui()
+    if App.ActiveDocument is None:
+        App.newDocument()
+    body = _ensure_body()
+    if body is None:
+        _status("Create or activate a PartDesign Body first.")
+        return
+    try:
+        Gui.ActiveDocument.resetEdit()
+    except Exception:
+        pass
+    try:
+        Gui.runCommand("PartDesign_Plane")
+    except Exception as exc:
+        _status(str(exc))
+        return
+    _status("Construction plane: pick a face or origin plane, then set offset in Tasks.")
+
+
 def _status(msg: str, ms: int = 8000) -> None:
     try:
         _, Gui = app_gui()

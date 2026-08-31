@@ -1,0 +1,2029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BT Studio product design spec — Sketch, Part Design, Simulation</title>
+  <style>
+    :root {
+      --bg: #f4f5f7;
+      --paper: #fff;
+      --ink: #1f2328;
+      --muted: #5c6570;
+      --line: #d0d7de;
+      --next: #1a73e8;
+      --done: #188038;
+      --locked: #5f6368;
+      --coming: #80868b;
+      --accent: #0b57d0;
+      --warn: #8a5a00;
+      --gap: #c5221f;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font: 15px/1.5 "Helvetica Neue", Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    header.page {
+      background: var(--paper);
+      border-bottom: 1px solid var(--line);
+      padding: 20px 28px;
+    }
+    header.page h1 { margin: 0 0 6px; font-size: 22px; font-weight: 650; }
+    header.page p { margin: 0; color: var(--muted); max-width: 78ch; }
+    .banner {
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: #fff8e5;
+      border: 1px solid #f0d48a;
+      color: var(--warn);
+      font-size: 13px;
+    }
+    .chapters {
+      display: flex;
+      gap: 6px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .chapter-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 7px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--ink);
+    }
+    .chapter-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+      background: #e8f0fe;
+    }
+    .layout { display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 180px); }
+    nav.toc {
+      border-right: 1px solid var(--line);
+      padding: 16px 12px 40px;
+      background: var(--paper);
+      position: sticky;
+      top: 0;
+      align-self: start;
+      max-height: 100vh;
+      overflow: auto;
+    }
+    nav.toc a {
+      display: block;
+      color: var(--ink);
+      text-decoration: none;
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    nav.toc a:hover { background: var(--bg); }
+    nav.toc .toc-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      padding: 4px 8px 6px;
+    }
+    .toc-group { display: none; }
+    .toc-group.is-on { display: block; }
+    main { padding: 24px 32px 80px; max-width: 1180px; }
+    .chapter-block { display: none; }
+    .chapter-block.is-on { display: block; }
+    section { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 20px 22px; margin-bottom: 20px; }
+    section h2 { margin: 0 0 12px; font-size: 18px; }
+    section h3 { margin: 18px 0 8px; font-size: 15px; }
+    p { margin: 0 0 10px; }
+    ul, ol { margin: 0 0 10px; padding-left: 22px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border: 1px solid var(--line); padding: 7px 8px; text-align: left; vertical-align: top; }
+    th { background: #f6f8fa; font-weight: 600; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; background: #f6f8fa; padding: 1px 4px; border-radius: 3px; }
+    a { color: var(--accent); }
+    .muted { color: var(--muted); }
+    .badge { display: inline-block; font-size: 11px; font-weight: 650; letter-spacing: 0.02em; padding: 1px 7px; border-radius: 10px; color: #fff; }
+    .badge.next { background: var(--next); }
+    .badge.done { background: var(--done); }
+    .badge.locked { background: var(--locked); }
+    .badge.coming { background: var(--coming); }
+    .badge.live { background: var(--done); }
+    .badge.catalog { background: #5f5f9a; }
+    .badge.reuse { background: var(--accent); }
+    .badge.gap { background: var(--gap); }
+    .kicker { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 4px; }
+
+    .mode-toggle { display: flex; gap: 6px; margin: 10px 0 12px; flex-wrap: wrap; }
+    .mode-toggle button {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .mode-toggle button.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* Ribbon wireframe */
+    .ribbon {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fafbfc;
+    }
+    .ribbon-tabs { display: flex; gap: 0; background: #eef1f4; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+    .ribbon-tab { padding: 8px 14px; font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent; }
+    .ribbon-tab.active { color: var(--accent); background: #fff; border-bottom-color: var(--accent); font-weight: 600; }
+    .ribbon-tab.ctx { color: var(--accent); font-style: italic; }
+    .ribbon-body { display: flex; gap: 0; background: #fff; min-height: 92px; overflow-x: auto; }
+    .ribbon-panel { padding: 8px 12px 10px; border-right: 1px solid var(--line); min-width: 108px; flex: 0 0 auto; }
+    .ribbon-panel h4 { margin: 0 0 6px; font-size: 11px; font-weight: 500; color: var(--muted); text-align: center; }
+    .rbtns { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+    .rbtn { border: 1px solid var(--line); background: #fff; border-radius: 4px; padding: 6px 8px; text-align: center; font-size: 11px; min-width: 64px; }
+    .rbtn.large { min-height: 58px; min-width: 88px; font-weight: 650; }
+    .rbtn.primary { border-color: var(--accent); color: var(--accent); }
+    .rbtn.dim { color: var(--coming); }
+    .rbtn.gap { border-style: dashed; border-color: var(--gap); color: var(--gap); }
+    .ribbon-variant { display: none; }
+    .ribbon-variant.is-on { display: block; }
+
+    /* Schematic */
+    .schematic-wrap { overflow-x: auto; padding: 8px 0 4px; }
+    .schematic {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      min-width: 920px;
+    }
+    .sys-col { display: flex; flex-direction: column; align-items: center; }
+    .sys-title { font-size: 12px; font-weight: 650; margin-bottom: 8px; }
+    .cells { display: flex; flex-direction: column; gap: 6px; }
+    .cell {
+      width: 148px;
+      border: 1.5px solid var(--line);
+      border-radius: 4px;
+      background: #fff;
+      padding: 8px 10px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .cell:hover { border-color: var(--accent); }
+    .cell.active { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .cell .name { font-size: 13px; font-weight: 650; display: block; }
+    .cell .sub { font-size: 11px; color: var(--muted); }
+    .cell.next { border-color: var(--next); background: #e8f0fe; }
+    .cell.done { border-color: var(--done); }
+    .cell.locked { opacity: 0.72; }
+    .cell.coming { border-style: dashed; color: var(--coming); }
+    .cell.gap { border-style: dashed; border-color: var(--gap); }
+    .arrow {
+      width: 36px;
+      align-self: center;
+      text-align: center;
+      color: var(--muted);
+      font-size: 22px;
+      padding-top: 28px;
+    }
+    .detail {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      background: #fafbfc;
+      border-radius: 6px;
+      min-height: 7.5em;
+    }
+    .detail h3 { margin: 0 0 6px; }
+    .palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+    .pal {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+    .pal h4 { margin: 0 0 4px; font-size: 14px; }
+    .tree {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px;
+      background: #f6f8fa;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px 14px;
+      white-space: pre;
+      line-height: 1.45;
+      overflow-x: auto;
+    }
+    .q { border-left: 3px solid var(--accent); padding: 8px 12px; margin: 10px 0; background: #f6f8fa; }
+    .q strong { display: block; margin-bottom: 4px; }
+    .checklist li { margin-bottom: 4px; }
+    footer.page { padding: 8px 32px 24px; color: var(--muted); font-size: 12px; }
+
+    /* Example FreeCAD-ish window (not pixel-accurate) */
+    .app-mock {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #c8ccd1;
+      font-size: 12px;
+    }
+    .app-titlebar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #eceef1;
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .traffic { display: flex; gap: 5px; }
+    .traffic i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+    .traffic .r { background: #ff5f57; }
+    .traffic .y { background: #febc2e; }
+    .traffic .g { background: #28c840; }
+    .app-title { font-weight: 600; color: var(--muted); font-size: 12px; }
+    .app-mock .ribbon { border: none; border-radius: 0; }
+    .app-mock .ribbon-body { min-height: 72px; }
+    .app-mock .rbtn.large { min-height: 44px; min-width: 76px; }
+    .app-work {
+      display: grid;
+      grid-template-columns: 176px minmax(0, 1fr) 210px;
+      min-height: 360px;
+    }
+    .app-tree, .app-task {
+      background: #fff;
+      padding: 8px 10px 12px;
+    }
+    .app-tree { border-right: 1px solid var(--line); }
+    .app-task { border-left: 1px solid var(--line); }
+    .app-canvas {
+      background:
+        linear-gradient(#eceef0, #eceef0),
+        repeating-linear-gradient(0deg, transparent, transparent 19px, #e2e5e8 20px),
+        repeating-linear-gradient(90deg, transparent, transparent 19px, #e2e5e8 20px);
+      background-blend-mode: normal;
+      background-color: #e6e8eb;
+      padding: 14px 10px 10px;
+      overflow: auto;
+    }
+    .pane-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .tree-row { padding: 2px 4px; border-radius: 3px; line-height: 1.45; }
+    .tree-row.sel { background: #e8f0fe; font-weight: 650; }
+    .tree-row .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+    .dot.done { background: var(--done); }
+    .dot.next { background: var(--next); }
+    .dot.locked { background: var(--locked); }
+    .dot.coming { background: var(--coming); }
+    .i1 { padding-left: 12px; }
+    .i2 { padding-left: 24px; }
+    .app-canvas .schematic { min-width: 640px; }
+    .app-canvas .cell { width: 120px; }
+    .app-canvas .arrow { width: 28px; font-size: 18px; padding-top: 22px; }
+    .task-kicker { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .app-task h3 { margin: 0 0 8px; font-size: 14px; }
+    .task-run {
+      display: block;
+      width: 100%;
+      margin-top: 12px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-weight: 650;
+      font-size: 12px;
+      text-align: center;
+    }
+    .task-run.disabled { background: #c5c9ce; color: #fff; }
+    .app-status {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      background: #fff;
+      border-top: 1px solid var(--line);
+      padding: 5px 10px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .stage-flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: stretch;
+      margin: 12px 0 4px;
+    }
+    .stage-card {
+      flex: 1 1 132px;
+      border: 1.5px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: #fff;
+      min-width: 124px;
+    }
+    .stage-card.next { border-color: var(--next); background: #e8f0fe; }
+    .stage-card h4 { margin: 4px 0 6px; font-size: 14px; }
+    .stage-num { font-size: 11px; color: var(--muted); }
+    .dont { background: #fff4f4; border-left: 3px solid var(--gap); padding: 8px 12px; margin: 10px 0; }
+    @media (max-width: 900px) {
+      .app-work { grid-template-columns: 1fr; }
+      .app-tree, .app-task { border: none; border-top: 1px solid var(--line); }
+    }
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; }
+      nav.toc { position: static; max-height: none; border-right: none; border-bottom: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+  <header class="page">
+    <div class="kicker">BT Studio design spec — not implemented</div>
+    <h1>Sketch, Part Design, and Simulation</h1>
+    <p>
+      Product spec for rebuilding the Sketch and Part Design ribbons toward modern CAD
+      (Fusion, SolidWorks, Onshape), plus the Simulation Workbench schematic.
+      Original wireframes only. Open in a browser; FreeCAD is not required.
+    </p>
+    <div class="banner">
+      Status: design-only until a Roadmap stage is signed off. Implement
+      <strong>one stage at a time</strong> in <code>src/Mod/BtStudio</code> only.
+      Do not edit Sketcher/PartDesign C++, <code>src/Gui</code>, or the user’s
+      <code>RibbonStructure.json</code>.
+    </div>
+    <div class="chapters" role="tablist" aria-label="Chapters">
+      <button type="button" class="chapter-btn" data-chapter="roadmap" aria-pressed="false">Roadmap</button>
+      <button type="button" class="chapter-btn active" data-chapter="sketch" aria-pressed="true">Sketch</button>
+      <button type="button" class="chapter-btn" data-chapter="partdesign" aria-pressed="false">Part Design</button>
+      <button type="button" class="chapter-btn" data-chapter="simulation" aria-pressed="false">Simulation</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="Contents">
+      <div class="toc-group" data-toc="roadmap">
+        <div class="toc-label">Roadmap</div>
+        <a href="#rm-rules">1. Guardrails</a>
+        <a href="#rm-considerations">Considerations</a>
+        <a href="#rm-flow">2. Stage map</a>
+        <a href="#rm-0">0. Baseline</a>
+        <a href="#rm-1">1. Insert DXF</a>
+        <a href="#rm-2">2. Part Design ribbon</a>
+        <a href="#rm-3">3. Simulation objects</a>
+        <a href="#rm-4">4. Simulation tab</a>
+        <a href="#rm-5">5. Schematic view</a>
+        <a href="#rm-later">Later</a>
+        <a href="#rm-gate">Regression gate</a>
+      </div>
+      <div class="toc-group is-on" data-toc="sketch">
+        <div class="toc-label">Sketch</div>
+        <a href="#sk-goal">1. Goal</a>
+        <a href="#sk-ribbon">2. Hybrid ribbon</a>
+        <a href="#sk-map">3. Current vs target</a>
+        <a href="#sk-dxf">4. Insert DXF / DWG</a>
+        <a href="#sk-wish">5. Wishlist</a>
+        <a href="#sk-questions">6. Open questions</a>
+        <a href="#sk-checklist">7. After sign-off</a>
+      </div>
+      <div class="toc-group" data-toc="partdesign">
+        <div class="toc-label">Part Design</div>
+        <a href="#pd-goal">1. Goal</a>
+        <a href="#pd-ribbon">2. Features ribbon</a>
+        <a href="#pd-map">3. Current vs target</a>
+        <a href="#pd-wish">4. Wishlist</a>
+        <a href="#pd-questions">5. Open questions</a>
+        <a href="#pd-checklist">6. After sign-off</a>
+      </div>
+      <div class="toc-group" data-toc="simulation">
+        <div class="toc-label">Simulation</div>
+        <a href="#sim-goal">1. Goal</a>
+        <a href="#sim-layout">Example window</a>
+        <a href="#sim-ribbon">2. Ribbon wireframe</a>
+        <a href="#sim-schematic">3. Interactive schematic</a>
+        <a href="#sim-path">4. New Simulation path</a>
+        <a href="#sim-palette">5. Solver palette</a>
+        <a href="#sim-objects">6. Object map</a>
+        <a href="#sim-reuse">7. What we reuse</a>
+        <a href="#sim-questions">8. Open questions</a>
+        <a href="#sim-checklist">9. After sign-off</a>
+      </div>
+    </nav>
+
+    <main>
+      <!-- ========== ROADMAP ========== -->
+      <div class="chapter-block" id="roadmap" data-chapter="roadmap">
+        <section id="rm-rules">
+          <h2>1. Guardrails (every stage)</h2>
+          <p>
+            Ship in small overlay-only slices so a bad change cannot brick stock FreeCAD.
+            BtStudio is loaded with <code>FreeCAD -M src/Mod/BtStudio</code>. If we break the overlay,
+            launch without <code>-M</code> and FreeCAD is still upstream-shaped.
+          </p>
+          <ul>
+            <li><strong>One stage in flight.</strong> Do not start the next until headless tests and the regression gate pass.</li>
+            <li><strong>Tier 4 only.</strong> New/changed files under <code>src/Mod/BtStudio/</code>. No <code>src/Gui</code>, no Sketcher/PartDesign/FEM C++, no user <code>RibbonStructure.json</code>.</li>
+            <li><strong>Additive first.</strong> Prefer a new command on an existing toolbar over regrouping or a new workbench.</li>
+            <li><strong>Rollback</strong> is <code>git revert</code> of that stage’s BtStudio files. Stock workbenches are untouched, so Sketch/Pad/FEM still work.</li>
+            <li>Python only until a stage proves C++ is required (OVERVIEW default rule). Rebuild is not part of these stages.</li>
+          </ul>
+          <div class="dont">
+            <strong>Do not in any stage:</strong>
+            patch FreeCAD-Ribbon JSON; rename stock command ids; replace CalculiX/Gmsh; embed this HTML inside FreeCAD; start hole-wizard, 3D sketch, or Fluids mesh/solve.
+          </div>
+        </section>
+
+        <section id="rm-considerations">
+          <h2>Considerations</h2>
+          <p>
+            Constraints we design around so Simulation and CAD stages do not depend on
+            FreeCAD assembly being a SolidWorks-class product. Built-in Assembly is on the
+            ribbon tab strip; it is not the geometry source for v1 analysis.
+          </p>
+          <h3>Built-in Assembly — nested sub-assemblies</h3>
+          <p>
+            Community report (Reddit, ~2025): the built-in Assembly workbench does not
+            support multiple levels of nested sub-assemblies. An assembly inside an
+            assembly inside a third assembly throws errors. Quote: the lack of a stable
+            assembly workbench is one of the main drawbacks of FreeCAD; other assembly
+            workbenches exist (A2plus, Assembly4, …) with mixed strengths and often
+            unintuitive UX. Which workbench you pick changes what is even possible.
+          </p>
+          <ul>
+            <li><strong>Simulation Geometry cell (stages 3–5):</strong> link a Part / PartDesign <code>Body</code> with Volume&gt;0 — not a nested Assembly document. Multi-body boolean or a single fused solid is fine. Do not require “solve the assembly, then mesh.”</li>
+            <li><strong>Do not reuse</strong> <code>Assembly_CreateSimulation</code> (joint MBD animation). That is not FEM.</li>
+            <li><strong>Do not pick a third-party assembly WB</strong> (A2plus / Asm4) as a BtStudio dependency in stages 1–5. If we add assembly later, it is its own stage with an explicit workbench choice.</li>
+            <li>Ribbon still shows an Assembly tab (stock workbench). We do not redesign that tab in this spec.</li>
+          </ul>
+          <p class="muted">
+            If a user brings a nested assembly, the Geometry cell should say “pick a solid / Body”
+            rather than trying to flatten the assembly tree.
+          </p>
+        </section>
+
+        <section id="rm-flow">
+          <h2>2. Stage map</h2>
+          <p class="muted">Left to right. Each box is a separate change-set. Click a heading in the TOC for the file list and checks.</p>
+          <div class="stage-flow">
+            <div class="stage-card next">
+              <div class="stage-num">Stage 0</div>
+              <h4>Baseline</h4>
+              <p class="muted">Prove today’s GUI still works. No product code.</p>
+              <span class="badge next">now</span>
+            </div>
+            <div class="stage-card">
+              <div class="stage-num">Stage 1</div>
+              <h4>Insert DXF</h4>
+              <p class="muted">New Sketch command wrapping Draft. Highest user gap, lowest blast radius.</p>
+              <span class="badge live">additive</span>
+            </div>
+            <div class="stage-card">
+              <div class="stage-num">Stage 2</div>
+              <h4>Part Design ribbon</h4>
+              <p class="muted">History button first, then toolbar regroup. Visual only.</p>
+              <span class="badge catalog">overlay</span>
+            </div>
+            <div class="stage-card">
+              <div class="stage-num">Stage 3</div>
+              <h4>Simulation objects</h4>
+              <p class="muted">New Simulation on the existing Analysis menu. Keep the wizard dock.</p>
+              <span class="badge catalog">additive</span>
+            </div>
+            <div class="stage-card">
+              <div class="stage-num">Stage 4</div>
+              <h4>Simulation tab</h4>
+              <p class="muted">Tiny Python workbench so Ribbon grows a tab.</p>
+              <span class="badge coming">later</span>
+            </div>
+            <div class="stage-card">
+              <div class="stage-num">Stage 5</div>
+              <h4>Schematic view</h4>
+              <p class="muted">Qt canvas bound to stage-3 objects. After Q4 is answered.</p>
+              <span class="badge coming">later</span>
+            </div>
+          </div>
+        </section>
+
+        <section id="rm-0">
+          <h2>Stage 0 — Baseline (do this first, every time)</h2>
+          <p>No feature work. Confirm the fork still launches and the overlay extras still work. Repeat this gate after stages 1–5.</p>
+          <ol>
+            <li><code>cd src/Mod/BtStudio && python3 -m btstudio.tests</code></li>
+            <li><code>./run-freecad.sh</code> from the repo root (with BtStudio <code>-M</code>).</li>
+            <li>Human check from the README: workbench order, New Sketch iso planes, pad preview, FEM wizard → sample cube → Create analysis, Model left / Tasks right.</li>
+            <li>Optional: launch <em>without</em> <code>-M</code> once per release to prove stock FreeCAD is unmodified.</li>
+          </ol>
+          <p class="muted">If stage 0 fails after a later stage, revert that stage before adding more.</p>
+        </section>
+
+        <section id="rm-1">
+          <h2>Stage 1 — Insert DXF / DWG (Sketch)</h2>
+          <p>
+            First product change. Adds a command; does not regroup Sketcher toolbars or change Pad.
+            Defaults from Sketch questions: coincidents only (S2); overlay command (S3); idle = new sketch, in-edit = addTo (S1).
+          </p>
+          <table>
+            <thead><tr><th>Touch</th><th>Leave alone</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>
+                  <code>btstudio/commands.py</code> (<code>BtStudio_InsertDxf</code>),
+                  new helper module, <code>manipulator.py</code> insert next to Sketcher tools,
+                  DXF fixture + test in <code>tests.py</code>
+                </td>
+                <td>
+                  <code>src/Mod/Sketcher</code>, <code>src/Mod/Draft/importDXF.py</code> internals,
+                  Part Design toolbars, FEM wizard, Ribbon JSON
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p><strong>Done when:</strong> open sketch → Insert DXF → geometry appears on that sketch → Pad still works. Idle: plane selected → Insert DXF → new sketch. Stage 0 gate still green.</p>
+          <p class="muted">See Sketch chapter §4 and §7. Stop here if anything in Draft import is flaky — do not “fix” Draft C++/Python in the same change-set.</p>
+        </section>
+
+        <section id="rm-2">
+          <h2>Stage 2 — Part Design ribbon</h2>
+          <p>Two sub-stages. Ship 2a alone if 2b looks wrong in Ribbon.</p>
+          <h3>2a. History on the ribbon (additive)</h3>
+          <p>
+            Insert existing <code>BtStudio_History</code> onto a Part Design toolbar via the manipulator.
+            No new features. P2 on the Part Design chapter.
+          </p>
+          <h3>2b. Regroup toolbars (visual)</h3>
+          <p>
+            Reorder/group stock PD toolbar items toward Sketch / Create / Cut / Dress / Pattern / Multi-body / Direct
+            so FreeCAD-Ribbon picks up panels from workbench toolbars. Do not invent a Hole wizard (P1). Label Sweep in UI copy only; command stays <code>PartDesign_AdditivePipe</code> (P3).
+          </p>
+          <table>
+            <thead><tr><th>Touch</th><th>Leave alone</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><code>manipulator.py</code>, maybe <code>studio_toolbar.py</code></td>
+                <td><code>PartDesign/Gui/Workbench.cpp</code>, Hole tool behavior, hybrid Sketch overlay (stage Later)</td>
+              </tr>
+            </tbody>
+          </table>
+          <p><strong>Done when:</strong> Part Design tab still opens, New Sketch / Pad / Fillet run, History slider appears, stage 0 + stage 1 still work.</p>
+        </section>
+
+        <section id="rm-3">
+          <h2>Stage 3 — Simulation objects (no new workbench)</h2>
+          <p>
+            Persist a project in the document without changing how Ribbon tabs work.
+            <strong>New Simulation</strong> lives on the existing Analysis menu / BtStudio toolbar
+            (same pattern as today’s FEM wizard). Opens the current right-sidebar wizard for the current cell.
+          </p>
+          <ul>
+            <li>Command <code>BtStudio_NewSimulation</code> (not Assembly’s simulation).</li>
+            <li><code>SimulationProject</code> FeaturePython group + Geometry link + Static Structural wrapping <code>create_analysis_container</code>.</li>
+            <li>Reuse <code>evaluate_wizard</code> / <code>ANALYSIS_SYSTEMS</code>. Headless tests on the group, no FreeCAD import if possible.</li>
+          </ul>
+          <p class="muted">
+            Q1 / Q3 / Q4 can stay open: this stage does not lock mesh-before-BCs or where a schematic canvas lives.
+            Q2 recommendation: one project per document.
+          </p>
+          <p><strong>Done when:</strong> New Simulation creates tree objects; cube → mesh → Fixed + load → solve still works through the existing wizard. FEM menu path still works if you never click New Simulation.</p>
+        </section>
+
+        <section id="rm-4">
+          <h2>Stage 4 — Simulation ribbon tab</h2>
+          <p>
+            Small Python workbench under <code>src/Mod/BtStudio</code> so FreeCAD-Ribbon grows a Simulation tab from that workbench’s toolbars (Q5).
+            Tab change activates the workbench. Existing FEM workbench stays for specialist mesh tools.
+          </p>
+          <p><strong>Risk:</strong> workbench switching and Ribbon tab order. Mitigation: keep Stage 3 commands on the Analysis menu as a fallback. If the tab misbehaves, hide the workbench; objects from stage 3 remain in the file.</p>
+          <p><strong>Done when:</strong> Simulation tab visible; New Simulation / Auto Mesh / Solve enable from wizard facts; stage 0–3 still pass; stock FEM tab still opens.</p>
+        </section>
+
+        <section id="rm-5">
+          <h2>Stage 5 — Schematic view</h2>
+          <p>
+            Qt <code>QGraphicsView</code> editor for the stage-3 document objects (the example window layout).
+            Not this HTML page inside FreeCAD. Answer Q4 first (MDI vs dock vs replacing the wizard).
+          </p>
+          <p><strong>Done when:</strong> click Geometry / Mesh / Setup cells; status matches <code>evaluate_wizard</code>; closing FreeCAD and reopening the <code>.FCStd</code> restores cells. Modal / Fluids stay coming.</p>
+        </section>
+
+        <section id="rm-later">
+          <h2>Later (not in the first five stages)</h2>
+          <div class="palette">
+            <div class="pal">
+              <span class="badge coming">coming</span>
+              <h4>Hybrid in-edit Sketch ribbon</h4>
+              <p class="muted">Takes over the ribbon body while editing. Higher UI risk; after stage 1–2 are stable.</p>
+            </div>
+            <div class="pal">
+              <span class="badge coming">coming</span>
+              <h4>Hole wizard / holes from points</h4>
+              <p class="muted">Wait on upstream #6884 or a dedicated overlay. Do not fake a wizard that still needs circles.</p>
+            </div>
+            <div class="pal">
+              <span class="badge coming">coming</span>
+              <h4>Modal / Thermal / Fluids</h4>
+              <p class="muted">Palette cells after Static is reliable. Fluids keeps its own tab plan.</p>
+            </div>
+            <div class="pal">
+              <span class="badge coming">coming</span>
+              <h4>DXF layers / canvas / 3D sketch</h4>
+              <p class="muted">Called out as coming in the Sketch chapter. Not bundled with stage 1.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="rm-gate">
+          <h2>Regression gate (copy after every stage)</h2>
+          <ol class="checklist">
+            <li>Headless: <code>python3 -m btstudio.tests</code></li>
+            <li>Launch with BtStudio. New Sketch → pad still works.</li>
+            <li>FEM analysis wizard still creates Static Structural and runs if it did before.</li>
+            <li>This stage’s human check from the matching chapter.</li>
+            <li>If any of 1–3 fail: revert the stage, do not stack another.</li>
+          </ol>
+        </section>
+      </div>
+
+      <!-- ========== SKETCH ========== -->
+      <div class="chapter-block is-on" id="sketch" data-chapter="sketch">
+        <section id="sk-goal">
+          <h2>1. Goal</h2>
+          <p>
+            Rebuild the Sketch ribbon so it matches modern CAD: a <strong>hybrid</strong> of
+            always-visible Sketch + Part Design workbench tabs (FreeCAD-Ribbon still maps
+            workbench → tab) and a <strong>contextual in-edit overlay</strong> that takes over
+            the ribbon body while a sketch is open (Fusion / SolidWorks / Onshape).
+          </p>
+          <ul>
+            <li><strong>Flagship gap:</strong> Insert DXF/DWG into the active sketch <em>or</em> a new sketch on a selected plane. Today File → Import creates Draft objects; <code>dxfCreateSketch</code> makes a <em>new</em> sketch, never the one you are editing.</li>
+            <li>Map every proposed button to a stock FreeCAD command, a BtStudio overlay, or a labeled gap.</li>
+            <li>Do not invent a DXF parser. After sign-off, reuse Draft <code>importDXF</code> / <code>importDWG</code> and <code>Draft.make_sketch(..., addTo=active_sketch)</code>.</li>
+          </ul>
+          <p class="muted">
+            Analog: Fusion <em>Insert DXF</em>, Onshape <em>Insert DXF or DWG</em> on the sketch toolbar,
+            SolidWorks <em>Insert → Sketch from Drawing</em>. Not Draft workbench hopping.
+          </p>
+        </section>
+
+        <section id="sk-ribbon">
+          <h2>2. Hybrid ribbon</h2>
+          <p>
+            Idle Sketch tab is the Sketcher workbench home (manage sketches). Opening a sketch
+            (from Sketch or Part Design → New Sketch) switches the ribbon <em>body</em> to the
+            in-edit overlay. The Sketch tab stays selected. Leaving the sketch restores idle
+            or returns to Part Design if that is where the user came from.
+          </p>
+          <div class="mode-toggle" role="group" aria-label="Sketch ribbon mode">
+            <button type="button" class="active" data-sk-mode="idle">Idle Sketch tab</button>
+            <button type="button" data-sk-mode="edit">In-edit overlay</button>
+          </div>
+
+          <div class="ribbon-variant is-on" id="sk-ribbon-idle">
+            <div class="ribbon" aria-label="Idle Sketch ribbon mock">
+              <div class="ribbon-tabs">
+                <div class="ribbon-tab">Start</div>
+                <div class="ribbon-tab active">Sketch</div>
+                <div class="ribbon-tab">Part Design</div>
+                <div class="ribbon-tab">Simulation</div>
+                <div class="ribbon-tab">FEM</div>
+                <div class="ribbon-tab">Assembly</div>
+              </div>
+              <div class="ribbon-body">
+                <div class="ribbon-panel">
+                  <div class="rbtns">
+                    <div class="rbtn large primary">New<br>Sketch</div>
+                  </div>
+                  <h4>Sketch</h4>
+                </div>
+                <div class="ribbon-panel">
+                  <div class="rbtns">
+                    <div class="rbtn">Edit</div>
+                    <div class="rbtn">Map</div>
+                    <div class="rbtn">Reorient</div>
+                  </div>
+                  <h4>Manage</h4>
+                </div>
+                <div class="ribbon-panel">
+                  <div class="rbtns">
+                    <div class="rbtn">Validate</div>
+                    <div class="rbtn">Merge</div>
+                    <div class="rbtn">Mirror</div>
+                  </div>
+                  <h4>Repair</h4>
+                </div>
+                <div class="ribbon-panel">
+                  <div class="rbtns">
+                    <div class="rbtn gap">Insert<br>DXF / DWG</div>
+                  </div>
+                  <h4>Insert</h4>
+                </div>
+              </div>
+            </div>
+            <p class="muted" style="margin-top:10px">
+              Idle Insert DXF/DWG creates a <strong>new sketch</strong> on the selected plane (Fusion
+              “select a face, then file”). New Sketch stays <code>BtStudio_NewSketch</code> (iso plane pick).
+            </p>
+          </div>
+
+          <div class="ribbon-variant" id="sk-ribbon-edit">
+            <div class="ribbon" aria-label="In-edit Sketch ribbon mock">
+              <div class="ribbon-tabs">
+                <div class="ribbon-tab">Start</div>
+                <div class="ribbon-tab active ctx">Sketch (editing)</div>
+                <div class="ribbon-tab">Part Design</div>
+                <div class="ribbon-tab">Simulation</div>
+                <div class="ribbon-tab">FEM</div>
+                <div class="ribbon-tab">Assembly</div>
+              </div>
+              <div class="ribbon-body">
+                <div class="ribbon-panel">
+                  <div class="rbtns">
+                    <div class="rbtn">Line</div>
+                    <div class="rbtn">Rect</div>
+                    <div class="rbtn">Circle</div>
+                    <div class="rbtn">Arc</div>
+                    <div class="rbtn">Polygon</div>
+                    <div class="rbtn">Spline</div>
+                    <div class="rbtn">Point</div>
+                  </div>
+                  <h4>Create</h4>
+                </div>
+                <div class="ribbon-panel">
+                  <div class="rbtns">
+                    <div class="rbtn">Trim</div>
+                    <div class="rbtn">Offset</div>
+                    <div class="rbtn">Fillet</div>
+                    <div class="rbtn">Move</div>
+                    <div class="rbtn">Mirror</div>
+                  </div>
+                  <h4>Modify</h4>
+                </div>
+                <div class="ribbon-panel">
+                  <div class="rbtns">
+                    <div class="rbtn">Dimension</div>
+                    <div class="rbtn">Coincident</div>
+                    <div class="rbtn">Parallel</div>
+                    <div class="rbtn">Tangent</div>
+                    <div class="rbtn">Equal</div>
+                  </div>
+                  <h4>Constrain</h4>
+                </div>
+                <div class="ribbon-panel">
+                  <div class="rbtns">
+                    <div class="rbtn gap">Insert<br>DXF / DWG</div>
+                    <div class="rbtn">Project</div>
+                    <div class="rbtn">Carbon copy</div>
+                    <div class="rbtn dim">Canvas</div>
+                  </div>
+                  <h4>Insert</h4>
+                </div>
+                <div class="ribbon-panel">
+                  <div class="rbtns">
+                    <div class="rbtn">Construction</div>
+                  </div>
+                  <h4>Style</h4>
+                </div>
+                <div class="ribbon-panel">
+                  <div class="rbtns">
+                    <div class="rbtn large">Finish<br>sketch</div>
+                  </div>
+                  <h4>Finish</h4>
+                </div>
+              </div>
+            </div>
+            <p class="muted" style="margin-top:10px">
+              In-edit Insert DXF/DWG adds geometry to the <strong>active</strong> <code>SketchObject</code>
+              (Onshape sketch-toolbar insert). Dashed red = gap. Dim = coming.
+            </p>
+          </div>
+        </section>
+
+        <section id="sk-map">
+          <h2>3. Current vs target</h2>
+          <p>
+            Today FreeCAD-Ribbon dumps stock Sketcher toolbars from
+            <code>Sketcher/Gui/Workbench.cpp</code>. BtStudio only replaces New Sketch and sets snaps / auto-constraints.
+            There is no DXF command under <code>src/Mod/BtStudio</code>.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Proposed control</th>
+                <th>Today</th>
+                <th>Target</th>
+                <th>Status</th>
+                <th>Modern analogue</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>New Sketch</td>
+                <td><code>BtStudio_NewSketch</code> (hijacks <code>Sketcher_NewSketch</code> / <code>PartDesign_NewSketch</code>)</td>
+                <td>Same iso plane pick</td>
+                <td><span class="badge live">live</span></td>
+                <td>Fusion Create Sketch</td>
+              </tr>
+              <tr>
+                <td>Edit / Map / Reorient</td>
+                <td><code>Sketcher_EditSketch</code>, <code>MapSketch</code>, <code>ReorientSketch</code></td>
+                <td>Idle Manage panel</td>
+                <td><span class="badge live">live</span></td>
+                <td>Edit sketch / redefine plane</td>
+              </tr>
+              <tr>
+                <td>Validate / Merge / Mirror</td>
+                <td><code>Sketcher_ValidateSketch</code>, <code>MergeSketches</code>, <code>MirrorSketch</code></td>
+                <td>Idle Repair panel</td>
+                <td><span class="badge live">live</span></td>
+                <td>Repair sketch</td>
+              </tr>
+              <tr>
+                <td>Create (line, rect, circle, arc, polygon, slot, spline, point, text)</td>
+                <td><code>Sketcher_Create*</code> / <code>Sketcher_Comp*</code></td>
+                <td>In-edit Create panel, grouped</td>
+                <td><span class="badge live">live</span></td>
+                <td>Fusion / SW Sketch create</td>
+              </tr>
+              <tr>
+                <td>Modify (trim, extend, split, offset, fillet, move, rotate, scale, symmetry)</td>
+                <td><code>Sketcher_Trimming</code>, <code>Extend</code>, <code>Split</code>, <code>Offset</code>, fillet/chamfer, <code>Translate</code>, …</td>
+                <td>In-edit Modify panel</td>
+                <td><span class="badge live">live</span></td>
+                <td>Fusion Sketch modify</td>
+              </tr>
+              <tr>
+                <td>Constrain + dimension</td>
+                <td>Sketcher constraint toolbar (auto-constraints already on in BtStudio prefs)</td>
+                <td>In-edit Constrain panel</td>
+                <td><span class="badge live">live</span></td>
+                <td>SW relations + Smart Dimension</td>
+              </tr>
+              <tr>
+                <td>Project / External</td>
+                <td><code>Sketcher_ExternalGeometry</code></td>
+                <td>Insert → Project</td>
+                <td><span class="badge live">live</span></td>
+                <td>Fusion Project</td>
+              </tr>
+              <tr>
+                <td>Carbon copy</td>
+                <td><code>Sketcher_CarbonCopy</code></td>
+                <td>Insert → Carbon copy</td>
+                <td><span class="badge live">live</span></td>
+                <td>Copy from other sketch</td>
+              </tr>
+              <tr>
+                <td>Construction</td>
+                <td><code>Sketcher_ToggleConstruction</code></td>
+                <td>Style panel (first-class, not buried)</td>
+                <td><span class="badge live">live</span></td>
+                <td>Construction geometry toggle</td>
+              </tr>
+              <tr>
+                <td>Finish / View section</td>
+                <td><code>Sketcher_LeaveSketch</code>, <code>ViewSketch</code>, <code>ViewSection</code></td>
+                <td>Finish panel</td>
+                <td><span class="badge live">live</span></td>
+                <td>Finish Sketch</td>
+              </tr>
+              <tr>
+                <td>Insert DXF / DWG</td>
+                <td>File → Import → Draft objects; optional pref <code>dxfCreateSketch</code> (new sketch only). <code>Draft_Draft2Sketch</code> is a Draft command.</td>
+                <td>Sketch Insert panel: into <em>active</em> sketch or <em>new</em> sketch on plane</td>
+                <td><span class="badge gap">gap</span></td>
+                <td>Fusion Insert DXF; Onshape Insert DXF or DWG</td>
+              </tr>
+              <tr>
+                <td>Auto-constrain import</td>
+                <td><code>make_sketch(..., autoconstraints=True)</code> adds coincidents only</td>
+                <td>Optional coincidents after insert, then ValidateSketch</td>
+                <td><span class="badge reuse">reuse</span></td>
+                <td>SW Fully Define Sketch after DWG</td>
+              </tr>
+              <tr>
+                <td>Canvas / image underlay</td>
+                <td>None in Sketcher</td>
+                <td>Insert → Canvas</td>
+                <td><span class="badge coming">coming</span></td>
+                <td>Fusion Canvas / Insert SVG</td>
+              </tr>
+              <tr>
+                <td>3D sketch</td>
+                <td>No native 3D Sketcher</td>
+                <td>Out of v1</td>
+                <td><span class="badge coming">coming</span></td>
+                <td>SW 3D Sketch; GSoC 26 proposal</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="sk-dxf">
+          <h2>4. Insert DXF / DWG click-path</h2>
+          <p>
+            v1: insert into the currently open sketch <strong>or</strong> create a new sketch on the
+            selected plane. Layer-per-sketch and construction-from-layer stay coming.
+          </p>
+          <p class="muted">Click a step. Status: <span class="badge gap">gap</span> until a BtStudio command exists.</p>
+
+          <div class="schematic-wrap">
+            <div class="schematic" id="sk-dxf-steps">
+              <div class="sys-col">
+                <div class="sys-title">Context</div>
+                <div class="cells">
+                  <button type="button" class="cell next" data-dxf="ctx" aria-pressed="true">
+                    <span class="name">Open sketch or plane</span>
+                    <span class="sub">Edit mode or face pick</span>
+                  </button>
+                </div>
+              </div>
+              <div class="arrow" aria-hidden="true">→</div>
+              <div class="sys-col">
+                <div class="sys-title">Command</div>
+                <div class="cells">
+                  <button type="button" class="cell gap" data-dxf="cmd" aria-pressed="false">
+                    <span class="name">Insert DXF / DWG</span>
+                    <span class="sub">BtStudio_InsertDxf — TBD</span>
+                  </button>
+                </div>
+              </div>
+              <div class="arrow" aria-hidden="true">→</div>
+              <div class="sys-col">
+                <div class="sys-title">Options</div>
+                <div class="cells">
+                  <button type="button" class="cell" data-dxf="opts" aria-pressed="false">
+                    <span class="name">File · units · scale</span>
+                    <span class="sub">Active vs new sketch</span>
+                  </button>
+                </div>
+              </div>
+              <div class="arrow" aria-hidden="true">→</div>
+              <div class="sys-col">
+                <div class="sys-title">Import</div>
+                <div class="cells">
+                  <button type="button" class="cell" data-dxf="reuse" aria-pressed="false">
+                    <span class="name">Draft importer</span>
+                    <span class="sub">addTo=sketch</span>
+                  </button>
+                </div>
+              </div>
+              <div class="arrow" aria-hidden="true">→</div>
+              <div class="sys-col">
+                <div class="sys-title">Clean up</div>
+                <div class="cells">
+                  <button type="button" class="cell" data-dxf="post" aria-pressed="false">
+                    <span class="name">Coincident + Validate</span>
+                    <span class="sub">Optional auto-constrain</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="detail" id="sk-dxf-detail">
+            <h3>Open sketch or plane — Next</h3>
+            <p>Click another step for the FreeCAD mapping.</p>
+          </div>
+
+          <h3>What exists today (workaround)</h3>
+          <ol>
+            <li>File → Import a <code>.dxf</code>. Draft <code>importDXF.py</code> creates Draft objects (or a new sketch if pref <code>dxfCreateSketch</code> is on).</li>
+            <li>Switch to Draft. Select objects. <code>Draft_Draft2Sketch</code> → <em>another</em> sketch.</li>
+            <li>Optionally <code>Sketcher_ValidateSketch</code> for coincident points.</li>
+          </ol>
+          <p class="muted">
+            <code>Draft.make_sketch(objects, autoconstraints=…, addTo=existing_sketch)</code> already supports
+            appending into an open sketch. The gap is a Sketcher-ribbon command and a file picker that
+            runs import + <code>addTo</code> without leaving the editor.
+            DWG uses existing <code>importDWG.py</code> (DXF conversion) then the same path.
+          </p>
+          <h3>v1 not in scope</h3>
+          <ul>
+            <li>One sketch per DXF layer (Fusion mode) — <span class="badge coming">coming</span></li>
+            <li>Construction geometry from a named layer — <span class="badge coming">coming</span></li>
+            <li>Full dimensional auto-constrain of imported entities — <span class="badge coming">coming</span> (<a href="https://forum.freecad.org/viewtopic.php?t=72504">forum t=72504</a>)</li>
+          </ul>
+        </section>
+
+        <section id="sk-wish">
+          <h2>5. Wishlist (research)</h2>
+          <p>Most-requested Sketch capabilities from modern CAD and the FreeCAD community. Badge = how we treat it in this spec.</p>
+          <div class="palette">
+            <div class="pal">
+              <span class="badge gap">gap</span>
+              <h4>Insert DXF/DWG in sketch</h4>
+              <p class="muted">Fusion Insert DXF; Onshape sketch toolbar. FreeCAD only via Draft.</p>
+            </div>
+            <div class="pal">
+              <span class="badge reuse">reuse</span>
+              <h4>Auto-constrain import</h4>
+              <p class="muted">Coincidents via <code>make_sketch(autoconstraints=True)</code>. Full Fully-Define is coming.</p>
+            </div>
+            <div class="pal">
+              <span class="badge live">live</span>
+              <h4>Project / offset / trim</h4>
+              <p class="muted">Stock Sketcher. Re-group onto Modify / Insert; no new solver work.</p>
+            </div>
+            <div class="pal">
+              <span class="badge live">live</span>
+              <h4>Construction geometry</h4>
+              <p class="muted">Exists; put the toggle on the in-edit overlay (not a buried toolbar).</p>
+            </div>
+            <div class="pal">
+              <span class="badge live">live</span>
+              <h4>Driven / reference dimensions</h4>
+              <p class="muted">Sketcher already has reference-mode dimensions; UX grouping is the work.</p>
+            </div>
+            <div class="pal">
+              <span class="badge live">live</span>
+              <h4>Spline + B-spline tools</h4>
+              <p class="muted">Create + degree/knot toolbar. Keep on Create / a overflow menu.</p>
+            </div>
+            <div class="pal">
+              <span class="badge catalog">catalog</span>
+              <h4>Sketch patterns</h4>
+              <p class="muted">Translate/rotate exist; Polar/rectangular sketch pattern UX is weaker than SW.</p>
+            </div>
+            <div class="pal">
+              <span class="badge catalog">catalog</span>
+              <h4>Constraint filters / DOF</h4>
+              <p class="muted">Visual helpers toolbar already has DOF select; surface them on Constrain.</p>
+            </div>
+            <div class="pal">
+              <span class="badge coming">coming</span>
+              <h4>Canvas / SVG underlay</h4>
+              <p class="muted">Fusion Canvas / Insert SVG. Not a Sketcher command today.</p>
+            </div>
+            <div class="pal">
+              <span class="badge coming">coming</span>
+              <h4>3D sketch</h4>
+              <p class="muted"><a href="https://forum.freecad.org/viewtopic.php?t=104125">GSoC 26 3D constraint sketcher</a>. Out of this overlay.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="sk-questions">
+          <h2>6. Open questions</h2>
+          <p>Leave answers on this page or in chat. Blocking for first Sketch implementation:</p>
+          <div class="q">
+            <strong>S1. Idle-tab Insert vs in-edit only?</strong>
+            Spec currently puts Insert DXF/DWG on both: idle = new sketch on plane; in-edit = addTo active. Drop idle if we want one code path.
+          </div>
+          <div class="q">
+            <strong>S2. Auto-constrain depth in v1?</strong>
+            Recommend coincidents only (what <code>make_sketch</code> already does) + ValidateSketch. H/V/parallel/equal guessing stays coming.
+          </div>
+          <div class="q">
+            <strong>S3. Command host</strong>
+            <code>BtStudio_InsertDxf</code> on the overlay (Tier 4), wrapping Draft, vs a new Sketcher C++ command. Overlay keeps us out of <code>src/Mod/Sketcher</code>.
+          </div>
+        </section>
+
+        <section id="sk-checklist">
+          <h2>7. First-implementation checklist (after sign-off)</h2>
+          <ol class="checklist">
+            <li>Command <code>BtStudio_InsertDxf</code>: file picker, units/scale, mode active-or-new.</li>
+            <li>Reuse <code>importDXF</code> / <code>importDWG</code> + <code>Draft.make_sketch(..., addTo=)</code>. Delete temporary Draft objects when appending.</li>
+            <li>Optional coincident autoconstraints; run / offer <code>Sketcher_ValidateSketch</code>.</li>
+            <li>Expose the command on Sketcher (and Part Design while editing) so FreeCAD-Ribbon picks it up from a toolbar — do not patch user <code>RibbonStructure.json</code>.</li>
+            <li>Headless test: DXF fixture → geometry count on a SketchObject (no GUI).</li>
+            <li>Human GUI check: open sketch → Insert DXF → pad the profile. And idle: select XY → Insert DXF → new sketch appears.</li>
+            <li>Ship only as <a href="#roadmap">Roadmap stage 1</a> — not in the same change-set as ribbon regroup or Simulation.</li>
+          </ol>
+        </section>
+      </div>
+
+      <!-- ========== PART DESIGN ========== -->
+      <div class="chapter-block" id="partdesign" data-chapter="partdesign">
+        <section id="pd-goal">
+          <h2>1. Goal</h2>
+          <p>
+            Rebuild the Part Design ribbon as a <strong>Features</strong> tab like SolidWorks CommandManager
+            / Fusion Solid: Sketch → Create → Cut → Hole → Dress → Pattern → Boolean → Direct.
+            Today FreeCAD-Ribbon maps stock toolbars 1:1 from
+            <code>PartDesign/Gui/Workbench.cpp</code> (Helper / Modeling / Dress-Up / Transform).
+          </p>
+          <ul>
+            <li>Keep always-visible Part Design tab. New Sketch still <code>BtStudio_NewSketch</code>; entering a sketch switches to the Sketch in-edit overlay (hybrid).</li>
+            <li>Surface BtStudio extras that already exist but are not on this ribbon: <code>BtStudio_History</code> (Tip rollback).</li>
+            <li>Label true gaps (hole wizard / holes-from-points, thread, sheet metal, configurations UX) instead of pretending stock Hole is a wizard.</li>
+          </ul>
+        </section>
+
+        <section id="pd-ribbon">
+          <h2>2. Features ribbon</h2>
+          <div class="ribbon" aria-label="Part Design Features ribbon mock">
+            <div class="ribbon-tabs">
+              <div class="ribbon-tab">Start</div>
+              <div class="ribbon-tab">Sketch</div>
+              <div class="ribbon-tab active">Part Design</div>
+              <div class="ribbon-tab">Simulation</div>
+              <div class="ribbon-tab">FEM</div>
+              <div class="ribbon-tab">Assembly</div>
+            </div>
+            <div class="ribbon-body">
+              <div class="ribbon-panel">
+                <div class="rbtns">
+                  <div class="rbtn large primary">New<br>Sketch</div>
+                  <div class="rbtn">Edit</div>
+                </div>
+                <h4>Sketch</h4>
+              </div>
+              <div class="ribbon-panel">
+                <div class="rbtns">
+                  <div class="rbtn">Pad</div>
+                  <div class="rbtn">Revolve</div>
+                  <div class="rbtn">Loft</div>
+                  <div class="rbtn">Sweep</div>
+                  <div class="rbtn">Helix</div>
+                </div>
+                <h4>Create</h4>
+              </div>
+              <div class="ribbon-panel">
+                <div class="rbtns">
+                  <div class="rbtn">Pocket</div>
+                  <div class="rbtn">Groove</div>
+                  <div class="rbtn">Hole</div>
+                </div>
+                <h4>Cut</h4>
+              </div>
+              <div class="ribbon-panel">
+                <div class="rbtns">
+                  <div class="rbtn">Hole</div>
+                  <div class="rbtn gap">Hole<br>wizard</div>
+                </div>
+                <h4>Hole</h4>
+              </div>
+              <div class="ribbon-panel">
+                <div class="rbtns">
+                  <div class="rbtn">Fillet</div>
+                  <div class="rbtn">Chamfer</div>
+                  <div class="rbtn">Draft</div>
+                  <div class="rbtn">Shell</div>
+                </div>
+                <h4>Dress</h4>
+              </div>
+              <div class="ribbon-panel">
+                <div class="rbtns">
+                  <div class="rbtn">Mirror</div>
+                  <div class="rbtn">Linear</div>
+                  <div class="rbtn">Polar</div>
+                </div>
+                <h4>Pattern</h4>
+              </div>
+              <div class="ribbon-panel">
+                <div class="rbtns">
+                  <div class="rbtn">Boolean</div>
+                  <div class="rbtn">Body</div>
+                </div>
+                <h4>Multi-body</h4>
+              </div>
+              <div class="ribbon-panel">
+                <div class="rbtns">
+                  <div class="rbtn">History</div>
+                </div>
+                <h4>Direct</h4>
+              </div>
+              <div class="ribbon-panel">
+                <div class="rbtns">
+                  <div class="rbtn dim">Thread</div>
+                  <div class="rbtn dim">Sheet metal</div>
+                  <div class="rbtn dim">Configs</div>
+                </div>
+                <h4>Coming</h4>
+              </div>
+            </div>
+          </div>
+          <p class="muted" style="margin-top:10px">
+            History = existing <code>BtStudio_History</code> (Fusion-style Tip slider), not on the PD ribbon today.
+            Hole wizard is dashed: stock <code>PartDesign_Hole</code> is live; points-as-locations is the gap.
+          </p>
+        </section>
+
+        <section id="pd-map">
+          <h2>3. Current vs target</h2>
+          <p>
+            BtStudio already overlays iso New Sketch, transparent pad preview, and a history slider.
+            Everything else on the tab is upstream Part Design.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Proposed control</th>
+                <th>Today</th>
+                <th>Target</th>
+                <th>Status</th>
+                <th>Modern analogue</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>New / Edit Sketch</td>
+                <td><code>BtStudio_NewSketch</code>, <code>Sketcher_EditSketch</code> via <code>PartDesign_CompSketches</code></td>
+                <td>Sketch panel; in-edit overlay when sketch opens</td>
+                <td><span class="badge live">live</span></td>
+                <td>Fusion Create Sketch from Solid</td>
+              </tr>
+              <tr>
+                <td>Pad / Revolve / Loft / Pipe / Helix</td>
+                <td><code>PartDesign_Pad</code>, <code>Revolution</code>, <code>AdditiveLoft</code>, <code>AdditivePipe</code>, <code>AdditiveHelix</code></td>
+                <td>Create panel (Pipe labeled Sweep)</td>
+                <td><span class="badge live">live</span></td>
+                <td>Extrude / Revolve / Loft / Sweep</td>
+              </tr>
+              <tr>
+                <td>Primitives</td>
+                <td><code>PartDesign_CompPrimitiveAdditive</code> / Subtractive</td>
+                <td>Create overflow</td>
+                <td><span class="badge live">live</span></td>
+                <td>Create primitive</td>
+              </tr>
+              <tr>
+                <td>Pocket / Groove / Hole</td>
+                <td><code>PartDesign_Pocket</code>, <code>Groove</code>, <code>Hole</code></td>
+                <td>Cut panel; Hole also on Hole panel</td>
+                <td><span class="badge live">live</span></td>
+                <td>Cut / Hole</td>
+              </tr>
+              <tr>
+                <td>Hole wizard / holes from points</td>
+                <td>Hole requires sketch circles; radius ignored. <a href="https://github.com/FreeCAD/FreeCAD/issues/6884">GitHub #6884</a>, <a href="https://forum.freecad.org/viewtopic.php?t=86768">forum t=86768</a></td>
+                <td>Accept sketch points; fastener/thread table UX later</td>
+                <td><span class="badge gap">gap</span></td>
+                <td>SolidWorks Hole Wizard; Fusion Hole</td>
+              </tr>
+              <tr>
+                <td>Fillet / Chamfer / Draft / Thickness</td>
+                <td>Stock dress-up toolbar</td>
+                <td>Dress panel (Thickness labeled Shell)</td>
+                <td><span class="badge live">live</span></td>
+                <td>Fillet / Chamfer / Draft / Shell</td>
+              </tr>
+              <tr>
+                <td>Mirror / Linear / Polar / Multi</td>
+                <td><code>PartDesign_Mirrored</code>, <code>LinearPattern</code>, <code>PolarPattern</code>, <code>MultiTransform</code></td>
+                <td>Pattern panel</td>
+                <td><span class="badge live">live</span></td>
+                <td>Pattern / Mirror</td>
+              </tr>
+              <tr>
+                <td>Boolean / Body / Clone / Binder</td>
+                <td><code>PartDesign_Boolean</code>, <code>Body</code>, <code>Clone</code>, <code>SubShapeBinder</code></td>
+                <td>Multi-body panel</td>
+                <td><span class="badge live">live</span></td>
+                <td>Combine / New body</td>
+              </tr>
+              <tr>
+                <td>Feature history</td>
+                <td><code>BtStudio_History</code> registered, not on PD ribbon</td>
+                <td>Direct panel</td>
+                <td><span class="badge reuse">reuse</span></td>
+                <td>Fusion timeline rollback</td>
+              </tr>
+              <tr>
+                <td>Transparent pad preview</td>
+                <td>BtStudio prefs already on</td>
+                <td>Keep; no ribbon button</td>
+                <td><span class="badge live">live</span></td>
+                <td>Live preview</td>
+              </tr>
+              <tr>
+                <td>Cosmetic thread</td>
+                <td>Hole thread options only; no standalone thread feature</td>
+                <td>Coming panel</td>
+                <td><span class="badge coming">coming</span></td>
+                <td>Fusion / SW Thread</td>
+              </tr>
+              <tr>
+                <td>Sheet metal</td>
+                <td>Separate workbench, not this tab</td>
+                <td>Coming (own tab later, like Fluids)</td>
+                <td><span class="badge coming">coming</span></td>
+                <td>Fusion Sheet Metal</td>
+              </tr>
+              <tr>
+                <td>Configurations / variants</td>
+                <td>VarSet / Spreadsheet / expressions exist; no SW-style config table on the ribbon</td>
+                <td>Coming UX on this tab</td>
+                <td><span class="badge coming">coming</span></td>
+                <td>SW Configurations; Fusion Parameters</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="pd-wish">
+          <h2>4. Wishlist (research)</h2>
+          <div class="palette">
+            <div class="pal">
+              <span class="badge gap">gap</span>
+              <h4>Holes from sketch points</h4>
+              <p class="muted">Stop drawing dummy circles. Upstream #6884; overlay can only wrap Hole until that lands.</p>
+            </div>
+            <div class="pal">
+              <span class="badge reuse">reuse</span>
+              <h4>History / rollback</h4>
+              <p class="muted">Put <code>BtStudio_History</code> on the PD ribbon Direct panel.</p>
+            </div>
+            <div class="pal">
+              <span class="badge live">live</span>
+              <h4>Loft / sweep / helix</h4>
+              <p class="muted">Stock additive + subtractive. Rename Pipe → Sweep on the wireframe.</p>
+            </div>
+            <div class="pal">
+              <span class="badge live">live</span>
+              <h4>Fillet / chamfer / draft / shell</h4>
+              <p class="muted">Stock dress-up. UX (variable fillet) is an upstream issue, not a missing command.</p>
+            </div>
+            <div class="pal">
+              <span class="badge live">live</span>
+              <h4>Patterns + boolean</h4>
+              <p class="muted">Re-group; do not reimplement.</p>
+            </div>
+            <div class="pal">
+              <span class="badge catalog">catalog</span>
+              <h4>Multi-body clarity</h4>
+              <p class="muted">Body + Boolean exist; Fusion-style “new body from pad” is a default/option, not a new feature type.</p>
+            </div>
+            <div class="pal">
+              <span class="badge coming">coming</span>
+              <h4>Thread feature</h4>
+              <p class="muted">Standalone cosmetic / modeled thread besides Hole’s thread mode.</p>
+            </div>
+            <div class="pal">
+              <span class="badge coming">coming</span>
+              <h4>Sheet metal</h4>
+              <p class="muted">Own tab later; do not overload Part Design v1.</p>
+            </div>
+            <div class="pal">
+              <span class="badge coming">coming</span>
+              <h4>Configurations</h4>
+              <p class="muted">VarSet is the data model; ribbon UX is the gap.</p>
+            </div>
+            <div class="pal">
+              <span class="badge coming">coming</span>
+              <h4>Direct edit / TNP</h4>
+              <p class="muted">TNP mitigation is in 1.0; push/pull direct modeling stays coming.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="pd-questions">
+          <h2>5. Open questions</h2>
+          <p>Leave answers on this page or in chat. Blocking for first Part Design ribbon pass:</p>
+          <div class="q">
+            <strong>P1. Hole wizard in the overlay?</strong>
+            v1 can only regroup <code>PartDesign_Hole</code> and document the points gap. A fake “wizard” that still needs circles would disappoint. Wait for #6884, or ship a BtStudio picker that places Hole on selected vertices?
+          </div>
+          <div class="q">
+            <strong>P2. Put History on the ribbon now?</strong>
+            Command already exists. First PD implementation could be toolbar regroup + History only — no new C++.
+          </div>
+          <div class="q">
+            <strong>P3. Pipe vs Sweep label</strong>
+            Spec uses Sweep on the wireframe. Keep FreeCAD command name <code>PartDesign_AdditivePipe</code> underneath.
+          </div>
+        </section>
+
+        <section id="pd-checklist">
+          <h2>6. First-implementation checklist (after sign-off)</h2>
+          <ol class="checklist">
+            <li>Regroup Part Design toolbars (or a BtStudio manipulator) into Sketch / Create / Cut / Dress / Pattern / Multi-body / Direct so Ribbon picks up panels. No <code>RibbonStructure.json</code> as source of truth.</li>
+            <li>Insert <code>BtStudio_History</code> on the Direct panel.</li>
+            <li>Do not claim Hole wizard until holes-from-points (or a documented overlay) exists.</li>
+            <li>Human GUI check: Part Design → New Sketch (iso) → pad → fillet → history slider. Entering the sketch shows the Sketch in-edit overlay.</li>
+            <li>Ship as <a href="#rm-2">Roadmap stage 2</a> (2a History, then 2b regroup). Hybrid overlay is Later.</li>
+          </ol>
+        </section>
+      </div>
+
+      <!-- ========== SIMULATION (preserved) ========== -->
+      <div class="chapter-block" id="simulation" data-chapter="simulation">
+        <section id="sim-goal">
+          <h2>1. Goal</h2>
+          <p>
+            The analysis/simulation base is a <strong>project schematic under the FreeCAD document</strong>,
+            not a session-only wizard dock. <strong>New Simulation</strong> creates that project.
+            A flowchart view is only the editor. Closing FreeCAD must not lose cells or links.
+          </p>
+          <ul>
+            <li><strong>FEM-first.</strong> Fluids / OpenFOAM is a palette cell type and a later tab, not the default.</li>
+            <li><strong>Data model for N cells from day one</strong> (links, shared geometry). First live solver cell: Static Structural.</li>
+            <li><strong>No new graph engine or solver.</strong> CalculiX + Gmsh + existing <code>Fem::FemAnalysis</code>. Qt <code>QGraphicsView</code> for the in-app editor later — not a JS runtime inside FreeCAD.</li>
+            <li>Do <strong>not</strong> reuse Assembly’s <code>Assembly_CreateSimulation</code> (joint MBD animation).</li>
+          </ul>
+          <p class="muted">
+            Analog: ANSYS Workbench systems on a canvas (Geometry → Model → Setup → Solution → Results),
+            with optional extra systems sharing geometry. Not Mechanical’s Model tree.
+          </p>
+        </section>
+
+        <section id="sim-layout">
+          <h2>Example window layout</h2>
+          <p>
+            Rough FreeCAD-shaped chrome so you can see the Simulation tab at a glance.
+            Not pixel-accurate. This example is the state after <strong>New Simulation</strong> + sample cube:
+            Geometry done, mesh is Next, Setup/Solve locked. Central view is the schematic (Q4 still open).
+          </p>
+          <div class="app-mock" aria-label="Simulation window mock">
+            <div class="app-titlebar">
+              <div class="traffic" aria-hidden="true"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+              <div class="app-title">bracket.FCStd — Simulation</div>
+            </div>
+            <div class="ribbon" aria-hidden="true">
+              <div class="ribbon-tabs">
+                <div class="ribbon-tab">Start</div>
+                <div class="ribbon-tab">Sketch</div>
+                <div class="ribbon-tab">Part Design</div>
+                <div class="ribbon-tab active">Simulation</div>
+                <div class="ribbon-tab">FEM</div>
+                <div class="ribbon-tab">Assembly</div>
+              </div>
+              <div class="ribbon-body">
+                <div class="ribbon-panel">
+                  <div class="rbtns"><div class="rbtn large primary">New<br>Simulation</div></div>
+                  <h4>Project</h4>
+                </div>
+                <div class="ribbon-panel">
+                  <div class="rbtns">
+                    <div class="rbtn">Auto Mesh</div>
+                    <div class="rbtn dim">Supports / loads</div>
+                    <div class="rbtn dim">Material</div>
+                  </div>
+                  <h4>Setup</h4>
+                </div>
+                <div class="ribbon-panel">
+                  <div class="rbtns">
+                    <div class="rbtn dim">Solve</div>
+                    <div class="rbtn dim">Update</div>
+                  </div>
+                  <h4>Solve</h4>
+                </div>
+                <div class="ribbon-panel">
+                  <div class="rbtns">
+                    <div class="rbtn dim">Show results</div>
+                    <div class="rbtn dim">Probe</div>
+                  </div>
+                  <h4>Results</h4>
+                </div>
+              </div>
+            </div>
+            <div class="app-work">
+              <aside class="app-tree">
+                <div class="pane-label">Model</div>
+                <div class="tree-row">▾ bracket</div>
+                <div class="tree-row i1">▾ Body</div>
+                <div class="tree-row i2">Cube</div>
+                <div class="tree-row i1 sel">▾ SimulationProject</div>
+                <div class="tree-row i2"><span class="dot done"></span>Geometry → Cube</div>
+                <div class="tree-row i2">▾ Static Structural</div>
+                <div class="tree-row i2" style="padding-left:36px"><span class="dot next"></span>Model (mesh)</div>
+                <div class="tree-row i2" style="padding-left:36px"><span class="dot locked"></span>Setup</div>
+                <div class="tree-row i2" style="padding-left:36px"><span class="dot locked"></span>Solution</div>
+                <div class="tree-row i2" style="padding-left:36px"><span class="dot locked"></span>Results</div>
+                <div class="tree-row i2"><span class="dot coming"></span>Modal (coming)</div>
+              </aside>
+              <div class="app-canvas">
+                <div class="pane-label">Project schematic</div>
+                <div class="schematic-wrap">
+                  <div class="schematic">
+                    <div class="sys-col">
+                      <div class="sys-title">Geometry</div>
+                      <div class="cells">
+                        <div class="cell done"><span class="name">Geometry</span><span class="sub">Cube · shared</span></div>
+                      </div>
+                    </div>
+                    <div class="arrow" aria-hidden="true">→</div>
+                    <div class="sys-col">
+                      <div class="sys-title">Static Structural</div>
+                      <div class="cells">
+                        <div class="cell next active"><span class="name">Model (mesh)</span><span class="sub">Gmsh · Next</span></div>
+                        <div class="cell locked"><span class="name">Setup</span><span class="sub">Material + BCs</span></div>
+                        <div class="cell locked"><span class="name">Solution</span><span class="sub">CalculiX</span></div>
+                        <div class="cell locked"><span class="name">Results</span><span class="sub">U / von Mises</span></div>
+                      </div>
+                    </div>
+                    <div class="arrow" aria-hidden="true">⇢</div>
+                    <div class="sys-col">
+                      <div class="sys-title">Later</div>
+                      <div class="cells">
+                        <div class="cell coming"><span class="name">Modal</span><span class="sub">Same geometry</span></div>
+                        <div class="cell coming"><span class="name">Fluid Flow</span><span class="sub">Own tab later</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <aside class="app-task">
+                <div class="pane-label">Tasks</div>
+                <div class="task-kicker"><span class="badge next">Next</span></div>
+                <h3>Model (mesh)</h3>
+                <p class="muted">Global size h = bbox / 20. Optional MeshRegion on selected faces.</p>
+                <p>Command: Auto Mesh</p>
+                <div class="task-run">Run mesh</div>
+                <div class="task-run disabled">Apply supports — locked</div>
+                <div class="task-run disabled">Solve — locked</div>
+              </aside>
+            </div>
+            <div class="app-status">
+              <span>Mesh is Next · Setup / Solve disabled until this cell is Done</span>
+              <span>Simulation workbench</span>
+            </div>
+          </div>
+        </section>
+
+        <section id="sim-ribbon">
+          <h2>2. Ribbon wireframe</h2>
+          <p>
+            FreeCAD-Ribbon maps <strong>each workbench to a ribbon tab</strong>. Tab change activates that workbench.
+            BtStudio is an overlay today (no workbench), so a Simulation tab requires a small Python
+            <strong>Simulation workbench</strong> after sign-off. Do not patch the user’s
+            <code>RibbonStructure.json</code> as source of truth — Ribbon picks up the workbench toolbars.
+          </p>
+          <div class="ribbon" aria-label="Simulation ribbon mock">
+            <div class="ribbon-tabs">
+              <div class="ribbon-tab">Start</div>
+              <div class="ribbon-tab">Sketch</div>
+              <div class="ribbon-tab">Part Design</div>
+              <div class="ribbon-tab active">Simulation</div>
+              <div class="ribbon-tab">FEM</div>
+              <div class="ribbon-tab">Assembly</div>
+            </div>
+            <div class="ribbon-body">
+              <div class="ribbon-panel">
+                <div class="rbtns">
+                  <div class="rbtn large primary">New<br>Simulation</div>
+                </div>
+                <h4>Project</h4>
+              </div>
+              <div class="ribbon-panel">
+                <div class="rbtns">
+                  <div class="rbtn">Auto Mesh</div>
+                  <div class="rbtn">Supports / loads</div>
+                  <div class="rbtn">Material</div>
+                </div>
+                <h4>Setup</h4>
+              </div>
+              <div class="ribbon-panel">
+                <div class="rbtns">
+                  <div class="rbtn">Solve</div>
+                  <div class="rbtn dim">Update</div>
+                </div>
+                <h4>Solve</h4>
+              </div>
+              <div class="ribbon-panel">
+                <div class="rbtns">
+                  <div class="rbtn">Show results</div>
+                  <div class="rbtn dim">Probe</div>
+                </div>
+                <h4>Results</h4>
+              </div>
+              <div class="ribbon-panel">
+                <div class="rbtns">
+                  <div class="rbtn dim">Fluids (later)</div>
+                </div>
+                <h4>Coming</h4>
+              </div>
+            </div>
+          </div>
+          <p class="muted" style="margin-top:10px">
+            Example: click <strong>New Simulation</strong> → document gets <code>SimulationProject</code> → schematic
+            opens with Geometry as Next. Setup/Solve buttons stay disabled until their cell is current
+            (same Next / Done / Locked / Coming gating as today’s wizard).
+          </p>
+        </section>
+
+        <section id="sim-schematic">
+          <h2>3. Interactive schematic</h2>
+          <p>
+            Click a cell. Status colors match the current wizard:
+            <span class="badge next">Next</span>
+            <span class="badge done">Done</span>
+            <span class="badge locked">Locked</span>
+            <span class="badge coming">Coming</span>
+          </p>
+          <p class="muted">Example state after New Simulation, sample cube created, analysis not yet created.</p>
+
+          <div class="schematic-wrap">
+            <div class="schematic" id="sim-flowchart">
+              <div class="sys-col">
+                <div class="sys-title">Geometry</div>
+                <div class="cells">
+                  <button type="button" class="cell done" data-id="geom" aria-pressed="false">
+                    <span class="name">Geometry</span>
+                    <span class="sub">Part / Body · shared</span>
+                  </button>
+                </div>
+              </div>
+              <div class="arrow" aria-hidden="true">→</div>
+              <div class="sys-col">
+                <div class="sys-title">Static Structural</div>
+                <div class="cells">
+                  <button type="button" class="cell next" data-id="mesh" aria-pressed="true">
+                    <span class="name">Model (mesh)</span>
+                    <span class="sub">Gmsh body sizing</span>
+                  </button>
+                  <button type="button" class="cell locked" data-id="setup" aria-pressed="false">
+                    <span class="name">Setup</span>
+                    <span class="sub">Material + BCs</span>
+                  </button>
+                  <button type="button" class="cell locked" data-id="solve" aria-pressed="false">
+                    <span class="name">Solution</span>
+                    <span class="sub">CalculiX static</span>
+                  </button>
+                  <button type="button" class="cell locked" data-id="results" aria-pressed="false">
+                    <span class="name">Results</span>
+                    <span class="sub">Displacement / von Mises</span>
+                  </button>
+                </div>
+              </div>
+              <div class="arrow" aria-hidden="true">⇢</div>
+              <div class="sys-col">
+                <div class="sys-title">Optional 2nd system</div>
+                <div class="cells">
+                  <button type="button" class="cell coming" data-id="modal" aria-pressed="false">
+                    <span class="name">Modal</span>
+                    <span class="sub">Same geometry link</span>
+                  </button>
+                  <button type="button" class="cell coming" data-id="fluids" aria-pressed="false">
+                    <span class="name">Fluid Flow</span>
+                    <span class="sub">Own tab later</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="detail" id="sim-detail">
+            <h3>Model (mesh) — Next</h3>
+            <p>Click another cell for its FreeCAD mapping. Mesh is current in this example because Geometry is Done.</p>
+          </div>
+        </section>
+
+        <section id="sim-path">
+          <h2>4. New Simulation click-path</h2>
+          <ol>
+            <li>User is in a document that already has (or will have) a Part / PartDesign solid. Or they accept <strong>Create sample cube</strong> from the Geometry cell.</li>
+            <li>Ribbon <strong>Simulation</strong> tab (Simulation workbench) → large <strong>New Simulation</strong> (<code>BtStudio_NewSimulation</code> — name TBD, not Assembly’s command).</li>
+            <li>Create <code>SimulationProject</code> (FeaturePython group) in the active document.</li>
+            <li>Default row: one <strong>Static Structural</strong> system with cells Geometry → Mesh → Setup → Solution → Results. Geometry cell links the selected solid if any.</li>
+            <li>Open the schematic view + right task sidebar for the <strong>current</strong> cell only (same rule as <code>evaluate_wizard</code>: one Run enabled).</li>
+            <li>Activate FEM workbench tools as needed; Simulation tab stays the project home.</li>
+          </ol>
+          <h3>Document tree (example)</h3>
+          <div class="tree">Document
+├── Body / Cube                          # CAD (Geometry cell link)
+└── SimulationProject                    # FeaturePython group
+    ├── Geometry                         # PropertyLink → Body
+    └── StaticStructural                 # wraps Fem::Analysis
+        ├── SolverCcxTools               # AnalysisType = static
+        ├── MaterialSolid
+        ├── ConstraintFixed
+        ├── ConstraintForce
+        ├── Mesh                         # Fem::FemMeshObjectGmsh
+        └── Results                      # post pipeline</div>
+        </section>
+
+        <section id="sim-palette">
+          <h2>5. Solver palette</h2>
+          <p>N cells in the data model. Only Static is live after first implementation. Catalog already lives in <code>btstudio/core.py</code> <code>ANALYSIS_SYSTEMS</code>.</p>
+          <div class="palette">
+            <div class="pal">
+              <span class="badge live">Live first</span>
+              <h4>Static Structural</h4>
+              <p class="muted">ANSYS: Static Structural. CalculiX <code>static</code>. Supports + force/pressure.</p>
+            </div>
+            <div class="pal">
+              <span class="badge catalog">Catalog ready</span>
+              <h4>Modal</h4>
+              <p class="muted">CalculiX <code>frequency</code>. Supports only. Wire after Static.</p>
+            </div>
+            <div class="pal">
+              <span class="badge catalog">Catalog ready</span>
+              <h4>Steady-State Thermal</h4>
+              <p class="muted">CalculiX <code>thermomech</code>. Temperature / flux BCs.</p>
+            </div>
+            <div class="pal">
+              <span class="badge catalog">Catalog ready</span>
+              <h4>Thermal-Stress</h4>
+              <p class="muted">Linked Thermal → Static later. Same <code>thermomech</code> solver type.</p>
+            </div>
+            <div class="pal">
+              <span class="badge catalog">Catalog ready</span>
+              <h4>Linear Buckling</h4>
+              <p class="muted">CalculiX <code>buckling</code>. Preload + supports.</p>
+            </div>
+            <div class="pal">
+              <span class="badge coming">Coming</span>
+              <h4>Transient Structural</h4>
+              <p class="muted">No CalculiX mapping in the overlay yet.</p>
+            </div>
+            <div class="pal">
+              <span class="badge coming">Coming</span>
+              <h4>Harmonic Response</h4>
+              <p class="muted">After Modal.</p>
+            </div>
+            <div class="pal">
+              <span class="badge coming">Coming</span>
+              <h4>Fluid Flow (OpenFOAM)</h4>
+              <p class="muted">Own tab later. Case writer exists; mesh/solve Coming.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="sim-objects">
+          <h2>6. Object map</h2>
+          <p>Each schematic cell is a view of existing FreeCAD types. We do not invent a second mesh or result stack.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Cell</th>
+                <th>FreeCAD objects / commands</th>
+                <th>Gating (today’s wizard facts)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Geometry</td>
+                <td>Part / PartDesign <code>Shape</code> with Volume&gt;0 (a <code>Body</code> or solid). Optional <code>create_sample_cube</code>. Not a nested Assembly — see Roadmap <a href="#rm-considerations">Considerations</a>.</td>
+                <td><code>geometry_ready</code></td>
+              </tr>
+              <tr>
+                <td>Model (mesh)</td>
+                <td><code>BtStudio_FemAutoMesh</code> → Gmsh <code>Fem::FemMeshObject</code>; MeshRegion = concentrations (<code>ANSYS_MESHING_MAP.md</code>).</td>
+                <td><code>has_mesh</code></td>
+              </tr>
+              <tr>
+                <td>Setup</td>
+                <td><code>Fem::Analysis</code> + <code>SolverCcxTools</code> (<code>fem_setup.create_analysis_container</code>), <code>FEM_MaterialSolid</code>, type-specific constraints.</td>
+                <td><code>has_analysis</code>, <code>has_material</code>, <code>has_constraint</code></td>
+              </tr>
+              <tr>
+                <td>Solution</td>
+                <td><code>FEM_SolverRun</code> (ccx). Working dir on the solver object.</td>
+                <td><code>has_solver_run</code></td>
+              </tr>
+              <tr>
+                <td>Results</td>
+                <td><code>FEM_ResultShow</code> / post pipeline. Quantity depends on system (U, freq, T, buckling factor).</td>
+                <td><code>has_results</code></td>
+              </tr>
+              <tr>
+                <td>2nd system (link)</td>
+                <td>Another <code>Fem::Analysis</code>; Geometry <code>PropertyLink</code> to the same solid (Workbench share-geometry).</td>
+                <td>Per-cell <code>evaluate_wizard</code></td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="muted">ANSYS Mechanical pipeline in the current dock is geometry → analysis → material → BCs → mesh → solve. Workbench schematic often draws Mesh before Setup. That order is an open question below.</p>
+        </section>
+
+        <section id="sim-reuse">
+          <h2>7. What we reuse</h2>
+          <table>
+            <thead>
+              <tr><th>Keep</th><th>Do not build</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>CalculiX via <code>ObjectsFem.makeSolverCalculiXCcxTools</code></td>
+                <td>A new structural solver</td>
+              </tr>
+              <tr>
+                <td>Gmsh Auto Mesh (<code>characteristic_length</code> h = D/20)</td>
+                <td>A new mesher</td>
+              </tr>
+              <tr>
+                <td><code>evaluate_wizard</code> / <code>ANALYSIS_SYSTEMS</code> in <code>core.py</code> (headless tests, no FreeCAD import)</td>
+                <td>A second gating language</td>
+              </tr>
+              <tr>
+                <td>Qt <code>QGraphicsView</code> (already shipped) for the in-app schematic after sign-off</td>
+                <td>In-app HTML/JS node graph, NodeGraphQt unless we explicitly choose it later</td>
+              </tr>
+              <tr>
+                <td>FcBridge MCP for later GUI proof (OVERVIEW §9 path 2)</td>
+                <td>Click-injection before Phase-2</td>
+              </tr>
+              <tr>
+                <td>OpenFOAM case writer as a future Fluids cell</td>
+                <td>Vendoring OpenFOAM C++</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="sim-questions">
+          <h2>8. Open questions</h2>
+          <p>Leave answers on this page or in chat. Blocking for first implementation:</p>
+          <div class="q">
+            <strong>Q1. Cell order: mesh before BCs?</strong>
+            ANSYS Workbench draws Model (mesh) before Setup. The current FEM wizard meshes after constraints. Which order does New Simulation lock in?
+          </div>
+          <div class="q">
+            <strong>Q2. One schematic per document, or many?</strong>
+            Recommend one <code>SimulationProject</code> per document for v1; extra systems are extra columns, not extra projects.
+          </div>
+          <div class="q">
+            <strong>Q3. Mesh cell action</strong>
+            Click Mesh → always run Auto Mesh, or open the FEM mesh toolbar (MeshRegion, boundary layer) with Auto Mesh as the default Run?
+          </div>
+          <div class="q">
+            <strong>Q4. Where does the schematic view live in the GUI?</strong>
+            Central MDI (like a TechDraw page) vs a dedicated dock vs replacing the analysis wizard dock?
+          </div>
+          <div class="q">
+            <strong>Q5. Workbench vs overlay</strong>
+            Confirm Simulation is a real Python workbench (required for a Ribbon tab) living under <code>src/Mod/BtStudio</code>, Tier 4, no <code>src/Gui</code> edits.
+          </div>
+        </section>
+
+        <section id="sim-checklist">
+          <h2>9. First-implementation checklist (after sign-off)</h2>
+          <ol class="checklist">
+            <li>Python Simulation workbench (or BtStudio as workbench) so Ribbon grows a Simulation tab from toolbars.</li>
+            <li>Command <code>BtStudio_NewSimulation</code> (not <code>Assembly_CreateSimulation</code>).</li>
+            <li><code>SimulationProject</code> FeaturePython group + Geometry link + Static Structural child wrapping <code>create_analysis_container</code>.</li>
+            <li>Schematic editor: Qt <code>QGraphicsView</code>, cells bound to document objects, status from <code>evaluate_wizard</code> facts.</li>
+            <li>Task sidebar still Next-only; ribbon Setup/Solve enable from the same facts.</li>
+            <li>Headless tests on the graph model (no FreeCAD import), same pattern as <code>python3 -m btstudio.tests</code>.</li>
+            <li>Human GUI check: New Simulation → cube → mesh → Fixed + load → solve → results. Modal/Thermal remain palette “coming” until wired.</li>
+            <li>Update <code>ANSYS_ANALYSIS_MAP.md</code> and README once behavior exists.</li>
+            <li>Split across <a href="#rm-3">Roadmap stages 3–5</a>: objects + existing wizard first, then Ribbon tab, then schematic view.</li>
+          </ol>
+        </section>
+      </div>
+    </main>
+  </div>
+  <footer class="page">
+    src/Mod/BtStudio/docs/studio-design.html · LGPL-2.1-or-later · design spec, not product UI
+  </footer>
+
+  <script>
+    const CHAPTERS = ["roadmap", "sketch", "partdesign", "simulation"];
+
+    function showChapter(name, updateHash) {
+      if (CHAPTERS.indexOf(name) < 0) name = "sketch";
+      document.querySelectorAll(".chapter-block").forEach((el) => {
+        el.classList.toggle("is-on", el.getAttribute("data-chapter") === name);
+      });
+      document.querySelectorAll(".toc-group").forEach((el) => {
+        el.classList.toggle("is-on", el.getAttribute("data-toc") === name);
+      });
+      document.querySelectorAll(".chapter-btn").forEach((btn) => {
+        const on = btn.getAttribute("data-chapter") === name;
+        btn.classList.toggle("active", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      if (updateHash) {
+        const hash = location.hash.replace(/^#/, "");
+        const keep = hash && document.getElementById(hash) &&
+          document.getElementById(hash).closest(".chapter-block[data-chapter='" + name + "']");
+        if (!keep) {
+          history.replaceState(null, "", "#" + name);
+        }
+      }
+    }
+
+    function chapterFromHash() {
+      const raw = (location.hash || "#sketch").replace(/^#/, "") || "sketch";
+      if (CHAPTERS.indexOf(raw) >= 0) return raw;
+      if (raw.indexOf("rm-") === 0) return "roadmap";
+      if (raw.indexOf("sk-") === 0) return "sketch";
+      if (raw.indexOf("pd-") === 0) return "partdesign";
+      if (raw.indexOf("sim-") === 0) return "simulation";
+      const el = document.getElementById(raw);
+      if (el) {
+        const block = el.closest(".chapter-block");
+        if (block) return block.getAttribute("data-chapter");
+      }
+      return "sketch";
+    }
+
+    document.querySelectorAll(".chapter-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const name = btn.getAttribute("data-chapter");
+        showChapter(name, false);
+        history.replaceState(null, "", "#" + name);
+      });
+    });
+
+    window.addEventListener("hashchange", () => {
+      showChapter(chapterFromHash(), false);
+      const id = location.hash.replace(/^#/, "");
+      const target = document.getElementById(id);
+      if (target && target.tagName.toLowerCase() === "section") {
+        target.scrollIntoView({ block: "start" });
+      }
+    });
+
+    showChapter(chapterFromHash(), false);
+
+    /* Sketch idle / in-edit ribbon toggle */
+    document.querySelectorAll("[data-sk-mode]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const mode = btn.getAttribute("data-sk-mode");
+        document.querySelectorAll("[data-sk-mode]").forEach((b) => {
+          b.classList.toggle("active", b === btn);
+        });
+        document.getElementById("sk-ribbon-idle").classList.toggle("is-on", mode === "idle");
+        document.getElementById("sk-ribbon-edit").classList.toggle("is-on", mode === "edit");
+      });
+    });
+
+    /* Insert DXF stepper */
+    const DXF = {
+      ctx: {
+        title: "Open sketch or plane — Next",
+        html: "<p>In-edit: user already has a <code>Sketcher::SketchObject</code> open. Idle: user has selected an origin plane or a planar face (same pick as <code>BtStudio_NewSketch</code>).</p>"
+      },
+      cmd: {
+        title: "Insert DXF / DWG — Gap",
+        html: "<p>Proposed command <code>BtStudio_InsertDxf</code> on the Sketch Insert panel. Not File → Import, not <code>Draft_Draft2Sketch</code>. Stays in the sketch editor.</p>"
+      },
+      opts: {
+        title: "File · units · scale",
+        html: "<p>File picker for <code>.dxf</code> / <code>.dwg</code>. Units and scale. Mode: <strong>into active sketch</strong> or <strong>new sketch on selected plane</strong>.</p>"
+      },
+      reuse: {
+        title: "Draft importer — Reuse",
+        html: "<p>No new parser. <code>importDXF.py</code> (DWG via <code>importDWG.py</code>) then <code>Draft.make_sketch(..., addTo=active_sketch)</code>. Delete temporary Draft objects when appending.</p>"
+      },
+      post: {
+        title: "Coincident + Validate",
+        html: "<p>Optional <code>autoconstraints=True</code> (coincidents). Then <code>Sketcher_ValidateSketch</code>. Full dimensional auto-constrain is coming (forum t=72504). Layer-per-sketch is coming.</p>"
+      }
+    };
+    const dxfDetail = document.getElementById("sk-dxf-detail");
+    const dxfButtons = document.querySelectorAll("#sk-dxf-steps .cell");
+    function selectDxf(id) {
+      dxfButtons.forEach((b) => {
+        const on = b.getAttribute("data-dxf") === id;
+        b.classList.toggle("active", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      const d = DXF[id];
+      if (!d) return;
+      dxfDetail.innerHTML = "<h3>" + d.title + "</h3>" + d.html;
+    }
+    dxfButtons.forEach((b) => {
+      b.addEventListener("click", () => selectDxf(b.getAttribute("data-dxf")));
+    });
+
+    /* Simulation schematic (scoped so Sketch DXF cells are ignored) */
+    const DETAILS = {
+      geom: {
+        title: "Geometry — Done (example)",
+        html: "<p>Link to a Part/PartDesign solid with Volume&gt;0. Shared by every solver column via <code>PropertyLink</code> (Workbench share-geometry).</p><p><strong>Run:</strong> pick existing solid, or Create sample cube (<code>Part::Box</code> 100 mm).</p><p><strong>Command:</strong> none required if a solid is already selected.</p>"
+      },
+      mesh: {
+        title: "Model (mesh) — Next (example)",
+        html: "<p>ANSYS body sizing analogue: global <code>h = bbox_diagonal / 20</code>, then MeshRegion on fillets (h/4).</p><p><strong>Command:</strong> <code>BtStudio_FemAutoMesh</code>. Object: <code>Fem::FemMeshObject</code> (Gmsh).</p><p>Specialist mesh toolbar stays on FEM; this cell is the default path. Whether Mesh runs before Setup is open question Q1.</p>"
+      },
+      setup: {
+        title: "Setup — Locked until mesh (example)",
+        html: "<p>Creates <code>Fem::Analysis</code> + <code>SolverCcxTools</code> with <code>AnalysisType = static</code> (<code>fem_setup.create_analysis_container</code>), then material and BCs.</p><p><strong>Static:</strong> <code>FEM_MaterialSolid</code>, <code>FEM_ConstraintFixed</code>, plus Force or Pressure.</p><p>Modal would drop loads; Thermal would use initial temperature. Same cell, different analysis id.</p>"
+      },
+      solve: {
+        title: "Solution — Locked",
+        html: "<p><code>FEM_SolverRun</code> writes the CalculiX deck and runs ccx. Logs in Report view. No custom solver process.</p>"
+      },
+      results: {
+        title: "Results — Locked",
+        html: "<p><code>FEM_ResultShow</code> / existing FEM post pipeline. Static: displacement and von Mises, plus reactions — not only the peak node.</p>"
+      },
+      modal: {
+        title: "Modal — Coming as a second column",
+        html: "<p>Same Geometry link. CalculiX <code>frequency</code>. Data model allows this cell now; first implementation does not wire Run. Catalog already in <code>ANALYSIS_SYSTEMS</code>.</p>"
+      },
+      fluids: {
+        title: "Fluid Flow — Coming (own tab later)",
+        html: "<p>Not a FEM analysis system. OpenFOAM case writer can emit <code>0/</code>, <code>constant/</code>, <code>system/</code>. Mesh/solve stay Coming. Do not spawn blockMesh from this cell in v1.</p>"
+      }
+    };
+
+    const simDetail = document.getElementById("sim-detail");
+    const simButtons = document.querySelectorAll("#sim-flowchart .cell");
+
+    function selectSim(id) {
+      simButtons.forEach((b) => {
+        const on = b.getAttribute("data-id") === id;
+        b.classList.toggle("active", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      const d = DETAILS[id];
+      if (!d) return;
+      simDetail.innerHTML = "<h3>" + d.title + "</h3>" + d.html;
+    }
+
+    simButtons.forEach((b) => {
+      b.addEventListener("click", () => selectSim(b.getAttribute("data-id")));
+    });
+  </script>
+</body>
+</html>
